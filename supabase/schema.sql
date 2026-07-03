@@ -1,0 +1,463 @@
+-- Supabase schema for the tourism booking platform.
+-- Run this file before rls.sql and seed.sql.
+
+create extension if not exists "pgcrypto";
+
+create or replace function public.set_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+create table if not exists public.users_profiles (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  name text,
+  email text,
+  phone text,
+  role text not null default 'customer',
+  avatar_url text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint users_profiles_user_id_key unique (user_id),
+  constraint users_profiles_email_key unique (email),
+  constraint users_profiles_role_check check (role in ('customer', 'admin')),
+  constraint users_profiles_email_lowercase_check check (email is null or email = lower(email))
+);
+
+create table if not exists public.products (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  slug text not null unique,
+  description text,
+  type text not null,
+  destination text not null,
+  price numeric(12,2) not null,
+  promotional_price numeric(12,2),
+  cover_image text,
+  gallery jsonb not null default '[]'::jsonb,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint products_type_check check (type in ('package', 'hotel', 'flight', 'stay', 'experience')),
+  constraint products_price_non_negative_check check (price >= 0),
+  constraint products_promotional_price_non_negative_check check (promotional_price is null or promotional_price >= 0),
+  constraint products_promotional_price_max_price_check check (promotional_price is null or promotional_price <= price),
+  constraint products_gallery_array_check check (jsonb_typeof(gallery) = 'array')
+);
+
+create table if not exists public.product_dates (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references public.products(id) on delete cascade,
+  start_date date not null,
+  end_date date not null,
+  available_slots integer not null,
+  price_override numeric(12,2),
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint product_dates_product_id_start_date_end_date_key unique (product_id, start_date, end_date),
+  constraint product_dates_valid_range_check check (end_date >= start_date),
+  constraint product_dates_available_slots_non_negative_check check (available_slots >= 0),
+  constraint product_dates_price_override_non_negative_check check (price_override is null or price_override >= 0)
+);
+
+create table if not exists public.bookings (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  product_id uuid not null references public.products(id) on delete restrict,
+  product_date_id uuid not null references public.product_dates(id) on delete restrict,
+  customer_name text not null,
+  customer_email text not null,
+  customer_phone text,
+  travelers_count integer not null,
+  total_amount numeric(12,2) not null,
+  status text not null default 'pending',
+  payment_status text not null default 'pending',
+  stripe_checkout_session_id text,
+  stripe_payment_intent_id text,
+  confirmed_at timestamptz,
+  cancelled_at timestamptz,
+  expires_at timestamptz,
+  slots_released boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint bookings_customer_email_lowercase_check check (customer_email = lower(customer_email)),
+  constraint bookings_travelers_count_positive_check check (travelers_count > 0),
+  constraint bookings_total_amount_positive_check check (total_amount > 0),
+  constraint bookings_status_check check (status in ('pending', 'confirmed', 'cancelled', 'expired')),
+  constraint bookings_payment_status_check check (payment_status in ('pending', 'paid', 'failed', 'refunded', 'cancelled', 'requires_review')),
+  constraint bookings_product_date_match_key unique (id, product_date_id)
+);
+
+create table if not exists public.payments (
+  id uuid primary key default gen_random_uuid(),
+  booking_id uuid not null references public.bookings(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  amount numeric(12,2) not null,
+  currency text not null default 'BRL',
+  status text not null default 'pending',
+  provider text not null default 'stripe',
+  stripe_checkout_session_id text,
+  stripe_payment_intent_id text,
+  paid_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint payments_amount_positive_check check (amount > 0),
+  constraint payments_currency_uppercase_check check (currency = upper(currency)),
+  constraint payments_currency_check check (currency in ('BRL', 'USD', 'CAD', 'EUR')),
+  constraint payments_status_check check (status in ('pending', 'paid', 'failed', 'refunded', 'cancelled', 'requires_review')),
+  constraint payments_provider_check check (provider in ('stripe'))
+);
+
+create table if not exists public.passengers (
+  id uuid primary key default gen_random_uuid(),
+  booking_id uuid not null references public.bookings(id) on delete cascade,
+  full_name text not null,
+  document text,
+  birth_date date,
+  type text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint passengers_type_check check (type in ('adult', 'child', 'infant'))
+);
+
+create table if not exists public.categories (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  slug text not null unique,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.product_categories (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references public.products(id) on delete cascade,
+  category_id uuid not null references public.categories(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint product_categories_product_id_category_id_key unique (product_id, category_id)
+);
+
+create table if not exists public.favorites (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  product_id uuid references public.products(id) on delete cascade,
+  external_hotel_id text,
+  title text not null,
+  destination text,
+  image_url text,
+  provider text not null default 'internal',
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  constraint favorites_provider_check check (length(trim(provider)) > 0),
+  constraint favorites_metadata_object_check check (jsonb_typeof(metadata) = 'object'),
+  constraint favorites_product_or_external_check check (product_id is not null or external_hotel_id is not null)
+);
+
+create table if not exists public.system_logs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete set null,
+  action text not null,
+  entity text not null,
+  entity_id uuid,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  constraint system_logs_metadata_object_check check (jsonb_typeof(metadata) = 'object')
+);
+
+create index if not exists users_profiles_user_id_idx on public.users_profiles(user_id);
+create index if not exists users_profiles_role_idx on public.users_profiles(role);
+
+create index if not exists products_slug_idx on public.products(slug);
+create index if not exists products_active_idx on public.products(active);
+create index if not exists products_type_idx on public.products(type);
+create index if not exists products_destination_idx on public.products(destination);
+
+create index if not exists product_dates_product_id_idx on public.product_dates(product_id);
+create index if not exists product_dates_active_idx on public.product_dates(active);
+create index if not exists product_dates_start_date_idx on public.product_dates(start_date);
+
+create index if not exists bookings_user_id_idx on public.bookings(user_id);
+create index if not exists bookings_product_id_idx on public.bookings(product_id);
+create index if not exists bookings_product_date_id_idx on public.bookings(product_date_id);
+create index if not exists bookings_status_idx on public.bookings(status);
+create index if not exists bookings_payment_status_idx on public.bookings(payment_status);
+create index if not exists bookings_expires_at_idx on public.bookings(expires_at);
+create unique index if not exists bookings_stripe_checkout_session_id_key
+  on public.bookings(stripe_checkout_session_id)
+  where stripe_checkout_session_id is not null;
+create unique index if not exists bookings_stripe_payment_intent_id_key
+  on public.bookings(stripe_payment_intent_id)
+  where stripe_payment_intent_id is not null;
+
+alter table public.bookings
+  add column if not exists slots_released boolean not null default false;
+
+create index if not exists bookings_slots_released_idx on public.bookings(slots_released);
+
+create index if not exists payments_booking_id_idx on public.payments(booking_id);
+create index if not exists payments_user_id_idx on public.payments(user_id);
+create index if not exists payments_status_idx on public.payments(status);
+create unique index if not exists payments_stripe_checkout_session_id_key
+  on public.payments(stripe_checkout_session_id)
+  where stripe_checkout_session_id is not null;
+create unique index if not exists payments_stripe_payment_intent_id_key
+  on public.payments(stripe_payment_intent_id)
+  where stripe_payment_intent_id is not null;
+
+create index if not exists passengers_booking_id_idx on public.passengers(booking_id);
+create index if not exists categories_slug_idx on public.categories(slug);
+create index if not exists product_categories_product_id_idx on public.product_categories(product_id);
+create index if not exists product_categories_category_id_idx on public.product_categories(category_id);
+create index if not exists favorites_user_id_idx on public.favorites(user_id);
+create index if not exists favorites_product_id_idx on public.favorites(product_id);
+create index if not exists favorites_external_hotel_id_idx on public.favorites(external_hotel_id);
+create index if not exists favorites_provider_idx on public.favorites(provider);
+create unique index if not exists favorites_user_id_product_id_key
+  on public.favorites(user_id, product_id)
+  where product_id is not null;
+create unique index if not exists favorites_user_id_provider_external_hotel_id_key
+  on public.favorites(user_id, provider, external_hotel_id)
+  where external_hotel_id is not null;
+create index if not exists system_logs_user_id_idx on public.system_logs(user_id);
+create index if not exists system_logs_entity_idx on public.system_logs(entity, entity_id);
+
+alter table public.bookings
+  drop constraint if exists bookings_payment_status_check;
+alter table public.bookings
+  add constraint bookings_payment_status_check
+  check (payment_status in ('pending', 'paid', 'failed', 'refunded', 'cancelled', 'requires_review'));
+
+alter table public.payments
+  drop constraint if exists payments_status_check;
+alter table public.payments
+  add constraint payments_status_check
+  check (status in ('pending', 'paid', 'failed', 'refunded', 'cancelled', 'requires_review'));
+
+drop trigger if exists set_users_profiles_updated_at on public.users_profiles;
+create trigger set_users_profiles_updated_at
+before update on public.users_profiles
+for each row execute function public.set_updated_at();
+
+drop trigger if exists set_products_updated_at on public.products;
+create trigger set_products_updated_at
+before update on public.products
+for each row execute function public.set_updated_at();
+
+drop trigger if exists set_product_dates_updated_at on public.product_dates;
+create trigger set_product_dates_updated_at
+before update on public.product_dates
+for each row execute function public.set_updated_at();
+
+drop trigger if exists set_bookings_updated_at on public.bookings;
+create trigger set_bookings_updated_at
+before update on public.bookings
+for each row execute function public.set_updated_at();
+
+drop trigger if exists set_payments_updated_at on public.payments;
+create trigger set_payments_updated_at
+before update on public.payments
+for each row execute function public.set_updated_at();
+
+drop trigger if exists set_passengers_updated_at on public.passengers;
+create trigger set_passengers_updated_at
+before update on public.passengers
+for each row execute function public.set_updated_at();
+
+drop trigger if exists set_categories_updated_at on public.categories;
+create trigger set_categories_updated_at
+before update on public.categories
+for each row execute function public.set_updated_at();
+
+drop trigger if exists set_product_categories_updated_at on public.product_categories;
+create trigger set_product_categories_updated_at
+before update on public.product_categories
+for each row execute function public.set_updated_at();
+
+create or replace function public.create_pending_booking_transaction(
+  p_user_id uuid,
+  p_product_id uuid,
+  p_product_date_id uuid,
+  p_customer_name text,
+  p_customer_email text,
+  p_customer_phone text,
+  p_travelers_count integer
+)
+returns table (
+  booking_id uuid,
+  total_amount numeric(12,2),
+  expires_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_product public.products%rowtype;
+  v_product_date public.product_dates%rowtype;
+  v_unit_amount numeric(12,2);
+  v_total_amount numeric(12,2);
+  v_expires_at timestamptz := now() + interval '30 minutes';
+  v_booking_id uuid;
+begin
+  if p_user_id is null then
+    raise exception 'AUTH_REQUIRED' using errcode = 'P0001';
+  end if;
+
+  if p_product_id is null or p_product_date_id is null then
+    raise exception 'PRODUCT_AND_DATE_REQUIRED' using errcode = 'P0001';
+  end if;
+
+  if p_customer_name is null or length(trim(p_customer_name)) = 0 then
+    raise exception 'CUSTOMER_NAME_REQUIRED' using errcode = 'P0001';
+  end if;
+
+  if p_customer_email is null or length(trim(p_customer_email)) = 0 then
+    raise exception 'CUSTOMER_EMAIL_REQUIRED' using errcode = 'P0001';
+  end if;
+
+  if p_travelers_count is null or p_travelers_count <= 0 then
+    raise exception 'INVALID_TRAVELERS_COUNT' using errcode = 'P0001';
+  end if;
+
+  select *
+    into v_product
+  from public.products
+  where id = p_product_id
+    and active = true
+  for update;
+
+  if not found then
+    raise exception 'PRODUCT_NOT_AVAILABLE' using errcode = 'P0001';
+  end if;
+
+  select *
+    into v_product_date
+  from public.product_dates
+  where id = p_product_date_id
+    and active = true
+  for update;
+
+  if not found then
+    raise exception 'PRODUCT_DATE_NOT_AVAILABLE' using errcode = 'P0001';
+  end if;
+
+  if v_product_date.product_id <> p_product_id then
+    raise exception 'PRODUCT_DATE_MISMATCH' using errcode = 'P0001';
+  end if;
+
+  if v_product_date.available_slots < p_travelers_count then
+    raise exception 'NOT_ENOUGH_SLOTS' using errcode = 'P0001';
+  end if;
+
+  v_unit_amount := coalesce(v_product_date.price_override, v_product.promotional_price, v_product.price);
+  v_total_amount := round(v_unit_amount * p_travelers_count, 2);
+
+  update public.product_dates
+  set available_slots = available_slots - p_travelers_count
+  where id = p_product_date_id;
+
+  insert into public.bookings (
+    user_id,
+    product_id,
+    product_date_id,
+    customer_name,
+    customer_email,
+    customer_phone,
+    travelers_count,
+    total_amount,
+    status,
+    payment_status,
+    expires_at,
+    slots_released
+  )
+  values (
+    p_user_id,
+    p_product_id,
+    p_product_date_id,
+    trim(p_customer_name),
+    lower(trim(p_customer_email)),
+    nullif(trim(coalesce(p_customer_phone, '')), ''),
+    p_travelers_count,
+    v_total_amount,
+    'pending',
+    'pending',
+    v_expires_at,
+    false
+  )
+  returning id into v_booking_id;
+
+  return query select v_booking_id, v_total_amount, v_expires_at;
+end;
+$$;
+
+revoke all on function public.create_pending_booking_transaction(uuid, uuid, uuid, text, text, text, integer) from public;
+grant execute on function public.create_pending_booking_transaction(uuid, uuid, uuid, text, text, text, integer) to service_role;
+
+create or replace function public.expire_pending_booking(p_booking_id uuid)
+returns table (
+  booking_id uuid,
+  expired boolean,
+  slots_released boolean
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_booking public.bookings%rowtype;
+  v_slots_released boolean;
+begin
+  if p_booking_id is null then
+    raise exception 'BOOKING_ID_REQUIRED' using errcode = 'P0001';
+  end if;
+
+  select *
+    into v_booking
+  from public.bookings
+  where id = p_booking_id
+  for update;
+
+  if not found then
+    raise exception 'BOOKING_NOT_FOUND' using errcode = 'P0001';
+  end if;
+
+  if v_booking.status <> 'pending' or v_booking.payment_status <> 'pending' then
+    return query select v_booking.id, false, v_booking.slots_released;
+    return;
+  end if;
+
+  if v_booking.expires_at is null or v_booking.expires_at >= now() then
+    return query select v_booking.id, false, v_booking.slots_released;
+    return;
+  end if;
+
+  v_slots_released := v_booking.slots_released;
+
+  if v_slots_released = false then
+    update public.product_dates
+    set available_slots = available_slots + v_booking.travelers_count
+    where id = v_booking.product_date_id;
+
+    v_slots_released := true;
+  end if;
+
+  -- Expired holds cannot proceed to payment, so payment_status is moved to cancelled.
+  update public.bookings
+  set status = 'expired',
+      payment_status = 'cancelled',
+      slots_released = v_slots_released
+  where id = v_booking.id;
+
+  return query select v_booking.id, true, v_slots_released;
+end;
+$$;
+
+revoke all on function public.expire_pending_booking(uuid) from public;
+grant execute on function public.expire_pending_booking(uuid) to service_role;

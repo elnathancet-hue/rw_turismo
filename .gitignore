@@ -1,0 +1,27 @@
+# Local tooling
+.agents/
+.codex/
+
+# Empty/import workspace and source archive
+base-project/
+project-main.zip
+
+# Dependencies and build output
+**/node_modules/
+**/.next/
+**/out/
+**/build/
+**/coverage/
+
+# Secrets and local environment
+**/.env
+**/.env*.local
+!**/.env.example
+!**/.env.local.example
+
+# Logs and local artifacts
+*.log
+*.pem
+*.tsbuildinfo
+.DS_Store
+.vercel/
