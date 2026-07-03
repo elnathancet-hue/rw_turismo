@@ -4,8 +4,8 @@
 insert into public.categories (name, slug, active)
 values
   ('Pacotes', 'pacotes', true),
-  ('Hoteis', 'hoteis', true),
-  ('Experiencias', 'experiencias', true),
+  ('Hotéis', 'hoteis', true),
+  ('Experiências', 'experiencias', true),
   ('Praias', 'praias', true),
   ('Ecoturismo', 'ecoturismo', true)
 on conflict (slug) do update
@@ -27,7 +27,7 @@ with inserted_products as (
   )
   values
     (
-      'Lencois Maranhenses Essencial',
+      'Lençóis Maranhenses Essencial',
       'lencois-maranhenses-essencial',
       'Pacote de 4 dias com hospedagem, passeio pelas lagoas e traslado compartilhado.',
       'package',
@@ -39,9 +39,9 @@ with inserted_products as (
       true
     ),
     (
-      'Jericoacoara Sunset Experience',
+      'Experiência Pôr do Sol em Jericoacoara',
       'jericoacoara-sunset-experience',
-      'Experiencia guiada em Jericoacoara com passeio pela Pedra Furada e por do sol nas dunas.',
+      'Experiência guiada em Jericoacoara com passeio pela Pedra Furada e pôr do sol nas dunas.',
       'experience',
       'Jericoacoara, CE',
       420.00,
@@ -51,9 +51,9 @@ with inserted_products as (
       true
     ),
     (
-      'Hotel Boutique Centro Historico',
+      'Hotel Boutique Centro Histórico',
       'hotel-boutique-centro-historico',
-      'Hospedagem em hotel boutique com cafe da manha e localizacao central.',
+      'Hospedagem em hotel boutique com café da manhã e localização central.',
       'hotel',
       'Paraty, RJ',
       780.00,

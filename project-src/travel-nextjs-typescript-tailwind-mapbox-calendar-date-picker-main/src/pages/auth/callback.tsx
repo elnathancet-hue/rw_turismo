@@ -39,7 +39,7 @@ const SupabaseAuthCallback = () => {
         setError(
           profileError instanceof Error
             ? profileError.message
-            : "Unable to prepare user profile."
+            : "Não foi possível preparar o perfil do usuário."
         );
       }
     };
@@ -50,7 +50,7 @@ const SupabaseAuthCallback = () => {
   return (
     <>
       <Head>
-        <title>Travel - Auth Callback</title>
+        <title>Autenticação | RW Turismo</title>
       </Head>
       <main className="flex min-h-screen items-center justify-center bg-gray-50 px-6">
         <div className="max-w-md rounded-lg border bg-white p-6 text-center shadow-sm">

@@ -9,6 +9,7 @@ import Header from "../components/Header";
 import LargeCard from "../components/LargeCard";
 import SmallCard from "../components/SmallCard";
 import { getActiveProductsServer } from "../lib/products/server";
+import { fallbackProducts } from "../lib/products/fallback";
 import type { Product } from "../lib/products/types";
 import { IStyleData, ISuggestionFormatted } from "../types/typings";
 
@@ -21,51 +22,32 @@ type Props = {
 
 const fallbackCitiesData: ISuggestionFormatted[] = [
   {
-    shortName: "Toronto",
-    displayName: "Toronto, Ontario, Canada",
-    id: 6057937,
+    shortName: "Barreirinhas",
+    displayName: "Barreirinhas, Maranhão, Brasil",
+    id: 1,
     type: "CITY",
     img: "/banner1200x600.jpg",
-    location: "Toronto",
-    province: "Ontario",
+    location: "Barreirinhas",
+    province: "Maranhão",
   },
 ];
 
 const fallbackStylesData: IStyleData[] = [
   {
     img: "/get-inspired1200x600.jpg",
-    title: "Get Inspired",
+    title: "Inspire-se",
   },
 ];
 
 const fallbackInspiredCities: ISuggestionFormatted[] = [
   {
-    shortName: "Montreal",
-    displayName: "Montreal, Quebec, Canada",
-    id: 178288,
+    shortName: "Barreirinhas",
+    displayName: "Barreirinhas, Maranhão, Brasil",
+    id: 1,
     type: "CITY",
     img: "/get-inspired1200x600.jpg",
-    location: "Montreal",
-    province: "Quebec",
-  },
-];
-
-const fallbackProducts: Product[] = [
-  {
-    id: "fallback-lencois",
-    title: "Lencois Maranhenses Essencial",
-    slug: "lencois-maranhenses-essencial",
-    description:
-      "Pacote de 4 dias com hospedagem, passeio pelas lagoas e traslado compartilhado.",
-    type: "package",
-    destination: "Barreirinhas, MA",
-    price: 1890,
-    promotional_price: 1690,
-    cover_image: "/get-inspired1200x600.jpg",
-    gallery: [],
-    active: true,
-    created_at: new Date(0).toISOString(),
-    updated_at: new Date(0).toISOString(),
+    location: "Barreirinhas",
+    province: "Maranhão",
   },
 ];
 
@@ -85,7 +67,11 @@ const Home = ({ citiesData, stylesData, getInspiredCities, products }: Props) =>
   return (
     <div className="">
       <Head>
-        <title>Travel - Vacation rentals for every style</title>
+        <title>RW Turismo</title>
+        <meta
+          name="description"
+          content="Pacotes, experiências e destinos para sua próxima viagem."
+        />
         <link rel="icon" href="/favicon.ico" />
       </Head>
       {/* Header */}
@@ -160,26 +146,9 @@ const Home = ({ citiesData, stylesData, getInspiredCities, products }: Props) =>
           </div>
         </section>
 
-        <section className="pt-6">
-          <h2 className="text-4xl font-semibold pb-5">
-            Most visited Canadian cities
-          </h2>
-          {/* Map Canadian cities */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-            {citiesData.map((city) => (
-              <SmallCard
-                key={city.img}
-                cityData={city}
-                setSearchInput={setSearchInput}
-                setSelectedCity={setSelectedCity}
-              />
-            ))}
-          </div>
-        </section>
-
         <section>
           <h2 className="text-4xl font-semibold py-8">
-            Find your travel style
+            Encontre seu estilo de viagem
           </h2>
           {/* Map styles data from api */}
           <CarouselTitlesCard images={stylesData} />
@@ -188,9 +157,9 @@ const Home = ({ citiesData, stylesData, getInspiredCities, products }: Props) =>
 
         <LargeCard
           img="/get-inspired1200x600.jpg"
-          title="Discover New Destinations"
-          description="Curated by our Travel Experts"
-          buttonText="Get Inspired"
+          title="Descubra novos destinos"
+          description="Seleção especial dos nossos especialistas em viagens"
+          buttonText="Inspire-se"
           getInspiredCities={getInspiredCities}
           setSearchInput={setSearchInput}
           setSelectedCity={setSelectedCity}
@@ -201,10 +170,10 @@ const Home = ({ citiesData, stylesData, getInspiredCities, products }: Props) =>
       {/* Drawer */}
       <Drawer isOpen={isOpen} setIsOpen={setIsOpen}>
         <p className="drawer-item">
-          <Link href={"/favorites"}>List of Favorites</Link>
+          <Link href={"/favorites"}>Meus favoritos</Link>
         </p>
         <p className="drawer-item">
-          <Link href={"/bookings"}>Your Bookings</Link>
+          <Link href={"/bookings"}>Minhas reservas</Link>
         </p>
       </Drawer>
     </div>

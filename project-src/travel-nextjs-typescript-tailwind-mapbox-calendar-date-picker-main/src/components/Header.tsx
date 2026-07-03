@@ -6,7 +6,6 @@ import {
   XMarkIcon,
 } from "@heroicons/react/24/solid";
 import { motion } from "framer-motion";
-import Image from "next/image";
 import { useRouter } from "next/router";
 import { Dispatch, SetStateAction, useEffect, useState } from "react";
 import { DateRangePicker } from "react-date-range";
@@ -97,13 +96,9 @@ const Header = ({
         onClick={() => router.push("/")}
         className="relative flex items-center h-10 w-25 my-auto overflow-hidden"
       >
-        <Image
-          className="object-contain cursor-pointer"
-          src="/travel-logo.svg"
-          height={40}
-          width={100}
-          alt="Travel"
-        />
+        <span className="cursor-pointer text-xl font-bold text-orange-600">
+          RW Turismo
+        </span>
       </div>
       {/* Middle Section */}
       <div>
@@ -113,7 +108,7 @@ const Header = ({
             onChange={(e) => setSearchInput(e.target.value)}
             className="flex-grow bg-transparent min-w-0 outline-none placeholder-gray-400"
             type="text"
-            placeholder={placeholder || "Start your search"}
+            placeholder={placeholder || "Para onde você quer viajar?"}
           />
           <MagnifyingGlassIcon className="hidden md:inline w-8 bg-orange-500 text-white rounded-full p-2 ml-2" />
         </div>
@@ -191,7 +186,7 @@ const Header = ({
             <div />
             <div className="self-end flex w-fit gap-4 items-center mb-4 pl-5">
               <h2 className="text-l flex-grow font-semibold">
-                Number of Guests
+                Número de viajantes
               </h2>
               <div className="flex">
                 <UsersIcon className="h-5" />
@@ -209,13 +204,13 @@ const Header = ({
                 onClick={resetInput}
                 className="bg-white self-start px-5 py-2 shadow-md rounded-full font-bold text-sm hover:shadow-xl active:scale-90 transition duration-150"
               >
-                Close
+                Fechar
               </button>
               <button
                 onClick={search}
                 className="bg-white px-5 py-2 shadow-md rounded-full font-bold text-sm hover:shadow-xl active:scale-90 transition duration-150"
               >
-                Search
+                Buscar
               </button>
             </div>
           </div>

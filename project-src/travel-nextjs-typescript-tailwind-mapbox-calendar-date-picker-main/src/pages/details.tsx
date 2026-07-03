@@ -172,7 +172,7 @@ const Details = ({ detailsResult }: Props) => {
         <section className="flex-grow pt-14 px-6">
           {fromFavPage === "false" && (
             <h3 className="text-sm font-extralight pb-4 mt-2 mb-6 border-b">
-              Accommodation available {range}, {numOfGuests} guests
+              Hospedagem disponível {range}, {numOfGuests} viajantes
             </h3>
           )}
           <div className="flex justify-between">
@@ -291,13 +291,13 @@ const Details = ({ detailsResult }: Props) => {
       {/* Drawer Menu, closed by default */}
       <Drawer isOpen={isOpen} setIsOpen={setIsOpen}>
         <p className="drawer-item">
-          <Link href={"/favorites"}>List of Favorites</Link>
+          <Link href={"/favorites"}>Meus favoritos</Link>
         </p>
         <p className="drawer-item">
-          <Link href={"/bookings"}>Your Bookings</Link>
+          <Link href={"/bookings"}>Minhas reservas</Link>
         </p>
         <p onClick={() => signOutFromSupabase()} className="drawer-item">
-          Sign out
+          Sair
         </p>
       </Drawer>
     </div>

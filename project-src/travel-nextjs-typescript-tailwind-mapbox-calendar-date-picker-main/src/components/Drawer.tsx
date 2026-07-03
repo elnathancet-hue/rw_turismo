@@ -42,29 +42,31 @@ const Drawer = ({ children, isOpen, setIsOpen }: Props) => {
           {!isAuthenticated ? (
             <>
               <header className="py-3">
-                <h2 className="text-lg font-semibold">Welcome to Travel!</h2>
+                <h2 className="text-lg font-semibold">
+                  Boas-vindas à RW Turismo!
+                </h2>
               </header>
               <p>
                 <span
                   onClick={goToSignIn}
                   className="font-bold text-orange-500 active:text-orange-600 cursor-pointer"
                 >
-                  {isLoading ? "Checking session" : "Sign in"}
+                  {isLoading ? "Verificando sessão" : "Entrar"}
                 </span>{" "}
-                to have a better experience
+                para aproveitar uma experiência completa
               </p>
             </>
           ) : (
             <>
               <header className="py-3">
                 <h2 className="text-lg font-semibold">
-                  {profile?.name || user?.email || "Traveler"}
+                  {profile?.name || user?.email || "Viajante"}
                 </h2>
                 <p className="text-xs font-light">{user?.email}</p>
               </header>
               {[children]}
               <p onClick={handleLogout} className="drawer-item">
-                Sign out
+                Sair
               </p>
             </>
           )}

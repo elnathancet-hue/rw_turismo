@@ -50,7 +50,7 @@ const Search = ({ searchResults }: Props) => {
         <section className="flex-grow pt-14 px-6">
           <p className="text-xs">
             {searchResults
-              ? `Accommodations available ${range}, ${numOfGuests} guests`
+              ? `Hospedagens disponíveis ${range}, ${numOfGuests} viajantes`
               : `No accommodations available ${range}, ${numOfGuests} guests`}
           </p>
           <h1 className="text-3xl font-semibold mt-2 mb-6">
@@ -100,13 +100,13 @@ const Search = ({ searchResults }: Props) => {
       {/* Drawer Menu, hided by default */}
       <Drawer isOpen={isOpen} setIsOpen={setIsOpen}>
         <p className="drawer-item">
-          <Link href={"/favorites"}>List of Favorites</Link>
+          <Link href={"/favorites"}>Meus favoritos</Link>
         </p>
         <p className="drawer-item">
-          <Link href={"/bookings"}>Your Bookings</Link>
+          <Link href={"/bookings"}>Minhas reservas</Link>
         </p>
         <p onClick={() => signOutFromSupabase()} className="drawer-item">
-          Sign out
+          Sair
         </p>
       </Drawer>
     </div>

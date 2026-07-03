@@ -1,6 +1,6 @@
-# Travel Booking: Hotel Reservation Project
+# RW Turismo
 
-Travel Booking is a case study of a hotel reservation platform using Next.js
+RW Turismo é uma plataforma de pacotes, experiências e reservas construída com Next.js
 and TypeScript on the front-end, with Supabase Auth, Supabase PostgreSQL and
 Stripe for the internal booking/payment flow.
 
@@ -183,6 +183,6 @@ The current Stripe Checkout implementation simulates payments in test mode.
 
 ## Deployment details
 
-Travel Bookings deployed using Vercel: 
+RW Turismo na Vercel:
 
 [Deployment Activity Log](https://github.com/javigong/travel-nextjs-typescript-tailwind-mapbox-calendar-date-picker/deployments/activity_log?environment=Production)

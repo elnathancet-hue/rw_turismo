@@ -51,17 +51,17 @@ const Banner = ({ getInspiredCities, setSearchInput, setSelectedCity }: Props) =
       <div className="absolute top-1/2 w-full text-center">
         {isAuthenticated && (
           <p className="text-white text-base sm:text-2xl pb-2">
-            Hi, {profile?.name || user?.email || "traveler"}!
+            Olá, {profile?.name || user?.email || "viajante"}!
           </p>
         )}
         <p className="text-slate-100 text-sm sm:text-lg">
-          Don't you know where to travel?
+          Ainda não sabe para onde viajar?
         </p>
         <button
           onClick={setSearchInputAndSelectedCity}
           className="text-red-600 text-sm bg-white px-5 py-2 shadow-md rounded-full font-bold my-3 hover:shadow-xl active:scale-90 transition duration-150"
         >
-          I'm feeling lucky
+          Quero me surpreender
         </button>
       </div>
     </div>

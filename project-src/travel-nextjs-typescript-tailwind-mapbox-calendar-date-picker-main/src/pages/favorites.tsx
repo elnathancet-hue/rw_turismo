@@ -33,7 +33,7 @@ const Favorites = () => {
       setError(
         loadError instanceof Error
           ? loadError.message
-          : "Unable to load favorites."
+          : "Não foi possível carregar os favoritos."
       );
     } finally {
       setIsLoadingFavorites(false);
@@ -76,8 +76,8 @@ const Favorites = () => {
         setIsOpen={setIsOpen}
       />
       <main className="max-w-5xl mx-auto pt-14 px-6 min-h-[70vh]">
-          <p className="text-xs">Accommodation list</p>
-          <h1 className="text-3xl font-semibold mt-2 mb-6">Favorites</h1>
+          <p className="text-xs">Sua seleção de viagens</p>
+          <h1 className="text-3xl font-semibold mt-2 mb-6">Favoritos</h1>
 
           {!isLoading && !isAuthenticated && (
             <div className="rounded-lg border bg-white p-6 shadow-sm">
@@ -108,7 +108,7 @@ const Favorites = () => {
 
               {!isLoadingFavorites && favorites.length === 0 && !error && (
                 <p className="py-8 text-gray-500">
-                  Voce ainda nao adicionou favoritos.
+                  Você ainda não adicionou favoritos.
                 </p>
               )}
 
@@ -134,7 +134,7 @@ const Favorites = () => {
                       {favorite.title}
                     </h2>
                     <p className="mt-2 text-sm text-gray-500">
-                      Provider: {favorite.provider}
+                      Origem: {favorite.provider}
                     </p>
                     <div className="mt-auto pt-4">
                       <button
@@ -154,9 +154,9 @@ const Favorites = () => {
       <Footer />
       {/* Drawer Menu, hided by default */}
       <Drawer isOpen={isOpen} setIsOpen={setIsOpen}>
-        <p className="drawer-current-item">List of Favorites</p>
+        <p className="drawer-current-item">Meus favoritos</p>
         <p className="drawer-item">
-          <Link href={"/bookings"}>Your Bookings</Link>
+          <Link href={"/bookings"}>Minhas reservas</Link>
         </p>
       </Drawer>
     </div>

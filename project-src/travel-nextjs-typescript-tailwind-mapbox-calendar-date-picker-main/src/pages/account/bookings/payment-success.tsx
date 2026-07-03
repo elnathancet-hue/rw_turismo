@@ -52,7 +52,7 @@ const PaymentSuccess = () => {
       </main>
       <Footer />
       <Drawer isOpen={isOpen} setIsOpen={setIsOpen}>
-        <p className="drawer-current-item">Your Bookings</p>
+        <p className="drawer-current-item">Minhas reservas</p>
       </Drawer>
     </div>
   );

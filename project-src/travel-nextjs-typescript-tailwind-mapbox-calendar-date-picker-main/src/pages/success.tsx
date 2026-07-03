@@ -51,10 +51,10 @@ const Success = () => {
       {/* Drawer Menu, closed by default */}
       <Drawer isOpen={isOpen} setIsOpen={setIsOpen}>
         <p className="drawer-item">
-          <Link href={"/favorites"}>List of Favorites</Link>
+          <Link href={"/favorites"}>Meus favoritos</Link>
         </p>
         <p className="drawer-item">
-          <Link href={"/account/bookings"}>Your Bookings</Link>
+          <Link href={"/account/bookings"}>Minhas reservas</Link>
         </p>
       </Drawer>
     </div>

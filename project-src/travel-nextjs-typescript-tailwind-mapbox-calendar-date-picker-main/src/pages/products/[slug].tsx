@@ -17,6 +17,10 @@ import {
   getProductBySlugServer,
 } from "../../lib/products/server";
 import type { Product, ProductDate } from "../../lib/products/types";
+import {
+  fallbackProductDates,
+  getFallbackProductBySlug,
+} from "../../lib/products/fallback";
 import type { ISuggestionFormatted } from "../../types/typings";
 
 type Props = {
@@ -95,7 +99,9 @@ const ProductDetails = ({ product, productDates }: Props) => {
       setIsFav(true);
     } catch (error) {
       setFavoriteError(
-        error instanceof Error ? error.message : "Unable to update favorite."
+        error instanceof Error
+          ? error.message
+          : "Não foi possível atualizar o favorito."
       );
     }
   };
@@ -124,7 +130,7 @@ const ProductDetails = ({ product, productDates }: Props) => {
     }
 
     if (!selectedDateId) {
-      setBookingError("Selecione uma data disponivel.");
+      setBookingError("Selecione uma data disponível.");
       return;
     }
 
@@ -149,7 +155,7 @@ const ProductDetails = ({ product, productDates }: Props) => {
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error ?? "Nao foi possivel iniciar reserva.");
+        throw new Error(result.error ?? "Não foi possível iniciar a reserva.");
       }
 
       router.push(`/account/bookings/${result.booking_id}`);
@@ -157,7 +163,7 @@ const ProductDetails = ({ product, productDates }: Props) => {
       setBookingError(
         error instanceof Error
           ? error.message
-          : "Nao foi possivel iniciar reserva."
+          : "Não foi possível iniciar a reserva."
       );
     } finally {
       setIsBooking(false);
@@ -167,7 +173,11 @@ const ProductDetails = ({ product, productDates }: Props) => {
   return (
     <div>
       <Head>
-        <title>{product.title} - Travel</title>
+        <title>{product.title} | RW Turismo</title>
+        <meta
+          name="description"
+          content={product.description ?? "Pacotes e experiências RW Turismo."}
+        />
       </Head>
       <Header
         searchInput={searchInput}
@@ -300,11 +310,11 @@ const ProductDetails = ({ product, productDates }: Props) => {
         </div>
 
         <section className="mt-10">
-          <h2 className="text-2xl font-semibold">Datas disponiveis</h2>
+          <h2 className="text-2xl font-semibold">Datas disponíveis</h2>
           <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {productDates.length === 0 && (
               <p className="text-gray-500">
-                Nenhuma data disponivel no momento.
+                Nenhuma data disponível no momento.
               </p>
             )}
             {productDates.map((productDate) => (
@@ -313,11 +323,11 @@ const ProductDetails = ({ product, productDates }: Props) => {
                 key={productDate.id}
               >
                 <p className="font-semibold">
-                  {formatDate(productDate.start_date)} ate{" "}
+                  {formatDate(productDate.start_date)} até{" "}
                   {formatDate(productDate.end_date)}
                 </p>
                 <p className="mt-2 text-sm text-gray-500">
-                  {productDate.available_slots} vagas disponiveis
+                  {productDate.available_slots} vagas disponíveis
                 </p>
                 <p className="mt-3 font-semibold">
                   {formatCurrency(productDate.price_override ?? displayPrice)}
@@ -331,10 +341,10 @@ const ProductDetails = ({ product, productDates }: Props) => {
       <Footer />
       <Drawer isOpen={isOpen} setIsOpen={setIsOpen}>
         <p className="drawer-item">
-          <Link href={"/favorites"}>List of Favorites</Link>
+          <Link href={"/favorites"}>Meus favoritos</Link>
         </p>
         <p className="drawer-item">
-          <Link href={"/bookings"}>Your Bookings</Link>
+          <Link href={"/bookings"}>Minhas reservas</Link>
         </p>
       </Drawer>
     </div>
@@ -356,10 +366,19 @@ export const getServerSideProps = async (
     };
   }
 
+  const fallbackProduct = getFallbackProductBySlug(slug);
+
   try {
     const product = await getProductBySlugServer(slug);
-
     if (!product) {
+      if (fallbackProduct) {
+        return {
+          props: {
+            product: fallbackProduct,
+            productDates: fallbackProductDates,
+          },
+        };
+      }
       return {
         notFound: true,
       };
@@ -375,6 +394,15 @@ export const getServerSideProps = async (
     };
   } catch (error) {
     console.error("Failed to load Supabase product", error);
+
+    if (fallbackProduct) {
+      return {
+        props: {
+          product: fallbackProduct,
+          productDates: fallbackProductDates,
+        },
+      };
+    }
 
     return {
       notFound: true,

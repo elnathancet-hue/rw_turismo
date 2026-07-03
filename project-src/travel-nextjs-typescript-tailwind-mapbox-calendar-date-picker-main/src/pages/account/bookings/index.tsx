@@ -96,9 +96,9 @@ const AccountBookings = () => {
       <Footer />
       <Drawer isOpen={isOpen} setIsOpen={setIsOpen}>
         <p className="drawer-item">
-          <Link href={"/favorites"}>List of Favorites</Link>
+          <Link href={"/favorites"}>Meus favoritos</Link>
         </p>
-        <p className="drawer-current-item">Your Bookings</p>
+        <p className="drawer-current-item">Minhas reservas</p>
       </Drawer>
     </div>
   );

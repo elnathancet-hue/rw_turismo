@@ -55,7 +55,7 @@ const SignIn = () => {
   return (
     <div className="h-screen">
       <Head>
-        <title>Travel - Sign In</title>
+        <title>Entrar | RW Turismo</title>
         <link rel="icon" href="/favicon.ico" />
       </Head>
       {/* Header */}
@@ -74,7 +74,7 @@ const SignIn = () => {
             className="-translate-y-[55px] max-w-xl p-5 mx-auto"
             src="/travel-signin.svg"
             fill
-            alt="Travel"
+            alt="RW Turismo"
           />
           <div className="absolute top-[78%] w-full px-4 text-center">
             <button
@@ -95,10 +95,10 @@ const SignIn = () => {
       </main>
       {/* Drawer */}
       <Drawer isOpen={isOpen} setIsOpen={setIsOpen}>
-        <p className="drawer-item">List of Favorites</p>
-        <p className="drawer-item">Your Bookings</p>
+        <p className="drawer-item">Meus favoritos</p>
+        <p className="drawer-item">Minhas reservas</p>
         <p onClick={handleSupabaseLogout} className="drawer-item">
-          Sign out
+          Sair
         </p>
       </Drawer>
     </div>

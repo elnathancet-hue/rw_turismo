@@ -32,8 +32,8 @@ const Bookings = () => {
         <section className="rounded-lg border bg-white p-8 shadow-sm">
           <h1 className="text-3xl font-semibold">Minhas reservas mudaram</h1>
           <p className="mt-4 text-gray-600">
-            O historico de reservas agora fica em uma area Supabase protegida
-            por RLS. Voce sera redirecionado automaticamente.
+            O histórico de reservas agora fica em uma área protegida.
+            Você será redirecionado automaticamente.
           </p>
           <Link
             className="mt-6 inline-flex rounded bg-orange-500 px-4 py-2 font-semibold text-white hover:bg-orange-600"
@@ -48,9 +48,9 @@ const Bookings = () => {
       {/* Drawer */}
       <Drawer isOpen={isOpen} setIsOpen={setIsOpen}>
         <p className="drawer-item">
-          <Link href={"/favorites"}>List of Favorites</Link>
+          <Link href={"/favorites"}>Meus favoritos</Link>
         </p>
-        <p className="drawer-current-item">Your Bookings</p>
+        <p className="drawer-current-item">Minhas reservas</p>
       </Drawer>
     </div>
   );
