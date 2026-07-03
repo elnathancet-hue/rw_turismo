@@ -30,47 +30,64 @@ export const useSupabaseSession = (): SupabaseSessionState => {
 
   useEffect(() => {
     let isMounted = true;
-    const supabase = createSupabaseBrowserClient();
-
-    const loadSession = async () => {
-      const { data, error } = await supabase.auth.getSession();
-
-      if (error || !data.session?.user) {
-        if (isMounted) {
-          setState({
-            ...initialState,
-            isLoading: false,
-          });
-        }
-        return;
-      }
-
-      let profile: UserProfile | null = null;
-
-      try {
-        profile = await getUserProfile(supabase, data.session.user.id);
-      } catch (profileError) {
-        console.error("Failed to load Supabase user profile", profileError);
-      }
-
+    const markAsGuest = () => {
       if (isMounted) {
         setState({
-          user: data.session.user,
-          session: data.session,
-          profile,
+          ...initialState,
           isLoading: false,
-          isAuthenticated: true,
-          isAdmin: isAdminProfile(profile),
         });
       }
     };
 
-    loadSession();
+    let supabase: ReturnType<typeof createSupabaseBrowserClient>;
+
+    try {
+      supabase = createSupabaseBrowserClient();
+    } catch (error) {
+      console.error("Failed to initialize Supabase session", error);
+      markAsGuest();
+      return;
+    }
+
+    const loadSession = async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+
+        if (error || !data.session?.user) {
+          markAsGuest();
+          return;
+        }
+
+        let profile: UserProfile | null = null;
+
+        try {
+          profile = await getUserProfile(supabase, data.session.user.id);
+        } catch (profileError) {
+          console.error("Failed to load Supabase user profile", profileError);
+        }
+
+        if (isMounted) {
+          setState({
+            user: data.session.user,
+            session: data.session,
+            profile,
+            isLoading: false,
+            isAuthenticated: true,
+            isAdmin: isAdminProfile(profile),
+          });
+        }
+      } catch (error) {
+        console.error("Failed to load Supabase session", error);
+        markAsGuest();
+      }
+    };
+
+    void loadSession();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      loadSession();
+      void loadSession();
     });
 
     return () => {

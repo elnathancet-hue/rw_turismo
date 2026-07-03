@@ -30,9 +30,7 @@ type ServerEnv = PublicEnv & {
   rapidApiKey: string;
 };
 
-const requireEnv = (name: string): string => {
-  const value = process.env[name];
-
+const requireEnv = (name: string, value: string | undefined): string => {
   if (!value) {
     throw new Error(`Missing required environment variable: ${name}`);
   }
@@ -47,14 +45,29 @@ const assertServer = () => {
 };
 
 export const getPublicEnv = (): PublicEnv => ({
-  supabaseUrl: requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
-  supabaseAnonKey: requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
-  siteUrl: requireEnv("NEXT_PUBLIC_SITE_URL"),
+  supabaseUrl: requireEnv(
+    "NEXT_PUBLIC_SUPABASE_URL",
+    process.env.NEXT_PUBLIC_SUPABASE_URL
+  ),
+  supabaseAnonKey: requireEnv(
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  ),
+  siteUrl: requireEnv(
+    "NEXT_PUBLIC_SITE_URL",
+    process.env.NEXT_PUBLIC_SITE_URL
+  ),
 });
 
 export const getSupabasePublicEnv = (): SupabasePublicEnv => ({
-  supabaseUrl: requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
-  supabaseAnonKey: requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
+  supabaseUrl: requireEnv(
+    "NEXT_PUBLIC_SUPABASE_URL",
+    process.env.NEXT_PUBLIC_SUPABASE_URL
+  ),
+  supabaseAnonKey: requireEnv(
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  ),
 });
 
 export const getSupabaseAdminEnv = (): SupabaseAdminEnv => {
@@ -62,7 +75,10 @@ export const getSupabaseAdminEnv = (): SupabaseAdminEnv => {
 
   return {
     ...getSupabasePublicEnv(),
-    supabaseServiceRoleKey: requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
+    supabaseServiceRoleKey: requireEnv(
+      "SUPABASE_SERVICE_ROLE_KEY",
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    ),
   };
 };
 
@@ -70,7 +86,10 @@ export const getStripeCheckoutEnv = (): StripeCheckoutEnv => {
   assertServer();
 
   return {
-    stripeSecretKey: requireEnv("STRIPE_SECRET_KEY"),
+    stripeSecretKey: requireEnv(
+      "STRIPE_SECRET_KEY",
+      process.env.STRIPE_SECRET_KEY
+    ),
   };
 };
 
@@ -78,8 +97,14 @@ export const getStripeInternalWebhookEnv = (): StripeInternalWebhookEnv => {
   assertServer();
 
   return {
-    stripeSecretKey: requireEnv("STRIPE_SECRET_KEY"),
-    stripeInternalWebhookSecret: requireEnv("STRIPE_INTERNAL_WEBHOOK_SECRET"),
+    stripeSecretKey: requireEnv(
+      "STRIPE_SECRET_KEY",
+      process.env.STRIPE_SECRET_KEY
+    ),
+    stripeInternalWebhookSecret: requireEnv(
+      "STRIPE_INTERNAL_WEBHOOK_SECRET",
+      process.env.STRIPE_INTERNAL_WEBHOOK_SECRET
+    ),
   };
 };
 
@@ -87,8 +112,8 @@ export const getExternalApiEnv = (): ExternalApiEnv => {
   assertServer();
 
   return {
-    mapboxApiKey: requireEnv("MAPBOX_API_KEY"),
-    rapidApiKey: requireEnv("RAPIDAPI_KEY"),
+    mapboxApiKey: requireEnv("MAPBOX_API_KEY", process.env.MAPBOX_API_KEY),
+    rapidApiKey: requireEnv("RAPIDAPI_KEY", process.env.RAPIDAPI_KEY),
   };
 };
 
