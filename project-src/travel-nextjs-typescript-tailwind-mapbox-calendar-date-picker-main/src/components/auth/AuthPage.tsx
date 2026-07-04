@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { FormEvent, useState } from "react";
 import {
+  getFriendlyAuthError,
   getSafeInternalPath,
   signInWithEmailOtp,
   signInWithEmailPassword,
@@ -15,8 +16,6 @@ type Mode = "signin" | "signup";
 type Action = "password" | "google" | "otp" | null;
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const friendlyError =
-  "Não foi possível concluir a autenticação. Confira os dados e tente novamente.";
 const fieldClass =
   "mt-1 w-full rounded-lg border px-3 py-2.5 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100";
 
@@ -58,7 +57,7 @@ const AuthPage = () => {
     try {
       if (mode === "signin") {
         const result = await signInWithEmailPassword(email, password);
-        if (result.error) return setError(friendlyError);
+        if (result.error) return setError(getFriendlyAuthError(result.error));
         await router.replace(nextPath);
       } else {
         const result = await signUpWithEmailPassword(
@@ -67,7 +66,7 @@ const AuthPage = () => {
           password,
           nextPath
         );
-        if (result.error) return setError(friendlyError);
+        if (result.error) return setError(getFriendlyAuthError(result.error));
         if (result.data.session) await router.replace(nextPath);
         else
           setSuccess(
@@ -75,7 +74,7 @@ const AuthPage = () => {
           );
       }
     } catch {
-      setError(friendlyError);
+      setError("Não foi possível concluir o login. Tente novamente.");
     } finally {
       setAction(null);
     }
@@ -86,9 +85,9 @@ const AuthPage = () => {
     setAction("google");
     try {
       const result = await signInWithSupabaseGoogle(nextPath);
-      if (result.error) setError(friendlyError);
+      if (result.error) setError(getFriendlyAuthError(result.error));
     } catch {
-      setError(friendlyError);
+      setError("Não foi possível concluir o login. Tente novamente.");
     } finally {
       setAction(null);
     }

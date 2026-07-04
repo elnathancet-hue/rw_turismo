@@ -1,19 +1,62 @@
 import Head from "next/head";
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { useRouter } from "next/router";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { updatePassword } from "../lib/auth/client";
+import { createSupabaseBrowserClient } from "../lib/supabase/browser";
 
 const ResetPassword = () => {
+  const router = useRouter();
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSessionReady, setIsSessionReady] = useState(false);
+  const hasCheckedSession = useRef(false);
+
+  useEffect(() => {
+    if (!router.isReady || hasCheckedSession.current) return;
+    hasCheckedSession.current = true;
+
+    const prepareRecoverySession = async () => {
+      const supabase = createSupabaseBrowserClient();
+      const code = Array.isArray(router.query.code)
+        ? router.query.code[0]
+        : router.query.code;
+
+      if (code) {
+        const { error: exchangeError } =
+          await supabase.auth.exchangeCodeForSession(code);
+        if (exchangeError) {
+          if (process.env.NODE_ENV === "development") {
+            console.error("Password recovery exchange failed", exchangeError);
+          }
+          setError("O link é inválido ou expirou. Solicite uma nova recuperação.");
+          return;
+        }
+      }
+
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) {
+        setError("O link é inválido ou expirou. Solicite uma nova recuperação.");
+        return;
+      }
+
+      setIsSessionReady(true);
+    };
+
+    void prepareRecoverySession();
+  }, [router.isReady, router.query.code]);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError(null);
     setSuccess(false);
+    if (!isSessionReady) {
+      setError("Abra o link de recuperação enviado para seu e-mail.");
+      return;
+    }
     if (password.length < 8) {
       setError("A senha deve ter pelo menos 8 caracteres.");
       return;
@@ -60,7 +103,7 @@ const ResetPassword = () => {
               <input
                 autoComplete="new-password"
                 className="mt-1 w-full rounded-lg border px-3 py-2.5 outline-none focus:border-orange-500"
-                disabled={isLoading}
+                disabled={isLoading || !isSessionReady}
                 onChange={(event) => setPassword(event.target.value)}
                 type="password"
                 value={password}
@@ -71,7 +114,7 @@ const ResetPassword = () => {
               <input
                 autoComplete="new-password"
                 className="mt-1 w-full rounded-lg border px-3 py-2.5 outline-none focus:border-orange-500"
-                disabled={isLoading}
+                disabled={isLoading || !isSessionReady}
                 onChange={(event) => setConfirmation(event.target.value)}
                 type="password"
                 value={confirmation}
@@ -85,7 +128,7 @@ const ResetPassword = () => {
             )}
             <button
               className="w-full rounded-lg bg-orange-500 px-4 py-3 font-semibold text-white disabled:opacity-60"
-              disabled={isLoading}
+              disabled={isLoading || !isSessionReady}
               type="submit"
             >
               {isLoading ? "Salvando..." : "Salvar nova senha"}

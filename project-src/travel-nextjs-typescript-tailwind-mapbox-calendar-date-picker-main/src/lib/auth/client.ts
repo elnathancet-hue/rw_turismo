@@ -2,12 +2,24 @@ import type { Session, User } from "@supabase/supabase-js";
 import { createSupabaseBrowserClient } from "../supabase/browser";
 import { ensureUserProfile, getUserProfile, type UserProfile } from "./profile";
 
-const getBrowserOrigin = (): string => {
-  if (typeof window === "undefined") {
-    return process.env.NEXT_PUBLIC_SITE_URL ?? "";
+export const getAuthBaseUrl = (): string => {
+  const rawUrl =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : process.env.NEXT_PUBLIC_SITE_URL;
+
+  if (!rawUrl) {
+    throw new Error("Missing NEXT_PUBLIC_SITE_URL.");
   }
 
-  return window.location.origin;
+  const normalizedUrl = rawUrl.trim().replace(/\/+$/, "");
+  const parsedUrl = new URL(normalizedUrl);
+
+  if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+    throw new Error("Invalid site URL protocol.");
+  }
+
+  return parsedUrl.origin;
 };
 
 export const getSafeInternalPath = (
@@ -23,10 +35,26 @@ export const getSafeInternalPath = (
   return path;
 };
 
-const getAuthCallbackUrl = (nextPath = "/") =>
-  `${getBrowserOrigin()}/auth/callback?next=${encodeURIComponent(
+export const getAuthCallbackUrl = (nextPath = "/") =>
+  `${getAuthBaseUrl()}/auth/callback?next=${encodeURIComponent(
     getSafeInternalPath(nextPath)
   )}`;
+
+export const getFriendlyAuthError = (
+  error: { message?: string } | null | undefined
+): string => {
+  const message = error?.message?.toLowerCase() ?? "";
+
+  if (message.includes("invalid login credentials")) {
+    return "E-mail ou senha incorretos.";
+  }
+
+  if (message.includes("email not confirmed")) {
+    return "Confirme seu e-mail antes de entrar.";
+  }
+
+  return "Não foi possível concluir o login. Tente novamente.";
+};
 
 export const getSupabaseBrowserSession = async (): Promise<Session | null> => {
   const supabase = createSupabaseBrowserClient();
@@ -152,7 +180,7 @@ export const requestPasswordReset = async (email: string) => {
   const supabase = createSupabaseBrowserClient();
 
   return supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
-    redirectTo: `${getBrowserOrigin()}/reset-password`,
+    redirectTo: `${getAuthBaseUrl()}/reset-password`,
   });
 };
 

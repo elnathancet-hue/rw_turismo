@@ -23,6 +23,22 @@ Signing secret do endpoint interno `/api/payments/webhook`.
 `NEXT_PUBLIC_SITE_URL`
 URL base publica do app. Usada para `success_url`, `cancel_url` e callbacks.
 
+No desenvolvimento local:
+
+```env
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+```
+
+Na producao:
+
+```env
+NEXT_PUBLIC_SITE_URL=https://travel-nextjs-typescript-tailwind-m.vercel.app
+```
+
+O helper de autenticacao remove barras finais duplicadas. Google OAuth,
+cadastro e OTP usam `/auth/callback`; recuperacao de senha usa
+`/reset-password`.
+
 ## Auth E Banco
 
 NextAuth e Prisma foram removidos na Etapa 22. Nao use mais:

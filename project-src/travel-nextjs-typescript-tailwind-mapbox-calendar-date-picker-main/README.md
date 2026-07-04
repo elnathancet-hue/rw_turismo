@@ -101,6 +101,11 @@ STRIPE_SECRET_KEY=
 STRIPE_INTERNAL_WEBHOOK_SECRET=
 ```
 
+Use `NEXT_PUBLIC_SITE_URL=http://localhost:3000` localmente e
+`NEXT_PUBLIC_SITE_URL=https://travel-nextjs-typescript-tailwind-m.vercel.app`
+na producao. Cadastre no Supabase os redirects `/auth/callback` e
+`/reset-password` para os dois ambientes.
+
 Required production variables:
 
 - `NEXT_PUBLIC_SUPABASE_URL`
