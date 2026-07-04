@@ -9,6 +9,7 @@ export const fallbackProducts: Product[] = [
       "Pacote de 4 dias com hospedagem, passeio pelas lagoas e traslado compartilhado.",
     type: "package",
     destination: "Barreirinhas, MA",
+    origin: "Teresina",
     price: 1890,
     promotional_price: 1690,
     cover_image: "/get-inspired1200x600.jpg",

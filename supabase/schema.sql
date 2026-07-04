@@ -36,6 +36,7 @@ create table if not exists public.products (
   description text,
   type text not null,
   destination text not null,
+  origin text,
   price numeric(12,2) not null,
   promotional_price numeric(12,2),
   cover_image text,
@@ -178,6 +179,7 @@ create index if not exists products_slug_idx on public.products(slug);
 create index if not exists products_active_idx on public.products(active);
 create index if not exists products_type_idx on public.products(type);
 create index if not exists products_destination_idx on public.products(destination);
+create index if not exists products_origin_idx on public.products(origin);
 
 create index if not exists product_dates_product_id_idx on public.product_dates(product_id);
 create index if not exists product_dates_active_idx on public.product_dates(active);

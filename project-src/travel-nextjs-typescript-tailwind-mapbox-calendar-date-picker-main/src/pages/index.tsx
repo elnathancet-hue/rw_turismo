@@ -12,8 +12,8 @@ import { getActiveProductsServer } from "../lib/products/server";
 import { fallbackProducts } from "../lib/products/fallback";
 import type { Product } from "../lib/products/types";
 import { IStyleData, ISuggestionFormatted } from "../types/typings";
-import EditableHome, { type EditableHomeProps } from "../components/home/EditableHome";
-import { getPublicHomeContent, getPublishedPosts } from "../lib/content/server";
+import EditableHome from "../components/home/EditableHome";
+import { getPublicHomeContent } from "../lib/content/server";
 import type { HomeBanner, HomeSection, SiteSetting } from "../lib/content/types";
 
 type Props = {
@@ -193,24 +193,20 @@ export const getStaticProps = async () => {
   ];
   let banners: HomeBanner[] = [{ id: "fallback-banner", title: "Sua próxima viagem começa aqui", subtitle: "Pacotes e experiências escolhidos para você.", image_url: "/banner1200x600.jpg", mobile_image_url: null, button_text: "Ver pacotes", button_url: "#pacotes", overlay_strength: 0.35, active: true, display_order: 0, starts_at: null, ends_at: null, created_at: "", updated_at: "" }];
   let settings: SiteSetting[] = [{ id: "fallback-seo", setting_key: "home_seo", value: { title: "RW Turismo", description: "Pacotes, experiências e destinos para sua próxima viagem.", og_image: "/banner1200x600.jpg" }, updated_at: "" }];
-  let blogPosts: EditableHomeProps["blogPosts"] = [];
+  try {
+    products = await getActiveProductsServer();
+  } catch (error) {
+    console.error("Failed to load products for homepage; using fallback", error);
+  }
 
   try {
-    const [supabaseProducts, homeContent, blog] = await Promise.all([
-      getActiveProductsServer(),
-      getPublicHomeContent(),
-      getPublishedPosts({ limit: 3 }),
-    ]);
-
-    if (supabaseProducts.length > 0) {
-      products = supabaseProducts;
-    }
-    if (homeContent.sections.length) sections = homeContent.sections;
-    if (homeContent.banners.length) banners = homeContent.banners;
-    if (homeContent.settings.length) settings = homeContent.settings;
-    blogPosts = blog.posts;
+    const homeContent = await getPublicHomeContent();
+    // Empty arrays are intentional: fallback is used only when Supabase fails.
+    sections = homeContent.sections;
+    banners = homeContent.banners;
+    settings = homeContent.settings;
   } catch (error) {
-    console.error("Failed to load editable homepage", error);
+    console.error("Failed to load editable homepage; using fallback", error);
   }
 
   return {
@@ -219,8 +215,7 @@ export const getStaticProps = async () => {
       sections,
       banners,
       settings,
-      blogPosts,
     },
-    revalidate: 300,
+    revalidate: 60,
   };
 };

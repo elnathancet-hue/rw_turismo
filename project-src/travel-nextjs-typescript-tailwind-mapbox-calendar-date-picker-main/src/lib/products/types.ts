@@ -9,6 +9,7 @@ export type Product = {
   description: string | null;
   type: ProductType;
   destination: string;
+  origin: string | null;
   price: number;
   promotional_price: number | null;
   cover_image: string | null;

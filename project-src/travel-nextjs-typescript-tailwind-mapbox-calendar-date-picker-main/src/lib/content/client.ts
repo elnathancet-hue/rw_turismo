@@ -16,8 +16,23 @@ const unwrap = <T,>(result: { data: T; error: any }): T => {
 
 export const listAdminHomeSections = async () =>
   (unwrap(await db().from("home_sections").select("*").order("display_order")) ?? []) as HomeSection[];
-export const saveAdminHomeSection = async (value: Partial<HomeSection> & { section_key: string }) =>
-  unwrap(await db().from("home_sections").upsert(value, { onConflict: "section_key" }).select().single()) as HomeSection;
+export const saveAdminHomeSection = async (value: Partial<HomeSection> & { section_key: string }) => {
+  const payload = {
+    section_key: value.section_key,
+    title: value.title ?? null,
+    subtitle: value.subtitle ?? null,
+    content: value.content ?? {},
+    active: value.active ?? false,
+    display_order: value.display_order ?? 0,
+  };
+  return unwrap(
+    await db()
+      .from("home_sections")
+      .upsert(payload, { onConflict: "section_key" })
+      .select()
+      .single()
+  ) as HomeSection;
+};
 export const deleteAdminHomeSection = async (id: string) =>
   unwrap(await db().from("home_sections").delete().eq("id", id));
 

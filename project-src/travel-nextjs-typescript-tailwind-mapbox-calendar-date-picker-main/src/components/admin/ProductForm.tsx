@@ -17,6 +17,7 @@ const ProductForm = ({ initialProduct, onSubmit, submitLabel }: Props) => {
     description: initialProduct?.description ?? "",
     type: initialProduct?.type ?? "package",
     destination: initialProduct?.destination ?? "",
+    origin: initialProduct?.origin ?? "",
     price: initialProduct?.price ?? 0,
     promotional_price: initialProduct?.promotional_price ?? null,
     cover_image: initialProduct?.cover_image ?? "",
@@ -101,6 +102,18 @@ const ProductForm = ({ initialProduct, onSubmit, submitLabel }: Props) => {
             required
             value={values.destination}
           />
+        </label>
+        <label className="text-sm font-medium">
+          Origem (cidade de saída)
+          <input
+            className="mt-1 w-full rounded border px-3 py-2"
+            onChange={(event) => updateValue("origin", event.target.value)}
+            placeholder="Ex.: Teresina"
+            value={values.origin}
+          />
+          <span className="mt-1 block text-xs font-normal text-gray-500">
+            Cidade de onde o grupo parte. Aparece no filtro de busca do site.
+          </span>
         </label>
         <label className="text-sm font-medium">
           Preco

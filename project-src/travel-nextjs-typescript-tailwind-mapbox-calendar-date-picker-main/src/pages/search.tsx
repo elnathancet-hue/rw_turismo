@@ -1,142 +1,191 @@
-import { FaceFrownIcon } from "@heroicons/react/24/outline";
-import { format } from "date-fns";
-import { GetServerSidePropsContext } from "next";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Drawer from "../components/Drawer";
 import Footer from "../components/Footer";
 import Header from "../components/Header";
-import InfoCard from "../components/InfoCard";
-import MapCard from "../components/MapCard";
+import PackageSearchBar from "../components/PackageSearchBar";
 import { signOutFromSupabase } from "../lib/auth/client";
-import { IResult, ISuggestionFormatted } from "../types/typings";
-import getHotelList from "../utils/getHotelList";
+import { searchPackages } from "../lib/products/client";
+import type { Product } from "../lib/products/types";
 
-type Props = {
-  searchResults: IResult[];
+const money = (value: number) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+    value
+  );
+
+// Parse YYYY-MM-DD as local time (avoids the UTC off-by-one day).
+const formatDate = (iso: string) => {
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return iso;
+  return new Date(y, m - 1, d).toLocaleDateString("pt-BR");
 };
 
-const Search = ({ searchResults }: Props) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [searchInput, setSearchInput] = useState("");
-  const [selectedCity, setSelectedCity] = useState<ISuggestionFormatted | null>(
-    null
-  );
+const Search = () => {
   const router = useRouter();
-  const { id, location, startDate, endDate, numOfGuests } = router.query;
-  const formattedStartDate = format(
-    new Date(startDate as string),
-    "dd MMMM yy"
+  const [isOpen, setIsOpen] = useState(false);
+  const [headerSearch, setHeaderSearch] = useState("");
+  const [products, setProducts] = useState<Product[]>([]);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">(
+    "loading"
   );
-  const formattedEndDate = format(new Date(endDate as string), "dd MMMM yy");
-  const range = `from ${formattedStartDate} to ${formattedEndDate}`;
+
+  const origem =
+    typeof router.query.origem === "string" ? router.query.origem : "";
+  const destino =
+    typeof router.query.destino === "string" ? router.query.destino : "";
+  const ida = typeof router.query.ida === "string" ? router.query.ida : "";
+  const volta = typeof router.query.volta === "string" ? router.query.volta : "";
+
+  useEffect(() => {
+    if (!router.isReady) return;
+    let active = true;
+    setStatus("loading");
+    searchPackages({ origem, destino, ida })
+      .then((data) => {
+        if (!active) return;
+        setProducts(data);
+        setStatus("ready");
+      })
+      .catch(() => {
+        if (active) setStatus("error");
+      });
+    return () => {
+      active = false;
+    };
+  }, [router.isReady, origem, destino, ida]);
+
+  const heading = destino ? `Pacotes para ${destino}` : "Pacotes disponíveis";
+  const summary = [
+    origem && `saindo de ${origem}`,
+    ida && `a partir de ${formatDate(ida)}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <div>
       <Header
-        searchInput={searchInput}
-        setSearchInput={setSearchInput}
-        selectedCity={selectedCity}
-        setSelectedCity={setSelectedCity}
         isOpen={isOpen}
+        searchInput={headerSearch}
         setIsOpen={setIsOpen}
-        placeholder={`${location} - ${range} - ${numOfGuests}`}
+        setSearchInput={setHeaderSearch}
       />
-      <main
-        className={`flex ${!searchResults && "flex-col max-w-4xl mx-auto"}`}
-      >
-        {/* Left Section */}
-        <section className="flex-grow pt-14 px-6">
-          <p className="text-xs">
-            {searchResults
-              ? `Hospedagens disponíveis ${range}, ${numOfGuests} viajantes`
-              : `No accommodations available ${range}, ${numOfGuests} guests`}
-          </p>
-          <h1 className="text-3xl font-semibold mt-2 mb-6">
-            Stays in {location}
-          </h1>
+      <main className="mx-auto min-h-[70vh] max-w-6xl px-4 pb-16 pt-6 sm:px-6">
+        <PackageSearchBar
+          initialDestino={destino}
+          initialIda={ida}
+          initialOrigem={origem}
+          initialVolta={volta}
+          key={`${origem}|${destino}|${ida}|${volta}`}
+        />
 
-          {searchResults && (
-            <div className="hidden lg:inline-flex mb-5 space-x-3 text-gray-800 whitespace-nowrap">
-              <p className="button">Cancellation Flexibility</p>
-              <p className="button">Price</p>
-              <p className="button">Rooms and Beds</p>
-              <p className="button">More filters</p>
-            </div>
-          )}
-          <div className="flex flex-col">
-            {/* Map Available Hotels */}
-            {searchResults &&
-              searchResults?.map((item) => (
-                <InfoCard
-                  key={item.img}
-                  cityId={id as string}
-                  item={item}
-                  startDate={startDate as string}
-                  endDate={endDate as string}
-                  numOfGuests={numOfGuests as string}
-                />
-              ))}
+        <div className="mt-8">
+          <h1 className="text-2xl font-semibold sm:text-3xl">{heading}</h1>
+          {summary && <p className="mt-1 text-sm text-gray-500">{summary}</p>}
+        </div>
+
+        {status === "loading" && (
+          <div className="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+            {[0, 1, 2].map((index) => (
+              <div
+                className="animate-pulse overflow-hidden rounded-xl border bg-white"
+                key={index}
+              >
+                <div className="h-52 bg-gray-100" />
+                <div className="space-y-3 p-5">
+                  <div className="h-3 w-1/3 rounded bg-gray-100" />
+                  <div className="h-5 w-2/3 rounded bg-gray-100" />
+                  <div className="h-4 w-1/4 rounded bg-gray-100" />
+                </div>
+              </div>
+            ))}
           </div>
-        </section>
-        {/* MapBox, Right Section */}
-        {searchResults ? (
-          <section className="hidden lg:inline-flex xl:min-w-[600px]">
-            <div className="sticky top-[68px] w-full h-screen">
-              <MapCard searchResults={searchResults} />
-            </div>
-          </section>
-        ) : (
-          <div className="font-semilight max-w-sm mb-[155px] mx-auto text-center">
-            <FaceFrownIcon className="mx-auto max-w-[300px]" />
-            <p>
-              {`Sorry, there are no accommodations available in ${location} ${range}. Please, try again on different dates.`}
+        )}
+
+        {status === "error" && (
+          <div className="mt-8 rounded-lg border border-red-200 bg-red-50 p-6 text-red-700">
+            <p>Não foi possível carregar os pacotes agora.</p>
+            <button
+              className="mt-3 rounded bg-orange-500 px-4 py-2 font-semibold text-white hover:bg-orange-600"
+              onClick={() => router.reload()}
+              type="button"
+            >
+              Tentar novamente
+            </button>
+          </div>
+        )}
+
+        {status === "ready" && products.length === 0 && (
+          <div className="mt-8 rounded-lg border bg-white p-8 text-center">
+            <p className="text-lg font-semibold">Nenhum pacote encontrado</p>
+            <p className="mt-1 text-gray-500">
+              Tente outra cidade de saída, destino ou data.
             </p>
+            <Link
+              className="mt-4 inline-flex rounded-full bg-orange-500 px-5 py-2 font-semibold text-white hover:bg-orange-600"
+              href="/#pacotes"
+            >
+              Ver todos os pacotes
+            </Link>
+          </div>
+        )}
+
+        {status === "ready" && products.length > 0 && (
+          <div className="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+            {products.map((product) => (
+              <Link
+                className="group overflow-hidden rounded-xl border bg-white shadow-sm hover:shadow-lg"
+                href={`/products/${product.slug}`}
+                key={product.id}
+              >
+                <div className="h-52 bg-gray-100">
+                  {product.cover_image && (
+                    <img
+                      alt={product.title}
+                      className="h-full w-full object-cover transition group-hover:scale-105"
+                      loading="lazy"
+                      src={product.cover_image}
+                    />
+                  )}
+                </div>
+                <div className="p-5">
+                  <p className="text-sm text-gray-500">
+                    {product.origin
+                      ? `${product.origin} → ${product.destination}`
+                      : product.destination}
+                  </p>
+                  <h3 className="mt-1 text-xl font-semibold">{product.title}</h3>
+                  <p className="mt-4 font-semibold text-orange-600">
+                    {money(product.promotional_price ?? product.price)}
+                  </p>
+                </div>
+              </Link>
+            ))}
           </div>
         )}
       </main>
       <Footer />
-      {/* Drawer Menu, hided by default */}
       <Drawer isOpen={isOpen} setIsOpen={setIsOpen}>
         <p className="drawer-item">
-          <Link href={"/favorites"}>Meus favoritos</Link>
+          <Link href="/favorites">Meus favoritos</Link>
         </p>
         <p className="drawer-item">
-          <Link href={"/bookings"}>Minhas reservas</Link>
+          <Link href="/bookings">Minhas reservas</Link>
         </p>
-        <p onClick={() => signOutFromSupabase()} className="drawer-item">
+        <p className="drawer-item">
+          <Link href="/blog">Blog</Link>
+        </p>
+        <button
+          className="drawer-item text-left"
+          onClick={() => signOutFromSupabase()}
+          type="button"
+        >
           Sair
-        </p>
+        </button>
       </Drawer>
     </div>
   );
 };
 
 export default Search;
-
-export const getServerSideProps = async (
-  context: GetServerSidePropsContext
-) => {
-  const { id, location, startDate, endDate, numOfGuests } = context.query;
-
-  const searchResults = await getHotelList(
-    id,
-    location,
-    startDate,
-    endDate,
-    numOfGuests
-  ).catch(console.error);
-
-  if (!searchResults) {
-    return {
-      props: {},
-    };
-  }
-
-  return {
-    props: {
-      searchResults,
-    },
-  };
-};

@@ -2,7 +2,10 @@ import Link from "next/link";
 import type { HomeSection } from "../../lib/content/types";
 
 const DestinationsSection = ({ section }: { section: HomeSection }) => {
-  const items = Array.isArray(section.content?.items) ? section.content.items : [];
+  const items = (Array.isArray(section.content?.items) ? section.content.items : [])
+    .filter((item: any) => item.active !== false && item.title)
+    .sort((a: any, b: any) => Number(a.order ?? 0) - Number(b.order ?? 0));
+  if (!items.length) return null;
   return (
     <section className="py-12">
       <h2 className="text-3xl font-semibold">{section.title}</h2>

@@ -71,26 +71,75 @@ export const getProductsByCategory = async (
   return (data ?? []) as Product[];
 };
 
-export const searchProducts = async (query: string): Promise<Product[]> => {
-  const normalizedQuery = query.trim();
+export type PackageSearchFilters = {
+  origem?: string | null;
+  destino?: string | null;
+  ida?: string | null;
+};
 
-  if (!normalizedQuery) {
-    return getActiveProducts();
-  }
-
+// Distinct departure cities from active products, for the search "Origem" dropdown.
+export const getProductOrigins = async (): Promise<string[]> => {
   const { data, error } = await productsTable()
-    .select("*")
+    .select("origin")
     .eq("active", true)
-    .or(
-      `title.ilike.%${normalizedQuery}%,destination.ilike.%${normalizedQuery}%,description.ilike.%${normalizedQuery}%`
-    )
-    .order("created_at", { ascending: false });
+    .not("origin", "is", null);
 
   if (error) {
     throw error;
   }
 
-  return (data ?? []) as Product[];
+  const origins = ((data ?? []) as { origin: string | null }[])
+    .map((row) => (row.origin ?? "").trim())
+    .filter((value) => value.length > 0);
+
+  return Array.from(new Set(origins)).sort((a, b) => a.localeCompare(b, "pt-BR"));
+};
+
+// Search internal packages by departure city, destination text and departure date.
+export const searchPackages = async (
+  filters: PackageSearchFilters = {}
+): Promise<Product[]> => {
+  const origem = filters.origem?.trim() ?? "";
+  const destino = (filters.destino ?? "").replace(/[(),]/g, " ").trim();
+  const ida = filters.ida?.trim() ?? "";
+
+  let query = productsTable()
+    .select("*, product_dates(start_date, active)")
+    .eq("active", true)
+    .order("created_at", { ascending: false });
+
+  if (origem) {
+    query = query.eq("origin", origem);
+  }
+
+  if (destino) {
+    query = query.or(
+      `title.ilike.%${destino}%,destination.ilike.%${destino}%,description.ilike.%${destino}%`
+    );
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw error;
+  }
+
+  type ProductWithDates = Product & {
+    product_dates?: { start_date: string; active: boolean }[];
+  };
+
+  let rows = (data ?? []) as ProductWithDates[];
+
+  // Soft date filter: keep packages that still have an active departure on/after "Ida".
+  if (ida) {
+    rows = rows.filter((product) =>
+      (product.product_dates ?? []).some(
+        (date) => date.active && date.start_date >= ida
+      )
+    );
+  }
+
+  return rows as Product[];
 };
 
 export const getActiveCategories = async (): Promise<Category[]> => {
