@@ -70,10 +70,36 @@ const ProductDetails = ({ product, productDates }: Props) => {
       .catch(console.error);
   }, [isAuthenticated, product.id]);
 
+  // Restore a booking draft saved before the user was sent to login.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = window.localStorage.getItem(`rw:booking-draft:${product.slug}`);
+    if (!raw) return;
+    try {
+      const draft = JSON.parse(raw);
+      if (
+        typeof draft.selectedDateId === "string" &&
+        productDates.some((date) => date.id === draft.selectedDateId)
+      ) {
+        setSelectedDateId(draft.selectedDateId);
+      }
+      if (typeof draft.travelersCount === "number" && draft.travelersCount > 0) {
+        setTravelersCount(draft.travelersCount);
+      }
+      if (typeof draft.customerName === "string") setCustomerName(draft.customerName);
+      if (typeof draft.customerEmail === "string") setCustomerEmail(draft.customerEmail);
+      if (typeof draft.customerPhone === "string") setCustomerPhone(draft.customerPhone);
+    } catch {
+      // ignore malformed draft
+    }
+    window.localStorage.removeItem(`rw:booking-draft:${product.slug}`);
+  }, [product.slug]);
+
   const toggleFavorite = async () => {
     setFavoriteError(null);
 
     if (!isAuthenticated) {
+      saveBookingDraft();
       router.push(`/signin?next=${encodeURIComponent(router.asPath)}`);
       return;
     }
@@ -146,10 +172,25 @@ const ProductDetails = ({ product, productDates }: Props) => {
     }
   }, [customerEmail, customerName, profile?.name, user?.email]);
 
+  const saveBookingDraft = () => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      `rw:booking-draft:${product.slug}`,
+      JSON.stringify({
+        selectedDateId,
+        travelersCount,
+        customerName,
+        customerEmail,
+        customerPhone,
+      })
+    );
+  };
+
   const startPendingBooking = async () => {
     setBookingError(null);
 
     if (!isAuthenticated) {
+      saveBookingDraft();
       router.push(`/signin?next=${encodeURIComponent(router.asPath)}`);
       return;
     }
@@ -285,10 +326,14 @@ const ProductDetails = ({ product, productDates }: Props) => {
                 Viajantes
                 <input
                   className="mt-1 w-full rounded border px-3 py-2"
+                  max={selectedDate?.available_slots || undefined}
                   min={1}
-                  onChange={(event) =>
-                    setTravelersCount(Number(event.target.value))
-                  }
+                  onChange={(event) => {
+                    const parsed = Math.floor(Number(event.target.value));
+                    setTravelersCount(
+                      Number.isFinite(parsed) && parsed > 0 ? parsed : 1
+                    );
+                  }}
                   type="number"
                   value={travelersCount}
                 />
