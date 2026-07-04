@@ -29,17 +29,14 @@ const Success = () => {
           <div className="flex flex-col space-y-8">
             <div className="mb-5 flex items-center space-x-2">
               <CheckCircleIcon className="text-green-500 h-10" />
-              <h1 className="text-3xl">
-                Pagamento recebido para processamento
-              </h1>
+              <h1 className="text-3xl">Pagamento recebido</h1>
             </div>
-            <p>
-              Esta pagina e mantida para compatibilidade com o checkout legado.
-              A confirmacao final da reserva deve vir do processamento seguro do
-              backend ou webhook correspondente, nao do frontend.
+            <p className="text-gray-600">
+              Obrigado! Recebemos a confirmação do seu pagamento. Você pode
+              acompanhar os detalhes e o status da sua reserva na sua conta.
             </p>
             <Link
-              className="mx-auto mt-3 rounded-xl bg-orange-500 px-3 py-1 text-md italic text-white transition duration-250 hover:bg-orange-600 active:scale-95"
+              className="mx-auto mt-3 inline-flex rounded-lg bg-orange-500 px-5 py-2 font-semibold text-white transition hover:bg-orange-600 active:scale-95"
               href="/account/bookings"
             >
               Acompanhar reservas

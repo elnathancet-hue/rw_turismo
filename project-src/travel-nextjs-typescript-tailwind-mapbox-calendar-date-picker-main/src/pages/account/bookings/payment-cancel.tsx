@@ -4,33 +4,28 @@ import { useState } from "react";
 import Drawer from "../../../components/Drawer";
 import Footer from "../../../components/Footer";
 import Header from "../../../components/Header";
-import type { ISuggestionFormatted } from "../../../types/typings";
 
 const PaymentCancel = () => {
   const router = useRouter();
   const bookingId =
     typeof router.query.booking_id === "string" ? router.query.booking_id : "";
   const [isOpen, setIsOpen] = useState(false);
-  const [searchInput, setSearchInput] = useState("");
-  const [selectedCity, setSelectedCity] = useState<ISuggestionFormatted | null>(
-    null
-  );
+  const [headerSearch, setHeaderSearch] = useState("");
 
   return (
     <div>
       <Header
-        searchInput={searchInput}
-        setSearchInput={setSearchInput}
-        selectedCity={selectedCity}
-        setSelectedCity={setSelectedCity}
         isOpen={isOpen}
+        searchInput={headerSearch}
         setIsOpen={setIsOpen}
+        setSearchInput={setHeaderSearch}
       />
       <main className="mx-auto min-h-[70vh] max-w-3xl px-6 py-10">
-        <h1 className="text-3xl font-semibold">Pagamento cancelado</h1>
+        <h1 className="text-3xl font-semibold">Pagamento não concluído</h1>
         <p className="mt-4 text-gray-600">
-          O checkout foi encerrado sem confirmar pagamento. Se a reserva ainda
-          estiver dentro do prazo, voce pode tentar pagar novamente.
+          Você saiu antes de finalizar o pagamento. Se a sua reserva ainda
+          estiver dentro do prazo, é só concluir o pagamento para garantir sua
+          vaga.
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           {bookingId && (
@@ -38,7 +33,7 @@ const PaymentCancel = () => {
               className="rounded bg-orange-600 px-5 py-2 font-semibold text-white hover:bg-orange-700"
               href={`/account/bookings/${bookingId}`}
             >
-              Voltar para reserva
+              Concluir pagamento
             </Link>
           )}
           <Link
@@ -51,6 +46,9 @@ const PaymentCancel = () => {
       </main>
       <Footer />
       <Drawer isOpen={isOpen} setIsOpen={setIsOpen}>
+        <p className="drawer-item">
+          <Link href="/favorites">Meus favoritos</Link>
+        </p>
         <p className="drawer-current-item">Minhas reservas</p>
       </Drawer>
     </div>
