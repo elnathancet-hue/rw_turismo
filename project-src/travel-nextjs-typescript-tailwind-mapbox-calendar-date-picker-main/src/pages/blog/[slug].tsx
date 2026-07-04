@@ -1,6 +1,7 @@
 import type { GetServerSidePropsContext } from "next";
 import Head from "next/head";
 import Link from "next/link";
+import MarkdownContent from "../../components/MarkdownContent";
 import { getPublishedPostBySlug, getPublishedPosts } from "../../lib/content/server";
 import type { BlogPost } from "../../lib/content/types";
 
@@ -31,7 +32,7 @@ const BlogPostPage = ({ post, related }: { post: BlogPost; related: BlogPost[] }
         <h1 className="mt-3 text-4xl font-bold">{post.title}</h1>
         {post.published_at && <time className="mt-4 block text-sm text-gray-500" dateTime={post.published_at}>{new Intl.DateTimeFormat("pt-BR", { dateStyle: "long" }).format(new Date(post.published_at))}</time>}
         {post.cover_image && <img alt={post.title} className="mt-8 max-h-[460px] w-full rounded-xl object-cover" src={post.cover_image} />}
-        <article className="mt-10 whitespace-pre-wrap text-lg leading-8 text-gray-800">{post.content}</article>
+        <MarkdownContent className="prose prose-lg mt-10 max-w-none prose-headings:font-semibold prose-a:font-medium prose-a:text-orange-600 prose-a:no-underline hover:prose-a:underline prose-img:rounded-xl" content={post.content} />
         <div className="mt-8 flex flex-wrap gap-2">{post.tags?.map((tag) => <Link className="rounded-full bg-gray-100 px-3 py-1 text-sm" href={`/blog/tag/${tag.slug}`} key={tag.id}>#{tag.name}</Link>)}</div>
         <aside className="mt-12 rounded-xl bg-orange-50 p-6"><h2 className="text-xl font-semibold">Pronto para viajar?</h2><p className="mt-2">Conheça os pacotes da RW Turismo.</p><Link className="mt-4 inline-flex font-semibold text-orange-600" href="/#pacotes">Ver pacotes</Link></aside>
         {!!related.length && <section className="mt-12"><h2 className="text-2xl font-semibold">Leia também</h2><div className="mt-4 space-y-3">{related.map((item) => <Link className="block font-semibold text-orange-600" href={`/blog/${item.slug}`} key={item.id}>{item.title}</Link>)}</div></section>}

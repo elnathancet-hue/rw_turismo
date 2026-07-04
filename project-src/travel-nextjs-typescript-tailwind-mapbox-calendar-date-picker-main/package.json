@@ -17,6 +17,7 @@
     "framer-motion": "^7.10.2",
     "geolib": "^3.3.3",
     "mapbox-gl": "^2.15.0",
+    "markdown-to-jsx": "^9.8.2",
     "micro": "^10.0.1",
     "next": "^15.5.18",
     "react": "^18.3.1",
@@ -28,6 +29,7 @@
     "tailwind-scrollbar-hide": "^1.1.7"
   },
   "devDependencies": {
+    "@tailwindcss/typography": "^0.5.20",
     "@types/micro": "^7.3.7",
     "@types/node": "^22.19.15",
     "@types/react": "^18.3.28",
