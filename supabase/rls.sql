@@ -343,3 +343,94 @@ on public.system_logs
 for insert
 to authenticated
 with check (public.is_admin());
+
+-- Editable home, settings, blog and newsletter.
+alter table public.home_sections enable row level security;
+alter table public.home_banners enable row level security;
+alter table public.site_settings enable row level security;
+alter table public.blog_posts enable row level security;
+alter table public.blog_categories enable row level security;
+alter table public.blog_tags enable row level security;
+alter table public.blog_post_tags enable row level security;
+alter table public.newsletter_subscribers enable row level security;
+
+drop policy if exists "home_sections_public_read" on public.home_sections;
+create policy "home_sections_public_read" on public.home_sections
+for select to anon, authenticated using (active = true);
+drop policy if exists "home_sections_admin_all" on public.home_sections;
+create policy "home_sections_admin_all" on public.home_sections
+for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+drop policy if exists "home_banners_public_read" on public.home_banners;
+create policy "home_banners_public_read" on public.home_banners
+for select to anon, authenticated
+using (
+  active = true
+  and (starts_at is null or starts_at <= now())
+  and (ends_at is null or ends_at >= now())
+);
+drop policy if exists "home_banners_admin_all" on public.home_banners;
+create policy "home_banners_admin_all" on public.home_banners
+for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+drop policy if exists "site_settings_public_read" on public.site_settings;
+create policy "site_settings_public_read" on public.site_settings
+for select to anon, authenticated using (true);
+drop policy if exists "site_settings_admin_all" on public.site_settings;
+create policy "site_settings_admin_all" on public.site_settings
+for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+drop policy if exists "blog_posts_public_read" on public.blog_posts;
+create policy "blog_posts_public_read" on public.blog_posts
+for select to anon, authenticated
+using (status = 'published' and published_at is not null and published_at <= now());
+drop policy if exists "blog_posts_admin_all" on public.blog_posts;
+create policy "blog_posts_admin_all" on public.blog_posts
+for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+drop policy if exists "blog_categories_public_read" on public.blog_categories;
+create policy "blog_categories_public_read" on public.blog_categories
+for select to anon, authenticated using (active = true);
+drop policy if exists "blog_categories_admin_all" on public.blog_categories;
+create policy "blog_categories_admin_all" on public.blog_categories
+for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+drop policy if exists "blog_tags_public_read" on public.blog_tags;
+create policy "blog_tags_public_read" on public.blog_tags
+for select to anon, authenticated using (true);
+drop policy if exists "blog_tags_admin_all" on public.blog_tags;
+create policy "blog_tags_admin_all" on public.blog_tags
+for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+drop policy if exists "blog_post_tags_public_read" on public.blog_post_tags;
+create policy "blog_post_tags_public_read" on public.blog_post_tags
+for select to anon, authenticated using (
+  exists (
+    select 1 from public.blog_posts
+    where blog_posts.id = blog_post_tags.post_id
+      and blog_posts.status = 'published'
+      and blog_posts.published_at <= now()
+  )
+);
+drop policy if exists "blog_post_tags_admin_all" on public.blog_post_tags;
+create policy "blog_post_tags_admin_all" on public.blog_post_tags
+for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+drop policy if exists "newsletter_public_insert" on public.newsletter_subscribers;
+create policy "newsletter_public_insert" on public.newsletter_subscribers
+for insert to anon, authenticated with check (active = true and source in ('home', 'blog'));
+drop policy if exists "newsletter_admin_read" on public.newsletter_subscribers;
+create policy "newsletter_admin_read" on public.newsletter_subscribers
+for select to authenticated using (public.is_admin());
+drop policy if exists "newsletter_admin_update" on public.newsletter_subscribers;
+create policy "newsletter_admin_update" on public.newsletter_subscribers
+for update to authenticated using (public.is_admin()) with check (public.is_admin());
+
+drop policy if exists "public_read_site_assets" on storage.objects;
+create policy "public_read_site_assets" on storage.objects
+for select to public using (bucket_id in ('site-assets', 'product-images', 'blog-images'));
+drop policy if exists "admin_manage_site_assets" on storage.objects;
+create policy "admin_manage_site_assets" on storage.objects
+for all to authenticated
+using (bucket_id in ('site-assets', 'product-images', 'blog-images') and public.is_admin())
+with check (bucket_id in ('site-assets', 'product-images', 'blog-images') and public.is_admin());

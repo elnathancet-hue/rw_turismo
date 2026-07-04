@@ -12,6 +12,9 @@ import { getActiveProductsServer } from "../lib/products/server";
 import { fallbackProducts } from "../lib/products/fallback";
 import type { Product } from "../lib/products/types";
 import { IStyleData, ISuggestionFormatted } from "../types/typings";
+import EditableHome, { type EditableHomeProps } from "../components/home/EditableHome";
+import { getPublicHomeContent, getPublishedPosts } from "../lib/content/server";
+import type { HomeBanner, HomeSection, SiteSetting } from "../lib/content/types";
 
 type Props = {
   citiesData: ISuggestionFormatted[];
@@ -180,28 +183,44 @@ const Home = ({ citiesData, stylesData, getInspiredCities, products }: Props) =>
   );
 };
 
-export default Home;
+export default EditableHome;
 
 export const getStaticProps = async () => {
   let products = fallbackProducts;
+  let sections: HomeSection[] = [
+    { id: "fallback-featured", section_key: "featured_products", title: "Pacotes em destaque", subtitle: null, content: { limit: 6 }, active: true, display_order: 10, created_at: "", updated_at: "" },
+    { id: "fallback-benefits", section_key: "benefits", title: "Viaje com tranquilidade", subtitle: null, content: { items: [{ title: "Atendimento próximo", text: "Conte com nossa equipe." }, { title: "Experiências selecionadas", text: "Roteiros escolhidos com cuidado." }, { title: "Reserva segura", text: "Seus dados protegidos." }] }, active: true, display_order: 20, created_at: "", updated_at: "" },
+  ];
+  let banners: HomeBanner[] = [{ id: "fallback-banner", title: "Sua próxima viagem começa aqui", subtitle: "Pacotes e experiências escolhidos para você.", image_url: "/banner1200x600.jpg", mobile_image_url: null, button_text: "Ver pacotes", button_url: "#pacotes", overlay_strength: 0.35, active: true, display_order: 0, starts_at: null, ends_at: null, created_at: "", updated_at: "" }];
+  let settings: SiteSetting[] = [{ id: "fallback-seo", setting_key: "home_seo", value: { title: "RW Turismo", description: "Pacotes, experiências e destinos para sua próxima viagem.", og_image: "/banner1200x600.jpg" }, updated_at: "" }];
+  let blogPosts: EditableHomeProps["blogPosts"] = [];
 
   try {
-    const supabaseProducts = await getActiveProductsServer();
+    const [supabaseProducts, homeContent, blog] = await Promise.all([
+      getActiveProductsServer(),
+      getPublicHomeContent(),
+      getPublishedPosts({ limit: 3 }),
+    ]);
 
     if (supabaseProducts.length > 0) {
       products = supabaseProducts;
     }
+    if (homeContent.sections.length) sections = homeContent.sections;
+    if (homeContent.banners.length) banners = homeContent.banners;
+    if (homeContent.settings.length) settings = homeContent.settings;
+    blogPosts = blog.posts;
   } catch (error) {
-    console.error("Failed to load Supabase products for homepage", error);
+    console.error("Failed to load editable homepage", error);
   }
 
   return {
     props: {
       products,
-      // Legacy visual blocks keep local fallback data until the homepage is fully redesigned around Supabase products.
-      citiesData: fallbackCitiesData,
-      stylesData: fallbackStylesData,
-      getInspiredCities: fallbackInspiredCities,
+      sections,
+      banners,
+      settings,
+      blogPosts,
     },
+    revalidate: 300,
   };
 };

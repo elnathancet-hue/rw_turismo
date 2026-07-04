@@ -110,6 +110,31 @@ const ProductDetails = ({ product, productDates }: Props) => {
   const selectedDate = productDates.find((date) => date.id === selectedDateId);
   const selectedUnitPrice = selectedDate?.price_override ?? displayPrice;
   const estimatedTotal = selectedUnitPrice * travelersCount;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") ?? "";
+  const canonicalUrl = `${siteUrl}/products/${product.slug}`;
+  const productJsonLd = {
+    "@context": "https://schema.org",
+    "@type": product.type === "package" || product.type === "experience" ? "TouristTrip" : "Product",
+    name: product.title,
+    description: product.description,
+    image: product.cover_image || undefined,
+    touristType: product.type,
+    offers: {
+      "@type": "Offer",
+      priceCurrency: "BRL",
+      price: displayPrice,
+      availability: productDates.length ? "https://schema.org/InStock" : "https://schema.org/PreOrder",
+      url: canonicalUrl,
+    },
+  };
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Início", item: siteUrl },
+      { "@type": "ListItem", position: 2, name: product.title, item: canonicalUrl },
+    ],
+  };
 
   useEffect(() => {
     if (!customerName && profile?.name) {
@@ -178,6 +203,13 @@ const ProductDetails = ({ product, productDates }: Props) => {
           name="description"
           content={product.description ?? "Pacotes e experiências RW Turismo."}
         />
+        <link rel="canonical" href={canonicalUrl} />
+        <meta property="og:type" content="product" />
+        <meta property="og:title" content={product.title} />
+        <meta property="og:description" content={product.description ?? ""} />
+        {product.cover_image && <meta property="og:image" content={product.cover_image} />}
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd).replace(/</g, "\\u003c") }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd).replace(/</g, "\\u003c") }} />
       </Head>
       <Header
         searchInput={searchInput}

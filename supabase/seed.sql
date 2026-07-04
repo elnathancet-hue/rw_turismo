@@ -113,6 +113,67 @@ join public.categories on categories.slug in ('pacotes', 'ecoturismo')
 where products.slug = 'lencois-maranhenses-essencial'
 on conflict (product_id, category_id) do nothing;
 
+insert into public.home_banners (
+  title, subtitle, image_url, button_text, button_url, overlay_strength, active, display_order
+)
+values (
+  'Sua próxima viagem começa aqui',
+  'Pacotes e experiências escolhidos para você.',
+  '/banner1200x600.jpg',
+  'Ver pacotes',
+  '#pacotes',
+  0.35,
+  true,
+  0
+)
+on conflict do nothing;
+
+insert into public.home_sections (section_key, title, subtitle, content, active, display_order)
+values
+  ('featured_products', 'Pacotes em destaque', 'As melhores experiências da RW Turismo.', '{"limit": 6}'::jsonb, true, 10),
+  ('destinations', 'Destinos mais procurados', 'Inspire-se para sua próxima viagem.', '{"items": [{"title":"Lençóis Maranhenses","subtitle":"Maranhão","image":"/get-inspired1200x600.jpg","url":"/products/lencois-maranhenses-essencial"}]}'::jsonb, true, 20),
+  ('benefits', 'Viaje com tranquilidade', null, '{"items":[{"title":"Atendimento próximo","text":"Conte com nossa equipe em cada etapa."},{"title":"Experiências selecionadas","text":"Roteiros pensados para aproveitar melhor cada destino."},{"title":"Reserva segura","text":"Seus dados e pagamentos protegidos."}]}'::jsonb, true, 30),
+  ('latest_blog_posts', 'Conteúdos para inspirar sua viagem', null, '{"limit": 3}'::jsonb, true, 40),
+  ('newsletter', 'Receba ofertas e novidades', 'Novos destinos e oportunidades direto no seu e-mail.', '{}'::jsonb, true, 50)
+on conflict (section_key) do update
+set title = excluded.title,
+    subtitle = excluded.subtitle,
+    content = excluded.content,
+    active = excluded.active,
+    display_order = excluded.display_order;
+
+insert into public.site_settings (setting_key, value)
+values
+  ('site_identity', '{"name":"RW Turismo","description":"Pacotes, experiências e destinos para sua próxima viagem.","logo":null,"favicon":"/favicon.ico"}'::jsonb),
+  ('home_seo', '{"title":"RW Turismo","description":"Pacotes, experiências e destinos para sua próxima viagem.","og_image":"/banner1200x600.jpg"}'::jsonb),
+  ('contact', '{"whatsapp":null,"email":null,"city":null,"state":null,"address":null}'::jsonb),
+  ('social_links', '{}'::jsonb),
+  ('footer', '{"description":"Viaje com a RW Turismo."}'::jsonb),
+  ('default_seo', '{"title_suffix":" | RW Turismo","description":"Pacotes, experiências e destinos para sua próxima viagem."}'::jsonb)
+on conflict (setting_key) do update set value = excluded.value;
+
+insert into public.blog_categories (name, slug, description, active)
+values ('Dicas de viagem', 'dicas-de-viagem', 'Conteúdos para planejar viagens melhores.', true)
+on conflict (slug) do update
+set name = excluded.name, description = excluded.description, active = excluded.active;
+
+insert into public.blog_posts (
+  title, slug, excerpt, content, category_id, status, featured, seo_title, seo_description
+)
+select
+  'Como planejar sua próxima viagem',
+  'como-planejar-sua-proxima-viagem',
+  'Um guia inicial para organizar sua próxima experiência.',
+  E'Escolha o destino com antecedência.\n\nDefina datas, orçamento e as experiências que deseja viver.\n\nEste conteúdo é um rascunho editorial.',
+  id,
+  'draft',
+  false,
+  'Como planejar sua próxima viagem',
+  'Dicas práticas para começar a planejar sua próxima viagem.'
+from public.blog_categories
+where slug = 'dicas-de-viagem'
+on conflict (slug) do nothing;
+
 insert into public.product_categories (product_id, category_id)
 select products.id, categories.id
 from public.products

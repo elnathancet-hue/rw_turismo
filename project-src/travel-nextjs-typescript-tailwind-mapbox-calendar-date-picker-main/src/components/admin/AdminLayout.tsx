@@ -5,6 +5,9 @@ import {
   HomeIcon,
   Squares2X2Icon,
   TagIcon,
+  NewspaperIcon,
+  PhotoIcon,
+  Cog6ToothIcon,
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -24,6 +27,9 @@ const navigation = [
   { href: "/admin/bookings", label: "Reservas", icon: ClipboardDocumentListIcon },
   { href: "/admin/payments", label: "Pagamentos", icon: CreditCardIcon },
   { href: "/admin/categories", label: "Categorias", icon: TagIcon },
+  { href: "/admin/home", label: "Home", icon: PhotoIcon },
+  { href: "/admin/blog", label: "Blog", icon: NewspaperIcon },
+  { href: "/admin/settings", label: "Configurações", icon: Cog6ToothIcon },
 ];
 
 const AdminLayout = ({ children, title, description, action }: Props) => {
@@ -34,11 +40,11 @@ const AdminLayout = ({ children, title, description, action }: Props) => {
       <aside className="fixed inset-y-0 left-0 hidden w-64 border-r bg-white px-4 py-6 lg:block">
         <Link className="flex items-center gap-3 px-3" href="/">
           <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-500 font-bold text-white">
-            T
+            RW
           </span>
           <span>
-            <span className="block text-sm font-semibold">Travel Admin</span>
-            <span className="block text-xs text-gray-500">Operacoes</span>
+            <span className="block text-sm font-semibold">RW Turismo Admin</span>
+            <span className="block text-xs text-gray-500">Operações</span>
           </span>
         </Link>
         <nav className="mt-8 space-y-1">

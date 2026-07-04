@@ -122,3 +122,29 @@ Fotos de perfil.
 Documentos privados de reservas.
 
 Ainda nao ha upload Supabase Storage implementado no fluxo atual.
+
+## Home, blog e Storage
+
+Os scripts SQL criam as tabelas editoriais `home_sections`, `home_banners`,
+`site_settings`, `blog_posts`, `blog_categories`, `blog_tags`,
+`blog_post_tags` e `newsletter_subscribers`.
+
+Também são criados os buckets públicos:
+
+- `site-assets`: banners, logo e favicon;
+- `product-images`: imagens de produtos;
+- `blog-images`: capas e imagens editoriais.
+
+Arquivos publicados têm leitura pública. Upload, alteração e exclusão exigem
+uma sessão autenticada cujo perfil possua `role = 'admin'`. O componente
+administrativo aceita apenas imagens conhecidas e limita o upload a 5 MB. A
+chave `service_role` não é utilizada pelo navegador.
+
+Depois de atualizar o projeto, execute novamente, nesta ordem:
+
+1. `supabase/schema.sql`
+2. `supabase/rls.sql`
+3. `supabase/seed.sql`
+
+O seed cria um banner, seções padrão, configurações básicas, uma categoria de
+blog e um post em rascunho. O rascunho não é exposto pelas políticas públicas.

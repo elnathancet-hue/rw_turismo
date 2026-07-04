@@ -461,3 +461,126 @@ $$;
 
 revoke all on function public.expire_pending_booking(uuid) from public;
 grant execute on function public.expire_pending_booking(uuid) to service_role;
+
+-- Editable home, site settings and blog.
+create table if not exists public.home_sections (
+  id uuid primary key default gen_random_uuid(),
+  section_key text not null unique,
+  title text,
+  subtitle text,
+  content jsonb not null default '{}'::jsonb,
+  active boolean not null default true,
+  display_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint home_sections_content_object_check check (jsonb_typeof(content) = 'object')
+);
+
+create table if not exists public.home_banners (
+  id uuid primary key default gen_random_uuid(),
+  title text,
+  subtitle text,
+  image_url text,
+  mobile_image_url text,
+  button_text text,
+  button_url text,
+  overlay_strength numeric(3,2) not null default 0.35,
+  active boolean not null default true,
+  display_order integer not null default 0,
+  starts_at timestamptz,
+  ends_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint home_banners_overlay_check check (overlay_strength between 0 and 1),
+  constraint home_banners_date_range_check check (ends_at is null or starts_at is null or ends_at >= starts_at)
+);
+
+create table if not exists public.site_settings (
+  id uuid primary key default gen_random_uuid(),
+  setting_key text not null unique,
+  value jsonb not null,
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.blog_categories (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  slug text not null unique,
+  description text,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.blog_posts (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  slug text not null unique,
+  excerpt text,
+  content text not null default '',
+  cover_image text,
+  author_id uuid references auth.users(id) on delete set null,
+  category_id uuid references public.blog_categories(id) on delete set null,
+  status text not null default 'draft',
+  published_at timestamptz,
+  featured boolean not null default false,
+  seo_title text,
+  seo_description text,
+  canonical_url text,
+  og_image text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint blog_posts_status_check check (status in ('draft', 'published', 'archived'))
+);
+
+create table if not exists public.blog_tags (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  slug text not null unique
+);
+
+create table if not exists public.blog_post_tags (
+  post_id uuid not null references public.blog_posts(id) on delete cascade,
+  tag_id uuid not null references public.blog_tags(id) on delete cascade,
+  primary key (post_id, tag_id)
+);
+
+create table if not exists public.newsletter_subscribers (
+  id uuid primary key default gen_random_uuid(),
+  email text not null unique,
+  active boolean not null default true,
+  source text not null default 'home',
+  created_at timestamptz not null default now(),
+  constraint newsletter_email_lowercase_check check (email = lower(email)),
+  constraint newsletter_email_basic_check check (email ~* '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$')
+);
+
+create index if not exists home_sections_active_order_idx on public.home_sections(active, display_order);
+create index if not exists home_banners_active_order_idx on public.home_banners(active, display_order);
+create index if not exists blog_posts_publication_idx on public.blog_posts(status, published_at desc);
+create index if not exists blog_posts_category_idx on public.blog_posts(category_id);
+create index if not exists blog_posts_featured_idx on public.blog_posts(featured);
+create index if not exists newsletter_subscribers_created_idx on public.newsletter_subscribers(created_at desc);
+
+drop trigger if exists set_home_sections_updated_at on public.home_sections;
+create trigger set_home_sections_updated_at before update on public.home_sections
+for each row execute function public.set_updated_at();
+drop trigger if exists set_home_banners_updated_at on public.home_banners;
+create trigger set_home_banners_updated_at before update on public.home_banners
+for each row execute function public.set_updated_at();
+drop trigger if exists set_blog_categories_updated_at on public.blog_categories;
+create trigger set_blog_categories_updated_at before update on public.blog_categories
+for each row execute function public.set_updated_at();
+drop trigger if exists set_blog_posts_updated_at on public.blog_posts;
+create trigger set_blog_posts_updated_at before update on public.blog_posts
+for each row execute function public.set_updated_at();
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values
+  ('site-assets', 'site-assets', true, 5242880, array['image/jpeg','image/png','image/webp','image/svg+xml','image/x-icon']),
+  ('product-images', 'product-images', true, 5242880, array['image/jpeg','image/png','image/webp']),
+  ('blog-images', 'blog-images', true, 5242880, array['image/jpeg','image/png','image/webp'])
+on conflict (id) do update
+set public = excluded.public,
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
