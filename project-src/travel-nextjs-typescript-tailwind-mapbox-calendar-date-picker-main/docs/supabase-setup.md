@@ -24,6 +24,52 @@ No SQL Editor do Supabase, rode nesta ordem:
 `http://localhost:3000/auth/callback`
 `https://seu-dominio.com/auth/callback`
 
+## Email Auth, cadastro e códigos de acesso
+
+1. Acesse `Authentication > Providers > Email`.
+2. Mantenha o provedor Email habilitado para login com e-mail e senha.
+3. Em produção, mantenha `Confirm email` habilitado para exigir a confirmação
+   antes da primeira sessão.
+4. Revise os templates em `Authentication > Email Templates`, especialmente:
+   confirmação de cadastro, Magic Link e recuperação de senha.
+5. Se o projeto estiver configurado para OTP numérico, inclua `{{ .Token }}` no
+   template. Para Magic Link, use `{{ .ConfirmationURL }}`.
+
+A opção `Receber código por e-mail` usa o mesmo provedor Email do Supabase. O
+formato recebido pelo usuário — link mágico ou código — depende do template e
+das configurações do projeto.
+
+## URLs de autenticação e recuperação
+
+Em `Authentication > URL Configuration`, configure a URL pública em `Site URL`
+e inclua em `Redirect URLs`:
+
+```text
+http://localhost:3000/auth/callback
+http://localhost:3000/reset-password
+https://seu-dominio.com/auth/callback
+https://seu-dominio.com/reset-password
+```
+
+O fluxo de recuperação começa em `/forgot-password`. O link enviado pelo
+Supabase abre `/reset-password`, onde a nova senha é salva diretamente no
+Supabase Auth.
+
+## Segurança dos usuários
+
+- Senhas são administradas exclusivamente pelo Supabase Auth e não são salvas
+  nas tabelas da aplicação.
+- O cadastro público envia somente o nome como metadata.
+- O frontend nunca recebe nem envia `role`.
+- `ensureUserProfile()` cria perfis novos explicitamente com
+  `role = 'customer'`.
+- Administradores continuam sendo promovidos apenas por uma operação segura no
+  backend ou no SQL Editor.
+- `SUPABASE_SERVICE_ROLE_KEY` nunca pode ser exposta em variável
+  `NEXT_PUBLIC_*`.
+- Parâmetros `next` aceitam somente caminhos internos iniciados por `/` e
+  rejeitam URLs iniciadas por `//`.
+
 ## Promover Admin
 
 Depois que o usuario fizer login e tiver perfil em `users_profiles`, promova via

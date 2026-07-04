@@ -9,6 +9,7 @@ import {
   signOutFromSupabase,
 } from "../lib/auth/client";
 import { ISuggestionFormatted } from "../types/typings";
+import AuthPage from "../components/auth/AuthPage";
 
 const getSafeNextPath = (value: string | string[] | undefined): string => {
   const nextPath = Array.isArray(value) ? value[0] : value;
@@ -105,4 +106,4 @@ const SignIn = () => {
   );
 };
 
-export default SignIn;
+export default AuthPage;

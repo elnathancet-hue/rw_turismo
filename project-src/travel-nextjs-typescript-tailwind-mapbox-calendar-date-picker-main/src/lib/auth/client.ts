@@ -10,6 +10,24 @@ const getBrowserOrigin = (): string => {
   return window.location.origin;
 };
 
+export const getSafeInternalPath = (
+  value: string | string[] | undefined,
+  fallback = "/"
+): string => {
+  const path = Array.isArray(value) ? value[0] : value;
+
+  if (!path || !path.startsWith("/") || path.startsWith("//")) {
+    return fallback;
+  }
+
+  return path;
+};
+
+const getAuthCallbackUrl = (nextPath = "/") =>
+  `${getBrowserOrigin()}/auth/callback?next=${encodeURIComponent(
+    getSafeInternalPath(nextPath)
+  )}`;
+
 export const getSupabaseBrowserSession = async (): Promise<Session | null> => {
   const supabase = createSupabaseBrowserClient();
   const { data, error } = await supabase.auth.getSession();
@@ -64,17 +82,84 @@ export const ensureSupabaseBrowserProfile =
 
 export const signInWithSupabaseGoogle = async (nextPath = "/") => {
   const supabase = createSupabaseBrowserClient();
-  const safeNextPath = nextPath.startsWith("/") ? nextPath : "/";
-  const redirectTo = `${getBrowserOrigin()}/auth/callback?next=${encodeURIComponent(
-    safeNextPath
-  )}`;
 
   return supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo,
+      redirectTo: getAuthCallbackUrl(nextPath),
     },
   });
+};
+
+export const signInWithEmailPassword = async (
+  email: string,
+  password: string
+) => {
+  const supabase = createSupabaseBrowserClient();
+  const result = await supabase.auth.signInWithPassword({
+    email: email.trim().toLowerCase(),
+    password,
+  });
+
+  if (!result.error && result.data.session) {
+    await ensureUserProfile(supabase, result.data.user);
+  }
+
+  return result;
+};
+
+export const signUpWithEmailPassword = async (
+  name: string,
+  email: string,
+  password: string,
+  nextPath = "/"
+) => {
+  const supabase = createSupabaseBrowserClient();
+  const result = await supabase.auth.signUp({
+    email: email.trim().toLowerCase(),
+    password,
+    options: {
+      data: {
+        name: name.trim(),
+      },
+      emailRedirectTo: getAuthCallbackUrl(nextPath),
+    },
+  });
+
+  if (!result.error && result.data.session && result.data.user) {
+    await ensureUserProfile(supabase, result.data.user);
+  }
+
+  return result;
+};
+
+export const signInWithEmailOtp = async (
+  email: string,
+  nextPath = "/"
+) => {
+  const supabase = createSupabaseBrowserClient();
+
+  return supabase.auth.signInWithOtp({
+    email: email.trim().toLowerCase(),
+    options: {
+      emailRedirectTo: getAuthCallbackUrl(nextPath),
+      shouldCreateUser: false,
+    },
+  });
+};
+
+export const requestPasswordReset = async (email: string) => {
+  const supabase = createSupabaseBrowserClient();
+
+  return supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+    redirectTo: `${getBrowserOrigin()}/reset-password`,
+  });
+};
+
+export const updatePassword = async (password: string) => {
+  const supabase = createSupabaseBrowserClient();
+
+  return supabase.auth.updateUser({ password });
 };
 
 export const signOutFromSupabase = async () => {
