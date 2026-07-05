@@ -1,5 +1,5 @@
 import { useRouter } from "next/router";
-import { Dispatch, SetStateAction } from "react";
+import { Dispatch, SetStateAction, useEffect } from "react";
 import { signOutFromSupabase } from "../lib/auth/client";
 import useSupabaseSession from "../hooks/useSupabaseSession";
 
@@ -12,6 +12,15 @@ type Props = {
 const Drawer = ({ children, isOpen, setIsOpen }: Props) => {
   const router = useRouter();
   const { user, profile, isAuthenticated, isLoading } = useSupabaseSession();
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isOpen, setIsOpen]);
 
   const goToSignIn = () => {
     setIsOpen(false);
@@ -33,12 +42,13 @@ const Drawer = ({ children, isOpen, setIsOpen }: Props) => {
       }
     >
       <section
+        aria-label="Menu"
         className={
           " w-screen max-w-[225px] right-0 absolute bg-white h-full shadow-xl delay-400 duration-500 ease-in-out transition-all transform  " +
           (isOpen ? " translate-x-0 " : " translate-x-full ")
         }
       >
-        <article className="relative w-screen max-w-[240px] px-5 py-[85px] flex flex-col space-y-3 overflow-y-scroll h-full">
+        <nav className="relative w-screen max-w-[240px] px-5 py-[85px] flex flex-col space-y-3 overflow-y-scroll h-full">
           {!isAuthenticated ? (
             <>
               <header className="py-3">
@@ -47,12 +57,13 @@ const Drawer = ({ children, isOpen, setIsOpen }: Props) => {
                 </h2>
               </header>
               <p>
-                <span
+                <button
+                  className="font-bold text-orange-600 hover:text-orange-700"
                   onClick={goToSignIn}
-                  className="font-bold text-orange-500 active:text-orange-600 cursor-pointer"
+                  type="button"
                 >
                   {isLoading ? "Verificando sessão" : "Entrar"}
-                </span>{" "}
+                </button>{" "}
                 para aproveitar uma experiência completa
               </p>
             </>
@@ -65,19 +76,22 @@ const Drawer = ({ children, isOpen, setIsOpen }: Props) => {
                 <p className="text-xs font-light">{user?.email}</p>
               </header>
               {[children]}
-              <p onClick={handleLogout} className="drawer-item">
+              <button
+                className="drawer-item text-left"
+                onClick={handleLogout}
+                type="button"
+              >
                 Sair
-              </p>
+              </button>
             </>
           )}
-        </article>
+        </nav>
       </section>
-      <section
-        className=" w-screen h-full cursor-pointer "
-        onClick={() => {
-          setIsOpen(false);
-        }}
-      ></section>
+      <div
+        aria-hidden="true"
+        className="h-full w-screen"
+        onClick={() => setIsOpen(false)}
+      />
     </main>
   );
 };
