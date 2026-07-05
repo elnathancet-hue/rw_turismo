@@ -11,6 +11,15 @@ module.exports = {
           600: "#c2410c",
           700: "#9a3412",
         },
+        // Semantic brand token for the design-system UI components.
+        brand: {
+          50: "#fff7ed",
+          100: "#ffedd5",
+          400: "#fb923c",
+          500: "#ea580c",
+          600: "#c2410c",
+          700: "#9a3412",
+        },
       },
     },
   },
