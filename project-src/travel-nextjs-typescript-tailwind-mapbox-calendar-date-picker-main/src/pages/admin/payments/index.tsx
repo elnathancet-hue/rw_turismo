@@ -2,6 +2,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import AdminGuard from "../../../components/admin/AdminGuard";
 import AdminLayout from "../../../components/admin/AdminLayout";
+import AdminListState from "../../../components/admin/AdminListState";
 import {
   getAdminPayments,
   type AdminPayment,
@@ -36,17 +37,30 @@ const AdminPayments = () => {
   const [payments, setPayments] = useState<AdminPayment[]>([]);
   const [status, setStatus] = useState<PaymentStatus | "all">("all");
   const [error, setError] = useState<string | null>(null);
+  const [loadStatus, setLoadStatus] = useState<"loading" | "ready" | "error">(
+    "loading"
+  );
 
-  useEffect(() => {
+  const loadPayments = () => {
+    setLoadStatus("loading");
+    setError(null);
     getAdminPayments()
-      .then(setPayments)
-      .catch((loadError) =>
+      .then((data) => {
+        setPayments(data);
+        setLoadStatus("ready");
+      })
+      .catch((loadError) => {
         setError(
           loadError instanceof Error
             ? loadError.message
-            : "Nao foi possivel carregar pagamentos."
-        )
-      );
+            : "Não foi possível carregar os pagamentos."
+        );
+        setLoadStatus("error");
+      });
+  };
+
+  useEffect(() => {
+    loadPayments();
   }, []);
 
   const filteredPayments = useMemo(
@@ -61,12 +75,6 @@ const AdminPayments = () => {
         title="Pagamentos"
         description="Acompanhe pagamentos internos Stripe e revisoes manuais."
       >
-        {error && (
-          <p className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-            {error}
-          </p>
-        )}
-
         <div className="mb-4 rounded-lg border bg-white p-4 shadow-sm">
           <label className="text-sm">
             <span className="mb-1 block font-medium text-gray-600">
@@ -88,6 +96,13 @@ const AdminPayments = () => {
           </label>
         </div>
 
+        <AdminListState
+          emptyTitle="Nenhum pagamento encontrado"
+          error={error}
+          isEmpty={filteredPayments.length === 0}
+          onRetry={loadPayments}
+          status={loadStatus}
+        >
         <div className="overflow-x-auto rounded-lg border bg-white shadow-sm">
           <table className="w-full min-w-[1180px] text-left text-sm">
             <thead className="bg-gray-50 text-xs uppercase text-gray-500">
@@ -158,6 +173,7 @@ const AdminPayments = () => {
             </tbody>
           </table>
         </div>
+        </AdminListState>
       </AdminLayout>
     </AdminGuard>
   );

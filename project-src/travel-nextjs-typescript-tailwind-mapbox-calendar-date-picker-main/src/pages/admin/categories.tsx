@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import AdminGuard from "../../components/admin/AdminGuard";
 import AdminLayout from "../../components/admin/AdminLayout";
+import AdminListState from "../../components/admin/AdminListState";
 import {
   createAdminCategory,
   deleteAdminCategory,
@@ -21,16 +22,24 @@ const AdminCategories = () => {
   const [values, setValues] = useState<CategoryFormValues>(emptyCategory);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loadStatus, setLoadStatus] = useState<"loading" | "ready" | "error">(
+    "loading"
+  );
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadCategories = async () => {
+    setLoadStatus("loading");
+    setLoadError(null);
     try {
       setCategories(await listAdminCategories());
-    } catch (loadError) {
-      setError(
-        loadError instanceof Error
-          ? loadError.message
-          : "Nao foi possivel carregar categorias."
+      setLoadStatus("ready");
+    } catch (caught) {
+      setLoadError(
+        caught instanceof Error
+          ? caught.message
+          : "Não foi possível carregar as categorias."
       );
+      setLoadStatus("error");
     }
   };
 
@@ -161,7 +170,15 @@ const AdminCategories = () => {
             </div>
           </form>
 
-          <div className="overflow-hidden rounded-lg border bg-white shadow-sm">
+          <AdminListState
+            emptyHint="Crie a primeira categoria no formulário ao lado."
+            emptyTitle="Nenhuma categoria ainda"
+            error={loadError}
+            isEmpty={categories.length === 0}
+            onRetry={loadCategories}
+            status={loadStatus}
+          >
+          <div className="overflow-x-auto rounded-lg border bg-white shadow-sm">
             <table className="w-full text-left text-sm">
               <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                 <tr>
@@ -200,6 +217,7 @@ const AdminCategories = () => {
               </tbody>
             </table>
           </div>
+          </AdminListState>
         </div>
       </AdminLayout>
     </AdminGuard>

@@ -47,9 +47,13 @@ const AdminDashboard = () => {
     paidRevenue: 0,
   });
   const [error, setError] = useState<string | null>(null);
+  const [loadStatus, setLoadStatus] = useState<"loading" | "ready" | "error">(
+    "loading"
+  );
 
   useEffect(() => {
     const loadStats = async () => {
+      setLoadStatus("loading");
       try {
         const [products, productDates, categories, bookings, payments] =
           await Promise.all([
@@ -90,12 +94,14 @@ const AdminDashboard = () => {
             0
           ),
         });
+        setLoadStatus("ready");
       } catch (loadError) {
         setError(
           loadError instanceof Error
             ? loadError.message
-            : "Nao foi possivel carregar metricas."
+            : "Não foi possível carregar as métricas."
         );
+        setLoadStatus("error");
       }
     };
 
@@ -113,6 +119,17 @@ const AdminDashboard = () => {
             {error}
           </p>
         )}
+        {loadStatus === "loading" && (
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, index) => (
+              <div
+                className="h-28 animate-pulse rounded-lg border bg-white"
+                key={index}
+              />
+            ))}
+          </section>
+        )}
+        {loadStatus === "ready" && (
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <AdminStatCard
             helper="Produtos cadastrados"
@@ -184,6 +201,7 @@ const AdminDashboard = () => {
             }).format(stats.paidRevenue)}
           />
         </section>
+        )}
 
         <section className="mt-8 grid gap-4 md:grid-cols-3">
           <Link

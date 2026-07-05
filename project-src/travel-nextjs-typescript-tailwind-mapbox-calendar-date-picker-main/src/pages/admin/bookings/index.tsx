@@ -2,6 +2,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import AdminGuard from "../../../components/admin/AdminGuard";
 import AdminLayout from "../../../components/admin/AdminLayout";
+import AdminListState from "../../../components/admin/AdminListState";
 import {
   getAdminBookings,
   type AdminBooking,
@@ -49,17 +50,30 @@ const AdminBookings = () => {
     "all"
   );
   const [error, setError] = useState<string | null>(null);
+  const [loadStatus, setLoadStatus] = useState<"loading" | "ready" | "error">(
+    "loading"
+  );
 
-  useEffect(() => {
+  const loadBookings = () => {
+    setLoadStatus("loading");
+    setError(null);
     getAdminBookings()
-      .then(setBookings)
-      .catch((loadError) =>
+      .then((data) => {
+        setBookings(data);
+        setLoadStatus("ready");
+      })
+      .catch((loadError) => {
         setError(
           loadError instanceof Error
             ? loadError.message
-            : "Nao foi possivel carregar reservas."
-        )
-      );
+            : "Não foi possível carregar as reservas."
+        );
+        setLoadStatus("error");
+      });
+  };
+
+  useEffect(() => {
+    loadBookings();
   }, []);
 
   const filteredBookings = useMemo(
@@ -81,12 +95,6 @@ const AdminBookings = () => {
         title="Reservas"
         description="Acompanhe reservas internas, status de pagamento e prazos."
       >
-        {error && (
-          <p className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-            {error}
-          </p>
-        )}
-
         <div className="mb-4 flex flex-wrap gap-3 rounded-lg border bg-white p-4 shadow-sm">
           <label className="text-sm">
             <span className="mb-1 block font-medium text-gray-600">
@@ -126,6 +134,13 @@ const AdminBookings = () => {
           </label>
         </div>
 
+        <AdminListState
+          emptyTitle="Nenhuma reserva encontrada"
+          error={error}
+          isEmpty={filteredBookings.length === 0}
+          onRetry={loadBookings}
+          status={loadStatus}
+        >
         <div className="overflow-x-auto rounded-lg border bg-white shadow-sm">
           <table className="w-full min-w-[1100px] text-left text-sm">
             <thead className="bg-gray-50 text-xs uppercase text-gray-500">
@@ -183,6 +198,7 @@ const AdminBookings = () => {
             </tbody>
           </table>
         </div>
+        </AdminListState>
       </AdminLayout>
     </AdminGuard>
   );
