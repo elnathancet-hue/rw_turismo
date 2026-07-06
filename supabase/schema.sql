@@ -585,6 +585,7 @@ create table if not exists public.pages (
   status text not null default 'draft',
   seo_title text,
   seo_description text,
+  blocks jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint pages_status_check check (status in ('draft', 'published'))

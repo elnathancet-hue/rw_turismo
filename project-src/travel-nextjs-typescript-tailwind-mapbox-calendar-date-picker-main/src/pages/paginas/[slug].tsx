@@ -3,6 +3,7 @@ import Head from "next/head";
 import Link from "next/link";
 import Footer from "../../components/Footer";
 import MarkdownContent from "../../components/MarkdownContent";
+import PageBlocks from "../../components/PageBlocks";
 import { getPublishedPageBySlug } from "../../lib/content/server";
 import type { Page } from "../../lib/content/types";
 
@@ -34,10 +35,16 @@ const PagePage = ({ page }: { page: Page }) => {
       </header>
       <main className="mx-auto min-h-[60vh] max-w-3xl px-6 py-12">
         <h1 className="text-4xl font-bold">{page.title}</h1>
-        <MarkdownContent
-          className="prose prose-lg mt-8 max-w-none prose-headings:font-semibold prose-a:font-medium prose-a:text-orange-600"
-          content={page.content}
-        />
+        <div className="mt-8">
+          {page.blocks && page.blocks.length > 0 ? (
+            <PageBlocks blocks={page.blocks} />
+          ) : (
+            <MarkdownContent
+              className="prose prose-lg max-w-none prose-headings:font-semibold prose-a:font-medium prose-a:text-orange-600"
+              content={page.content}
+            />
+          )}
+        </div>
       </main>
       <Footer />
     </>

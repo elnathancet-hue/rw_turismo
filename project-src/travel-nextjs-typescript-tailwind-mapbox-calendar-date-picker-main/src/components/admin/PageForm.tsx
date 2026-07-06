@@ -1,10 +1,10 @@
 import { FormEvent, useState } from "react";
 import { saveAdminPage } from "../../lib/content/client";
 import type { Page } from "../../lib/content/types";
-import MarkdownContent from "../MarkdownContent";
 import Button from "../ui/Button";
 import Card from "../ui/Card";
-import { Field, Input, Select, Textarea } from "../ui/form";
+import { Field, Input, Select } from "../ui/form";
+import PageBlocksEditor, { blockId } from "./PageBlocksEditor";
 
 const slugify = (value: string) =>
   value
@@ -28,6 +28,11 @@ const PageForm = ({
     status: page?.status ?? "draft",
     seo_title: page?.seo_title ?? "",
     seo_description: page?.seo_description ?? "",
+    blocks: page?.blocks?.length
+      ? page.blocks
+      : page?.content
+      ? [{ id: blockId(), type: "text" as const, markdown: page.content }]
+      : [],
   });
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{
@@ -55,8 +60,8 @@ const PageForm = ({
 
   return (
     <Card className="p-6">
-      <form className="grid gap-5" onSubmit={submit}>
-        <div className="grid gap-4 md:grid-cols-2">
+      <form className="grid gap-6" onSubmit={submit}>
+        <div className="grid gap-4 md:grid-cols-3">
           <Field label="Título">
             <Input
               onChange={(event) => {
@@ -87,24 +92,15 @@ const PageForm = ({
           </Field>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Field
-            hint="Use # Título, ## Subtítulo, - listas, **negrito**, [texto](/link)."
-            label="Conteúdo (Markdown)"
-          >
-            <Textarea
-              className="min-h-[360px] font-mono text-sm"
-              onChange={(event) => set("content", event.target.value)}
-              value={value.content ?? ""}
-            />
-          </Field>
-          <div className="min-h-[360px] overflow-auto rounded-lg border bg-gray-50 p-4">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
-              Pré-visualização
-            </p>
-            <MarkdownContent
-              className="prose prose-sm max-w-none prose-a:text-orange-600"
-              content={value.content ?? ""}
+        <div>
+          <p className="text-sm font-medium text-gray-700">Conteúdo da página</p>
+          <p className="mt-1 text-xs text-gray-500">
+            Monte a página empilhando blocos. Arraste a ordem com as setas.
+          </p>
+          <div className="mt-3">
+            <PageBlocksEditor
+              blocks={value.blocks ?? []}
+              onChange={(blocks) => set("blocks", blocks)}
             />
           </div>
         </div>

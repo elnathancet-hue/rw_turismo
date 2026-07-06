@@ -46,6 +46,28 @@ export type SiteSetting = {
   updated_at: string;
 };
 
+export type PageBlock =
+  | { id: string; type: "text"; markdown: string }
+  | { id: string; type: "image"; url: string; alt: string; caption: string }
+  | { id: string; type: "gallery"; images: { url: string; alt: string }[] }
+  | {
+      id: string;
+      type: "banner";
+      image: string;
+      title: string;
+      subtitle: string;
+      button_label: string;
+      button_url: string;
+    }
+  | {
+      id: string;
+      type: "cta";
+      title: string;
+      text: string;
+      button_label: string;
+      button_url: string;
+    };
+
 export type Page = {
   id: string;
   title: string;
@@ -54,6 +76,7 @@ export type Page = {
   status: "draft" | "published";
   seo_title: string | null;
   seo_description: string | null;
+  blocks?: PageBlock[];
   created_at: string;
   updated_at: string;
 };
