@@ -21,6 +21,23 @@ const BlockButton = ({ label, url }: { label: string; url: string }) => {
   );
 };
 
+const toEmbedUrl = (url: string): string | null => {
+  if (!url) return null;
+  const youtube = url.match(
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([\w-]{11})/
+  );
+  if (youtube) return `https://www.youtube.com/embed/${youtube[1]}`;
+  const vimeo = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+  if (vimeo) return `https://player.vimeo.com/video/${vimeo[1]}`;
+  return url;
+};
+
+const spacerHeight: Record<string, string> = {
+  small: "h-6",
+  medium: "h-12",
+  large: "h-24",
+};
+
 const PageBlockView = ({ block }: { block: PageBlock }) => {
   switch (block.type) {
     case "text":
@@ -105,6 +122,64 @@ const PageBlockView = ({ block }: { block: PageBlock }) => {
             </div>
           )}
         </section>
+      );
+    case "video": {
+      const embed = toEmbedUrl(block.url);
+      return (
+        <figure>
+          {embed && (
+            <div className="relative aspect-video overflow-hidden rounded-xl bg-black">
+              <iframe
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="absolute inset-0 h-full w-full"
+                src={embed}
+                title={block.caption || "Vídeo"}
+              />
+            </div>
+          )}
+          {block.caption && (
+            <figcaption className="mt-2 text-center text-sm text-gray-500">
+              {block.caption}
+            </figcaption>
+          )}
+        </figure>
+      );
+    }
+    case "quote":
+      return (
+        <blockquote className="border-l-4 border-orange-500 bg-orange-50 px-6 py-5">
+          <p className="text-lg italic text-gray-800">{block.text}</p>
+          {block.author && (
+            <footer className="mt-2 text-sm font-semibold text-gray-600">
+              — {block.author}
+            </footer>
+          )}
+        </blockquote>
+      );
+    case "faq":
+      return (
+        <div className="divide-y rounded-xl border">
+          {block.items
+            .filter((item) => item.question)
+            .map((item, index) => (
+              <details className="group px-5 py-4" key={index}>
+                <summary className="flex cursor-pointer list-none items-center justify-between font-semibold marker:content-none">
+                  {item.question}
+                  <span className="ml-2 text-xl text-orange-500 transition group-open:rotate-45">
+                    +
+                  </span>
+                </summary>
+                <p className="mt-3 whitespace-pre-wrap text-gray-600">
+                  {item.answer}
+                </p>
+              </details>
+            ))}
+        </div>
+      );
+    case "spacer":
+      return (
+        <div aria-hidden="true" className={spacerHeight[block.size] ?? "h-12"} />
       );
     default:
       return null;

@@ -66,7 +66,15 @@ export type PageBlock =
       text: string;
       button_label: string;
       button_url: string;
-    };
+    }
+  | { id: string; type: "video"; url: string; caption: string }
+  | { id: string; type: "quote"; text: string; author: string }
+  | {
+      id: string;
+      type: "faq";
+      items: { question: string; answer: string }[];
+    }
+  | { id: string; type: "spacer"; size: "small" | "medium" | "large" };
 
 export type Page = {
   id: string;

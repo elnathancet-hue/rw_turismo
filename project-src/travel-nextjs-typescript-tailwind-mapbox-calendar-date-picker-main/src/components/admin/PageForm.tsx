@@ -4,6 +4,7 @@ import type { Page } from "../../lib/content/types";
 import Button from "../ui/Button";
 import Card from "../ui/Card";
 import { Field, Input, Select } from "../ui/form";
+import PageBlocks from "../PageBlocks";
 import PageBlocksEditor, { blockId } from "./PageBlocksEditor";
 
 const slugify = (value: string) =>
@@ -35,6 +36,7 @@ const PageForm = ({
       : [],
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const [message, setMessage] = useState<{
     tone: "ok" | "error";
     text: string;
@@ -133,10 +135,52 @@ const PageForm = ({
             {message.text}
           </p>
         )}
-        <Button className="w-fit" loading={isSaving} type="submit">
-          {isSaving ? "Salvando…" : "Salvar página"}
-        </Button>
+        <div className="flex flex-wrap gap-3">
+          <Button className="w-fit" loading={isSaving} type="submit">
+            {isSaving ? "Salvando…" : "Salvar página"}
+          </Button>
+          <Button
+            onClick={() => setShowPreview(true)}
+            type="button"
+            variant="secondary"
+          >
+            Pré-visualizar página
+          </Button>
+        </div>
       </form>
+
+      {showPreview && (
+        <div
+          className="fixed inset-0 z-[100] flex bg-black/50 p-4"
+          onClick={() => setShowPreview(false)}
+        >
+          <div
+            className="mx-auto flex h-full w-full max-w-4xl flex-col overflow-hidden rounded-xl bg-white"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b p-4">
+              <h2 className="font-semibold">
+                Pré-visualização{value.title ? ` — ${value.title}` : ""}
+              </h2>
+              <Button
+                onClick={() => setShowPreview(false)}
+                size="sm"
+                variant="secondary"
+              >
+                Fechar
+              </Button>
+            </div>
+            <div className="overflow-auto px-6 py-8">
+              {value.title && (
+                <h1 className="text-4xl font-bold">{value.title}</h1>
+              )}
+              <div className="mt-8">
+                <PageBlocks blocks={value.blocks ?? []} />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </Card>
   );
 };
