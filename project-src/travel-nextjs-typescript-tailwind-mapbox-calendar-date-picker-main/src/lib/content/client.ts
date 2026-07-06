@@ -1,4 +1,5 @@
 import { createSupabaseBrowserClient } from "../supabase/browser";
+import type { FooterSettings } from "./footer";
 import type {
   BlogCategory,
   BlogPost,
@@ -51,6 +52,17 @@ export const listAdminSettings = async () =>
   (unwrap(await db().from("site_settings").select("*").order("setting_key")) ?? []) as SiteSetting[];
 export const saveAdminSetting = async (setting_key: string, value: Record<string, any>) =>
   unwrap(await db().from("site_settings").upsert({ setting_key, value }, { onConflict: "setting_key" }).select().single()) as SiteSetting;
+
+export const getFooterSettings = async () => {
+  const data = unwrap(
+    await db()
+      .from("site_settings")
+      .select("value")
+      .eq("setting_key", "footer")
+      .maybeSingle()
+  ) as { value: Record<string, any> } | null;
+  return (data?.value ?? null) as FooterSettings | null;
+};
 
 export const listAdminBlogPosts = async () =>
   (unwrap(await db().from("blog_posts").select("*, blog_categories(name,slug)").order("created_at", { ascending: false })) ?? []) as BlogPost[];
