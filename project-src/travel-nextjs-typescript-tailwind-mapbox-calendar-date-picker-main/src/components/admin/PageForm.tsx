@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react";
 import { saveAdminPage } from "../../lib/content/client";
 import type { Page } from "../../lib/content/types";
+import { pageTemplates, type PageTemplate } from "../../lib/content/page-templates";
 import Button from "../ui/Button";
 import Card from "../ui/Card";
 import { Field, Input, Select } from "../ui/form";
@@ -44,6 +45,18 @@ const PageForm = ({
 
   const set = <K extends keyof Page>(key: K, val: Page[K]) =>
     setValue((current) => ({ ...current, [key]: val }));
+
+  const applyTemplate = (template: PageTemplate) => {
+    if (
+      (value.blocks?.length ?? 0) > 0 &&
+      !window.confirm(
+        `Aplicar o modelo "${template.label}"? Isso substitui os blocos atuais.`
+      )
+    ) {
+      return;
+    }
+    set("blocks", template.build());
+  };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -97,9 +110,27 @@ const PageForm = ({
         <div>
           <p className="text-sm font-medium text-gray-700">Conteúdo da página</p>
           <p className="mt-1 text-xs text-gray-500">
-            Monte a página empilhando blocos. Arraste a ordem com as setas.
+            Comece de um modelo pronto (é só trocar textos e fotos) ou monte do
+            zero. Arraste os blocos ou use ↑ ↓ para ordenar.
           </p>
-          <div className="mt-3">
+          <div className="mt-3 flex flex-wrap gap-2">
+            {pageTemplates.map((template) => (
+              <button
+                className="w-56 rounded-lg border p-3 text-left transition hover:border-orange-500 hover:bg-orange-50"
+                key={template.key}
+                onClick={() => applyTemplate(template)}
+                type="button"
+              >
+                <span className="block text-sm font-semibold">
+                  {template.label}
+                </span>
+                <span className="mt-0.5 block text-xs text-gray-500">
+                  {template.description}
+                </span>
+              </button>
+            ))}
+          </div>
+          <div className="mt-4">
             <PageBlocksEditor
               blocks={value.blocks ?? []}
               onChange={(blocks) => set("blocks", blocks)}
