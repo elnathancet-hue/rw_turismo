@@ -46,6 +46,18 @@ export type SiteSetting = {
   updated_at: string;
 };
 
+export type Page = {
+  id: string;
+  title: string;
+  slug: string;
+  content: string;
+  status: "draft" | "published";
+  seo_title: string | null;
+  seo_description: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type BlogCategory = {
   id: string;
   name: string;

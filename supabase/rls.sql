@@ -426,6 +426,18 @@ drop policy if exists "newsletter_admin_update" on public.newsletter_subscribers
 create policy "newsletter_admin_update" on public.newsletter_subscribers
 for update to authenticated using (public.is_admin()) with check (public.is_admin());
 
+alter table public.pages enable row level security;
+
+drop policy if exists "pages_public_read" on public.pages;
+create policy "pages_public_read" on public.pages
+for select to anon, authenticated
+using (status = 'published');
+
+drop policy if exists "pages_admin_all" on public.pages;
+create policy "pages_admin_all" on public.pages
+for all to authenticated
+using (public.is_admin()) with check (public.is_admin());
+
 drop policy if exists "public_read_site_assets" on storage.objects;
 create policy "public_read_site_assets" on storage.objects
 for select to public using (bucket_id in ('site-assets', 'product-images', 'blog-images'));

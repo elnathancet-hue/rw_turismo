@@ -6,6 +6,7 @@ import type {
   BlogTag,
   HomeBanner,
   HomeSection,
+  Page,
   SiteSetting,
 } from "./types";
 
@@ -107,6 +108,19 @@ export const saveAdminBlogTag = async (value: Partial<BlogTag>) =>
   unwrap(await db().from("blog_tags").upsert(value, { onConflict: "slug" }).select().single()) as BlogTag;
 export const deleteAdminBlogTag = async (id: string) =>
   unwrap(await db().from("blog_tags").delete().eq("id", id));
+
+export const listAdminPages = async () =>
+  (unwrap(await db().from("pages").select("*").order("updated_at", { ascending: false })) ?? []) as Page[];
+export const getAdminPage = async (id: string) =>
+  unwrap(await db().from("pages").select("*").eq("id", id).maybeSingle()) as Page | null;
+export const saveAdminPage = async (value: Partial<Page>) => {
+  const query = value.id
+    ? db().from("pages").update(value).eq("id", value.id)
+    : db().from("pages").insert(value);
+  return unwrap(await query.select().single()) as Page;
+};
+export const deleteAdminPage = async (id: string) =>
+  unwrap(await db().from("pages").delete().eq("id", id));
 
 export const subscribeNewsletter = async (email: string, source = "home") =>
   unwrap(await db().from("newsletter_subscribers").insert({

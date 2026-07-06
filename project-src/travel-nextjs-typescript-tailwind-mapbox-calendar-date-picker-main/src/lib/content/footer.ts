@@ -36,8 +36,8 @@ export const defaultFooter: FooterSettings = {
     {
       title: "Suporte",
       links: [
-        { label: "Termos e condições", url: "/" },
-        { label: "Política de privacidade", url: "/" },
+        { label: "Termos e condições", url: "/paginas/termos" },
+        { label: "Política de privacidade", url: "/paginas/privacidade" },
         { label: "Atendimento", url: "/" },
       ],
     },

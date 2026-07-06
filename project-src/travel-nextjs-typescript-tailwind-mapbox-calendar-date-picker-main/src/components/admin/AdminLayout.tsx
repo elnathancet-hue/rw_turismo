@@ -8,6 +8,7 @@ import {
   NewspaperIcon,
   PhotoIcon,
   QueueListIcon,
+  DocumentTextIcon,
   Cog6ToothIcon,
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
@@ -30,6 +31,7 @@ const navigation = [
   { href: "/admin/categories", label: "Categorias", icon: TagIcon },
   { href: "/admin/home", label: "Home", icon: PhotoIcon },
   { href: "/admin/blog", label: "Blog", icon: NewspaperIcon },
+  { href: "/admin/pages", label: "Páginas", icon: DocumentTextIcon },
   { href: "/admin/footer", label: "Rodapé", icon: QueueListIcon },
   { href: "/admin/settings", label: "Configurações", icon: Cog6ToothIcon },
 ];

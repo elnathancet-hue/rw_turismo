@@ -5,6 +5,7 @@ import type {
   BlogTag,
   HomeBanner,
   HomeSection,
+  Page,
   SiteSetting,
 } from "./types";
 
@@ -103,6 +104,17 @@ export const getPublishedPostBySlug = async (slug: string) => {
   throwIfError(error);
   if (!data) return null;
   return (await enrichTags([data as BlogPost]))[0];
+};
+
+export const getPublishedPageBySlug = async (slug: string) => {
+  const { data, error } = await client()
+    .from("pages")
+    .select("*")
+    .eq("slug", slug)
+    .eq("status", "published")
+    .maybeSingle();
+  throwIfError(error);
+  return (data ?? null) as Page | null;
 };
 
 export const getPublicBlogTaxonomy = async () => {

@@ -577,6 +577,27 @@ drop trigger if exists set_blog_posts_updated_at on public.blog_posts;
 create trigger set_blog_posts_updated_at before update on public.blog_posts
 for each row execute function public.set_updated_at();
 
+create table if not exists public.pages (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  slug text not null unique,
+  content text not null default '',
+  status text not null default 'draft',
+  seo_title text,
+  seo_description text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint pages_status_check check (status in ('draft', 'published'))
+);
+
+create index if not exists pages_slug_idx on public.pages(slug);
+create index if not exists pages_status_idx on public.pages(status);
+
+drop trigger if exists set_pages_updated_at on public.pages;
+create trigger set_pages_updated_at
+before update on public.pages
+for each row execute function public.set_updated_at();
+
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values
   ('site-assets', 'site-assets', true, 5242880, array['image/jpeg','image/png','image/webp','image/svg+xml','image/x-icon']),
