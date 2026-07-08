@@ -6,6 +6,7 @@ import Footer from "../components/Footer";
 import Header from "../components/Header";
 import PackageSearchBar from "../components/PackageSearchBar";
 import { signOutFromSupabase } from "../lib/auth/client";
+import { PRODUCT_TYPE_LABELS } from "../lib/content/home-registry";
 import { searchPackages } from "../lib/products/client";
 import type { Product } from "../lib/products/types";
 
@@ -36,12 +37,18 @@ const Search = () => {
     typeof router.query.destino === "string" ? router.query.destino : "";
   const ida = typeof router.query.ida === "string" ? router.query.ida : "";
   const volta = typeof router.query.volta === "string" ? router.query.volta : "";
+  const promo = router.query.promo === "1";
+  const tipo = typeof router.query.tipo === "string" ? router.query.tipo : "";
+  const tipoLabel =
+    tipo in PRODUCT_TYPE_LABELS
+      ? PRODUCT_TYPE_LABELS[tipo as keyof typeof PRODUCT_TYPE_LABELS]
+      : "";
 
   useEffect(() => {
     if (!router.isReady) return;
     let active = true;
     setStatus("loading");
-    searchPackages({ origem, destino, ida })
+    searchPackages({ origem, destino, ida, promo, tipo })
       .then((data) => {
         if (!active) return;
         setProducts(data);
@@ -53,12 +60,26 @@ const Search = () => {
     return () => {
       active = false;
     };
-  }, [router.isReady, origem, destino, ida]);
+  }, [router.isReady, origem, destino, ida, promo, tipo]);
 
-  const heading = destino ? `Pacotes para ${destino}` : "Pacotes disponíveis";
+  // Drops one filter param (promo/tipo chips) keeping the rest of the search.
+  const removeFilter = (param: "promo" | "tipo") => {
+    const query = { ...router.query };
+    delete query[param];
+    router.push({ pathname: router.pathname, query });
+  };
+
+  const heading = promo
+    ? "Pacotes em promoção"
+    : tipoLabel
+      ? tipoLabel
+      : destino
+        ? `Pacotes para ${destino}`
+        : "Pacotes disponíveis";
   const summary = [
     origem && `saindo de ${origem}`,
     ida && `a partir de ${formatDate(ida)}`,
+    promo && "somente promoções",
   ]
     .filter(Boolean)
     .join(" · ");
@@ -83,6 +104,28 @@ const Search = () => {
         <div className="mt-8">
           <h1 className="text-2xl font-semibold sm:text-3xl">{heading}</h1>
           {summary && <p className="mt-1 text-sm text-gray-500">{summary}</p>}
+          {(promo || tipoLabel) && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {promo && (
+                <button
+                  className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-3 py-1 text-sm font-semibold text-orange-700 hover:bg-orange-200"
+                  onClick={() => removeFilter("promo")}
+                  type="button"
+                >
+                  Promoções ✕
+                </button>
+              )}
+              {tipoLabel && (
+                <button
+                  className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-3 py-1 text-sm font-semibold text-orange-700 hover:bg-orange-200"
+                  onClick={() => removeFilter("tipo")}
+                  type="button"
+                >
+                  {tipoLabel} ✕
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {status === "loading" && (

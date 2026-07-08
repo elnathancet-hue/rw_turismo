@@ -45,7 +45,7 @@ with inserted_products as (
       'experience',
       'Jericoacoara, CE',
       420.00,
-      null,
+      379.00,
       'https://images.unsplash.com/photo-1507525428034-b723cf961d3e',
       '["https://images.unsplash.com/photo-1507525428034-b723cf961d3e"]'::jsonb,
       true
@@ -57,7 +57,7 @@ with inserted_products as (
       'hotel',
       'Paraty, RJ',
       780.00,
-      690.00,
+      590.00,
       'https://images.unsplash.com/photo-1566073771259-6a8506099945',
       '["https://images.unsplash.com/photo-1566073771259-6a8506099945"]'::jsonb,
       true
@@ -273,3 +273,25 @@ select
 from public.blog_categories
 where slug = 'dicas-de-viagem'
 on conflict (slug) do nothing;
+
+-- ---------------------------------------------------------------------------
+-- Home collection section (multi-instance "product_collection" type): the
+-- promotions showcase, ordered between featured_products (10) and
+-- destinations (20).
+-- ---------------------------------------------------------------------------
+
+insert into public.home_sections (section_key, title, subtitle, content, active, display_order)
+values (
+  'product_collection__promocoes',
+  'Ofertas e promoções',
+  'Aproveite antes que as vagas acabem.',
+  '{"mode":"promo","limit":6,"cta_label":"Ver todas as promoções"}'::jsonb,
+  true,
+  15
+)
+on conflict (section_key) do update
+set title = excluded.title,
+    subtitle = excluded.subtitle,
+    content = excluded.content,
+    active = excluded.active,
+    display_order = excluded.display_order;

@@ -1,7 +1,10 @@
 import AdminGuard from "../../../components/admin/AdminGuard";
-import AdminLayout from "../../../components/admin/AdminLayout";
-import HomeEditor from "../../../components/admin/HomeEditor";
+import HomeBuilder from "../../../components/admin/builder/HomeBuilder";
+
 const AdminHome = () => (
-  <AdminGuard><AdminLayout title="Home editável" description="Edite o conteúdo que aparece na página inicial da RW Turismo."><HomeEditor /></AdminLayout></AdminGuard>
+  <AdminGuard>
+    <HomeBuilder />
+  </AdminGuard>
 );
+
 export default AdminHome;

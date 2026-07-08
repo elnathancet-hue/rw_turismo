@@ -1,8 +1,10 @@
+import { sectionTypeOf } from "../../lib/content/home-registry";
 import type { HomeSection } from "../../lib/content/types";
 import type { Product } from "../../lib/products/types";
 import BenefitsSection from "./BenefitsSection";
 import DestinationsSection from "./DestinationsSection";
 import FeaturedProducts from "./FeaturedProducts";
+import ProductCollectionSection from "./ProductCollectionSection";
 import PromotionalSection from "./PromotionalSection";
 import TestimonialsSection from "./TestimonialsSection";
 
@@ -14,9 +16,12 @@ type Props = {
 const HomeSectionRenderer = ({ products, section }: Props) => {
   if (!section.active) return null;
 
-  switch (section.section_key) {
+  // Legacy singleton keys have no "__", so sectionTypeOf returns them as-is.
+  switch (sectionTypeOf(section.section_key)) {
     case "featured_products":
       return <FeaturedProducts products={products} section={section} />;
+    case "product_collection":
+      return <ProductCollectionSection products={products} section={section} />;
     case "destinations":
       return <DestinationsSection section={section} />;
     case "benefits":

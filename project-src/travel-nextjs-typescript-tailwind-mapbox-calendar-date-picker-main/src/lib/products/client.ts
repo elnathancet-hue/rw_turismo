@@ -1,5 +1,9 @@
 import { createSupabaseBrowserClient } from "../supabase/browser";
-import type { Category, Product, ProductDate } from "./types";
+import type { Category, Product, ProductDate, ProductType } from "./types";
+
+// The five product types accepted by the "tipo" search filter.
+const isProductType = (value: string): value is ProductType =>
+  ["package", "hotel", "flight", "stay", "experience"].includes(value);
 
 const productsTable = () =>
   (createSupabaseBrowserClient() as any).from("products");
@@ -75,6 +79,8 @@ export type PackageSearchFilters = {
   origem?: string | null;
   destino?: string | null;
   ida?: string | null;
+  promo?: boolean;
+  tipo?: string | null;
 };
 
 // Distinct departure cities from active products, for the search "Origem" dropdown.
@@ -102,6 +108,7 @@ export const searchPackages = async (
   const origem = filters.origem?.trim() ?? "";
   const destino = (filters.destino ?? "").replace(/[(),]/g, " ").trim();
   const ida = filters.ida?.trim() ?? "";
+  const tipo = filters.tipo?.trim() ?? "";
 
   let query = productsTable()
     .select("*, product_dates(start_date, active)")
@@ -116,6 +123,14 @@ export const searchPackages = async (
     query = query.or(
       `title.ilike.%${destino}%,destination.ilike.%${destino}%,description.ilike.%${destino}%`
     );
+  }
+
+  if (filters.promo) {
+    query = query.not("promotional_price", "is", null);
+  }
+
+  if (isProductType(tipo)) {
+    query = query.eq("type", tipo);
   }
 
   const { data, error } = await query;
