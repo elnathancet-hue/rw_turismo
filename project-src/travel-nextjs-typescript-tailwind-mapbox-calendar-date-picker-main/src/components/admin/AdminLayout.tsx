@@ -1,4 +1,5 @@
 import {
+  Bars3Icon,
   CalendarDaysIcon,
   ClipboardDocumentListIcon,
   CreditCardIcon,
@@ -30,6 +31,7 @@ const navigation = [
   { href: "/admin/payments", label: "Pagamentos", icon: CreditCardIcon },
   { href: "/admin/categories", label: "Categorias", icon: TagIcon },
   { href: "/admin/home", label: "Home", icon: PhotoIcon },
+  { href: "/admin/menu", label: "Menu", icon: Bars3Icon },
   { href: "/admin/blog", label: "Blog", icon: NewspaperIcon },
   { href: "/admin/pages", label: "Páginas", icon: DocumentTextIcon },
   { href: "/admin/footer", label: "Rodapé", icon: QueueListIcon },

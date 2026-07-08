@@ -7,6 +7,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { Dispatch, FormEvent, SetStateAction } from "react";
+import useSiteMenu from "../hooks/useSiteMenu";
 import useSupabaseSession from "../hooks/useSupabaseSession";
 import { ISuggestionFormatted } from "../types/typings";
 
@@ -21,6 +22,13 @@ type Props = {
   setIsOpen: Dispatch<SetStateAction<boolean>>;
 };
 
+// Keeps the desktop nav from crowding out the search when the admin adds
+// many links; the drawer still lists all of them.
+const MAX_HEADER_MENU_ITEMS = 5;
+
+const menuLinkClass =
+  "max-w-[9rem] truncate whitespace-nowrap text-sm font-medium text-gray-600 transition hover:text-orange-600";
+
 const Header = ({
   placeholder,
   searchInput,
@@ -29,6 +37,7 @@ const Header = ({
   setIsOpen,
 }: Props) => {
   const { isAuthenticated } = useSupabaseSession();
+  const { isLoading: isMenuLoading, items: menuItems } = useSiteMenu();
   const router = useRouter();
 
   const handleSearch = (event: FormEvent) => {
@@ -43,6 +52,32 @@ const Header = ({
       <Link className="text-xl font-bold text-orange-600" href="/">
         RW Turismo
       </Link>
+
+      {/* Site navigation (managed in /admin/menu) */}
+      {!isMenuLoading && menuItems.length > 0 && (
+        <nav
+          aria-label="Menu do site"
+          className="hidden shrink-0 items-center gap-4 lg:flex"
+        >
+          {menuItems.slice(0, MAX_HEADER_MENU_ITEMS).map((item) =>
+            item.url.startsWith("/") ? (
+              <Link className={menuLinkClass} href={item.url} key={item.id}>
+                {item.label}
+              </Link>
+            ) : (
+              <a
+                className={menuLinkClass}
+                href={item.url}
+                key={item.id}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                {item.label}
+              </a>
+            )
+          )}
+        </nav>
+      )}
 
       {/* Quick destination search */}
       <form

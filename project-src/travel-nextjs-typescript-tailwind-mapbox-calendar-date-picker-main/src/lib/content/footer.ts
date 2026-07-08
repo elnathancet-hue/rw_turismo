@@ -7,28 +7,21 @@ export type FooterSettings = {
 };
 
 // Current footer content — used as the fallback when the `footer` site setting
-// is empty, and as the starting point in the admin editor.
+// is empty, and as the starting point in the admin editor. Every link points
+// to a page that exists (the CMS pages come from supabase/seed.sql).
 export const defaultFooter: FooterSettings = {
   columns: [
     {
       title: "RW Turismo",
       links: [
-        { label: "Como funciona", url: "/" },
-        { label: "Quem somos", url: "/" },
-      ],
-    },
-    {
-      title: "Institucional",
-      links: [
-        { label: "Imprensa e mídia", url: "/" },
-        { label: "Parcerias", url: "/" },
-        { label: "Relacionamento", url: "/" },
-        { label: "Contato", url: "/" },
+        { label: "Como funciona", url: "/paginas/como-funciona" },
+        { label: "Quem somos", url: "/paginas/quem-somos" },
       ],
     },
     {
       title: "Sua viagem",
       links: [
+        { label: "Ver pacotes", url: "/search" },
         { label: "Dicas para viajantes", url: "/blog" },
         { label: "Minhas reservas", url: "/account/bookings" },
       ],
@@ -36,9 +29,9 @@ export const defaultFooter: FooterSettings = {
     {
       title: "Suporte",
       links: [
+        { label: "Contato e atendimento", url: "/paginas/contato" },
         { label: "Termos e condições", url: "/paginas/termos" },
         { label: "Política de privacidade", url: "/paginas/privacidade" },
-        { label: "Atendimento", url: "/" },
       ],
     },
   ],

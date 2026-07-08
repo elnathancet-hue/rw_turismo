@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { useRouter } from "next/router";
 import { Dispatch, SetStateAction, useEffect } from "react";
 import { signOutFromSupabase } from "../lib/auth/client";
+import useSiteMenu from "../hooks/useSiteMenu";
 import useSupabaseSession from "../hooks/useSupabaseSession";
 
 type Props = {
@@ -12,6 +14,7 @@ type Props = {
 const Drawer = ({ children, isOpen, setIsOpen }: Props) => {
   const router = useRouter();
   const { user, profile, isAuthenticated, isLoading } = useSupabaseSession();
+  const { items: menuItems } = useSiteMenu();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -49,6 +52,39 @@ const Drawer = ({ children, isOpen, setIsOpen }: Props) => {
         }
       >
         <nav className="relative w-screen max-w-[240px] px-5 py-[85px] flex flex-col space-y-3 overflow-y-scroll h-full">
+          {/* Site navigation — visible for everyone, managed in /admin/menu */}
+          {menuItems.length > 0 && (
+            <div className="border-b border-gray-100 pb-3">
+              <p className="text-xs font-semibold uppercase text-gray-400">
+                Navegação
+              </p>
+              <div className="mt-2 flex flex-col space-y-1">
+                {menuItems.map((item) =>
+                  item.url.startsWith("/") ? (
+                    <Link
+                      className="drawer-item"
+                      href={item.url}
+                      key={item.id}
+                      onClick={() => setIsOpen(false)}
+                    >
+                      {item.label}
+                    </Link>
+                  ) : (
+                    <a
+                      className="drawer-item"
+                      href={item.url}
+                      key={item.id}
+                      onClick={() => setIsOpen(false)}
+                      rel="noopener noreferrer"
+                      target="_blank"
+                    >
+                      {item.label}
+                    </a>
+                  )
+                )}
+              </div>
+            </div>
+          )}
           {!isAuthenticated ? (
             <>
               <header className="py-3">

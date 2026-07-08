@@ -38,7 +38,9 @@ const spacerHeight: Record<string, string> = {
   large: "h-24",
 };
 
-const PageBlockView = ({ block }: { block: PageBlock }) => {
+// Named export: the admin page builder renders each block through this same
+// component, so the editing canvas matches the published page exactly.
+export const PageBlockView = ({ block }: { block: PageBlock }) => {
   switch (block.type) {
     case "text":
       return (

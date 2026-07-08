@@ -1,20 +1,10 @@
-import { useRouter } from "next/router";
 import AdminGuard from "../../../components/admin/AdminGuard";
-import AdminLayout from "../../../components/admin/AdminLayout";
-import PageForm from "../../../components/admin/PageForm";
+import PageBuilder from "../../../components/admin/builder/PageBuilder";
 
-const NewPage = () => {
-  const router = useRouter();
-
-  return (
-    <AdminGuard>
-      <AdminLayout title="Nova página">
-        <PageForm
-          onSaved={(page) => void router.push(`/admin/pages/${page.id}`)}
-        />
-      </AdminLayout>
-    </AdminGuard>
-  );
-};
+const NewPage = () => (
+  <AdminGuard>
+    <PageBuilder page={null} />
+  </AdminGuard>
+);
 
 export default NewPage;
