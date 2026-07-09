@@ -600,3 +600,234 @@ export const getAdminPaymentById = async (
     logs,
   };
 };
+
+// ---------------------------------------------------------------------------
+// Fase 1B — Clientes, fornecedores e lista de espera.
+// ---------------------------------------------------------------------------
+
+export type AdminClient = {
+  id: string;
+  user_id: string;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  role: string;
+  birth_date?: string | null;
+  document?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AdminClientSearch = {
+  search?: string;
+  page?: number;
+  limit?: number;
+};
+
+export const searchAdminClients = async (
+  q: AdminClientSearch = {}
+): Promise<{ clients: AdminClient[]; count: number }> => {
+  const limit = q.limit ?? 25;
+  const page = Math.max(q.page ?? 1, 1);
+
+  let query = supabase()
+    .from("users_profiles")
+    .select("*", { count: "exact" })
+    .eq("role", "customer")
+    .order("created_at", { ascending: false })
+    .range((page - 1) * limit, page * limit - 1);
+
+  const term = (q.search ?? "").replace(/[(),%]/g, " ").trim();
+  if (term) {
+    query = query.or(`name.ilike.%${term}%,email.ilike.%${term}%`);
+  }
+
+  const { data, error, count } = await query;
+  throwIfError(error);
+  return { clients: (data ?? []) as AdminClient[], count: count ?? 0 };
+};
+
+export const getAdminClient = async (
+  id: string
+): Promise<AdminClient | null> => {
+  const { data, error } = await supabase()
+    .from("users_profiles")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  throwIfError(error);
+  return data as AdminClient | null;
+};
+
+export const updateAdminClient = async (
+  id: string,
+  values: {
+    name?: string | null;
+    phone?: string | null;
+    birth_date?: string | null;
+    document?: string | null;
+  }
+): Promise<AdminClient> => {
+  const { data, error } = await supabase()
+    .from("users_profiles")
+    .update(values)
+    .eq("id", id)
+    .select("*")
+    .single();
+
+  throwIfError(error);
+  return data as AdminClient;
+};
+
+// Total de reservas (qualquer status) por usuário, para a lista de clientes.
+export const getClientBookingCounts = async (): Promise<
+  Record<string, number>
+> => {
+  const { data, error } = await supabase().from("bookings").select("user_id");
+  throwIfError(error);
+
+  const counts: Record<string, number> = {};
+  for (const row of (data ?? []) as { user_id: string }[]) {
+    counts[row.user_id] = (counts[row.user_id] ?? 0) + 1;
+  }
+  return counts;
+};
+
+export const listClientBookings = async (
+  userId: string
+): Promise<AdminBooking[]> => {
+  const { data, error } = await supabase()
+    .from("bookings")
+    .select(
+      "*, products(title, destination, cover_image), product_dates(start_date, end_date)"
+    )
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+
+  throwIfError(error);
+  return (data ?? []) as AdminBooking[];
+};
+
+export type Supplier = {
+  id: string;
+  name: string;
+  category: string;
+  contact_name: string | null;
+  phone: string | null;
+  email: string | null;
+  city: string | null;
+  notes: string | null;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SupplierFormValues = {
+  name: string;
+  category: string;
+  contact_name: string;
+  phone: string;
+  email: string;
+  city: string;
+  notes: string;
+  active: boolean;
+};
+
+export const listAdminSuppliers = async (): Promise<Supplier[]> => {
+  const { data, error } = await supabase()
+    .from("suppliers")
+    .select("*")
+    .order("name", { ascending: true });
+
+  throwIfError(error);
+  return (data ?? []) as Supplier[];
+};
+
+export const createAdminSupplier = async (
+  values: SupplierFormValues
+): Promise<Supplier> => {
+  const { data, error } = await supabase()
+    .from("suppliers")
+    .insert(values)
+    .select("*")
+    .single();
+
+  throwIfError(error);
+  return data as Supplier;
+};
+
+export const updateAdminSupplier = async (
+  id: string,
+  values: SupplierFormValues
+): Promise<Supplier> => {
+  const { data, error } = await supabase()
+    .from("suppliers")
+    .update(values)
+    .eq("id", id)
+    .select("*")
+    .single();
+
+  throwIfError(error);
+  return data as Supplier;
+};
+
+export const deleteAdminSupplier = async (id: string): Promise<void> => {
+  const { error } = await supabase().from("suppliers").delete().eq("id", id);
+  throwIfError(error);
+};
+
+export type WaitlistStatus =
+  | "pending"
+  | "contacted"
+  | "converted"
+  | "cancelled";
+
+export type WaitlistEntry = {
+  id: string;
+  product_id: string;
+  product_date_id: string | null;
+  user_id: string | null;
+  name: string;
+  email: string;
+  phone: string | null;
+  travelers_count: number;
+  status: WaitlistStatus;
+  notes: string | null;
+  created_at: string;
+  products?: { title: string } | null;
+  product_dates?: { start_date: string; end_date: string } | null;
+};
+
+export const listAdminWaitlist = async (
+  status: WaitlistStatus | "all" = "all"
+): Promise<WaitlistEntry[]> => {
+  let query = supabase()
+    .from("waitlist")
+    .select("*, products(title), product_dates(start_date, end_date)")
+    .order("created_at", { ascending: false });
+
+  if (status !== "all") {
+    query = query.eq("status", status);
+  }
+
+  const { data, error } = await query;
+  throwIfError(error);
+  return (data ?? []) as WaitlistEntry[];
+};
+
+export const updateAdminWaitlistStatus = async (
+  id: string,
+  status: WaitlistStatus
+): Promise<void> => {
+  const { error } = await supabase()
+    .from("waitlist")
+    .update({ status })
+    .eq("id", id);
+  throwIfError(error);
+};
+
+export const deleteAdminWaitlist = async (id: string): Promise<void> => {
+  const { error } = await supabase().from("waitlist").delete().eq("id", id);
+  throwIfError(error);
+};

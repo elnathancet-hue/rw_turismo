@@ -12,6 +12,7 @@ import {
   isFavorite as checkIsFavorite,
   removeFavorite,
 } from "../../lib/favorites/client";
+import { joinWaitlist } from "../../lib/waitlist/client";
 import {
   getActiveProductDatesServer,
   getProductBySlugServer,
@@ -58,6 +59,9 @@ const ProductDetails = ({ product, productDates }: Props) => {
   const [customerPhone, setCustomerPhone] = useState("");
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [isBooking, setIsBooking] = useState(false);
+  const [isJoiningWaitlist, setIsJoiningWaitlist] = useState(false);
+  const [waitlistDone, setWaitlistDone] = useState(false);
+  const [waitlistError, setWaitlistError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -236,6 +240,41 @@ const ProductDetails = ({ product, productDates }: Props) => {
     }
   };
 
+  // Saída lotada (ou sem datas): oferece a lista de espera com os mesmos
+  // campos do formulário de reserva.
+  const soldOut =
+    productDates.length === 0 || (selectedDate?.available_slots ?? 0) <= 0;
+
+  const joinWaitlistNow = async () => {
+    setWaitlistError(null);
+
+    if (!customerName.trim() || !customerEmail.trim()) {
+      setWaitlistError(
+        "Preencha nome e e-mail acima para entrar na lista de espera."
+      );
+      return;
+    }
+
+    setIsJoiningWaitlist(true);
+    try {
+      await joinWaitlist({
+        product_id: product.id,
+        product_date_id: selectedDate?.id ?? null,
+        name: customerName,
+        email: customerEmail,
+        phone: customerPhone,
+        travelers_count: travelersCount,
+      });
+      setWaitlistDone(true);
+    } catch {
+      setWaitlistError(
+        "Não foi possível entrar na lista agora. Tente novamente."
+      );
+    } finally {
+      setIsJoiningWaitlist(false);
+    }
+  };
+
   return (
     <div>
       <Head>
@@ -369,14 +408,56 @@ const ProductDetails = ({ product, productDates }: Props) => {
                   {formatCurrency(estimatedTotal)}
                 </span>
               </p>
-              <button
-                className="mt-4 w-full rounded bg-orange-500 px-4 py-2 font-semibold text-white hover:bg-orange-600 disabled:opacity-60"
-                disabled={isBooking || productDates.length === 0}
-                onClick={startPendingBooking}
-                type="button"
-              >
-                {isBooking ? "Iniciando..." : "Iniciar reserva"}
-              </button>
+              {soldOut ? (
+                <div className="mt-4">
+                  {waitlistDone ? (
+                    <p
+                      className="rounded border border-green-200 bg-green-50 p-3 text-sm text-green-800"
+                      role="status"
+                    >
+                      Você entrou na lista de espera! Avisaremos assim que
+                      abrir vaga.
+                    </p>
+                  ) : (
+                    <>
+                      <p className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                        {productDates.length === 0
+                          ? "Sem datas abertas no momento."
+                          : "Esta saída está lotada."}{" "}
+                        Preencha seus dados acima e entre na lista de espera —
+                        avisamos quando abrir vaga.
+                      </p>
+                      <button
+                        className="mt-3 w-full rounded bg-orange-500 px-4 py-2 font-semibold text-white hover:bg-orange-600 disabled:opacity-60"
+                        disabled={isJoiningWaitlist}
+                        onClick={joinWaitlistNow}
+                        type="button"
+                      >
+                        {isJoiningWaitlist
+                          ? "Enviando…"
+                          : "Entrar na lista de espera"}
+                      </button>
+                    </>
+                  )}
+                  {waitlistError && (
+                    <p
+                      className="mt-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+                      role="alert"
+                    >
+                      {waitlistError}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <button
+                  className="mt-4 w-full rounded bg-orange-500 px-4 py-2 font-semibold text-white hover:bg-orange-600 disabled:opacity-60"
+                  disabled={isBooking}
+                  onClick={startPendingBooking}
+                  type="button"
+                >
+                  {isBooking ? "Iniciando..." : "Iniciar reserva"}
+                </button>
+              )}
               {bookingError && (
                 <p className="mt-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
                   {bookingError}
