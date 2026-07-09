@@ -660,6 +660,46 @@ create trigger set_waitlist_updated_at
 before update on public.waitlist
 for each row execute function public.set_updated_at();
 
+-- Fase 2 (logística): assentos, quartos e transfers.
+alter table public.passengers
+  add column if not exists seat_number text,
+  add column if not exists room_label text;
+
+alter table public.product_dates
+  add column if not exists total_seats integer;
+
+alter table public.product_dates
+  drop constraint if exists product_dates_total_seats_positive_check;
+alter table public.product_dates
+  add constraint product_dates_total_seats_positive_check
+  check (total_seats is null or total_seats > 0);
+
+create table if not exists public.transfers (
+  id uuid primary key default gen_random_uuid(),
+  product_date_id uuid not null references public.product_dates(id) on delete cascade,
+  title text not null,
+  transfer_date date,
+  transfer_time text,
+  meeting_point text,
+  driver_name text,
+  driver_phone text,
+  vehicle text,
+  supplier_id uuid references public.suppliers(id) on delete set null,
+  capacity integer,
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint transfers_capacity_positive_check check (capacity is null or capacity > 0)
+);
+
+create index if not exists transfers_product_date_idx on public.transfers(product_date_id);
+create index if not exists transfers_supplier_idx on public.transfers(supplier_id);
+
+drop trigger if exists set_transfers_updated_at on public.transfers;
+create trigger set_transfers_updated_at
+before update on public.transfers
+for each row execute function public.set_updated_at();
+
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values
   ('site-assets', 'site-assets', true, 5242880, array['image/jpeg','image/png','image/webp','image/svg+xml','image/x-icon']),

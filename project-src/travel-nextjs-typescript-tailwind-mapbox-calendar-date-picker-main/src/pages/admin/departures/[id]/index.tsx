@@ -1,22 +1,23 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
-import AdminGuard from "../../../components/admin/AdminGuard";
-import AdminLayout from "../../../components/admin/AdminLayout";
-import StatusPill from "../../../components/StatusPill";
-import Button from "../../../components/ui/Button";
-import Card from "../../../components/ui/Card";
-import { Input } from "../../../components/ui/form";
+import AdminGuard from "../../../../components/admin/AdminGuard";
+import AdminLayout from "../../../../components/admin/AdminLayout";
+import DepartureTabs from "../../../../components/admin/DepartureTabs";
+import StatusPill from "../../../../components/StatusPill";
+import Button from "../../../../components/ui/Button";
+import Card from "../../../../components/ui/Card";
+import { Input } from "../../../../components/ui/form";
 import {
   getAdminDeparture,
   listDeparturePassengers,
   setAdminPassengerCheckin,
   type AdminDeparture,
   type DeparturePassenger,
-} from "../../../lib/admin/client";
-import { paymentStatusBadge } from "../../../lib/bookings/status";
-import { downloadCsv } from "../../../lib/csv";
-import { formatDateBR, formatDateRangeBR } from "../../../lib/format";
+} from "../../../../lib/admin/client";
+import { paymentStatusBadge } from "../../../../lib/bookings/status";
+import { downloadCsv } from "../../../../lib/csv";
+import { formatDateBR, formatDateRangeBR } from "../../../../lib/format";
 
 const typeLabels: Record<string, string> = {
   adult: "Adulto",
@@ -35,6 +36,12 @@ const AdminDepartureDetail = () => {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [printMode, setPrintMode] = useState<"list" | "tags">("list");
+
+  const printWith = (mode: "list" | "tags") => {
+    setPrintMode(mode);
+    setTimeout(() => window.print(), 100);
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -104,6 +111,8 @@ const AdminDepartureDetail = () => {
           "Documento",
           "Tipo",
           "Nascimento",
+          "Assento",
+          "Quarto",
           "Reserva de",
           "Telefone",
           "Pagamento",
@@ -114,6 +123,8 @@ const AdminDepartureDetail = () => {
           p.document,
           typeLabels[p.type] ?? p.type,
           p.birth_date ? formatDateBR(p.birth_date) : "",
+          p.seat_number,
+          p.room_label,
           p.bookings?.customer_name,
           p.bookings?.customer_phone,
           p.bookings ? paymentStatusBadge(p.bookings.payment_status).label : "",
@@ -135,6 +146,7 @@ const AdminDepartureDetail = () => {
         >
           ← Voltar para saídas
         </Link>
+        {id && <DepartureTabs active="checkin" id={id} />}
 
         {loadStatus === "loading" && (
           <p className="mt-6 text-gray-500">Carregando saída…</p>
@@ -203,11 +215,18 @@ const AdminDepartureDetail = () => {
                 Exportar CSV
               </Button>
               <Button
-                onClick={() => window.print()}
+                onClick={() => printWith("list")}
                 type="button"
                 variant="secondary"
               >
                 Imprimir relação
+              </Button>
+              <Button
+                onClick={() => printWith("tags")}
+                type="button"
+                variant="secondary"
+              >
+                Etiquetas de bagagem
               </Button>
             </div>
 
@@ -238,6 +257,12 @@ const AdminDepartureDetail = () => {
                       <p className="mt-0.5 truncate text-xs text-gray-500">
                         {[
                           typeLabels[passenger.type] ?? passenger.type,
+                          passenger.seat_number
+                            ? `assento ${passenger.seat_number}`
+                            : null,
+                          passenger.room_label
+                            ? `quarto ${passenger.room_label}`
+                            : null,
                           passenger.document,
                           passenger.bookings
                             ? `reserva de ${passenger.bookings.customer_name}`
@@ -271,37 +296,90 @@ const AdminDepartureDetail = () => {
               )}
             </div>
 
-            {/* Relação limpa para impressão */}
-            <div className="hidden print:block">
-              <table className="mt-4 w-full border-collapse text-sm">
-                <thead>
-                  <tr className="border-b-2 border-black text-left">
-                    <th className="py-1 pr-3">#</th>
-                    <th className="py-1 pr-3">Nome</th>
-                    <th className="py-1 pr-3">Documento</th>
-                    <th className="py-1 pr-3">Tipo</th>
-                    <th className="py-1 pr-3">Reserva de</th>
-                    <th className="py-1">Check-in</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {passengers.map((passenger, index) => (
-                    <tr className="border-b border-gray-300" key={passenger.id}>
-                      <td className="py-1 pr-3">{index + 1}</td>
-                      <td className="py-1 pr-3">{passenger.full_name}</td>
-                      <td className="py-1 pr-3">{passenger.document ?? ""}</td>
-                      <td className="py-1 pr-3">
-                        {typeLabels[passenger.type] ?? passenger.type}
-                      </td>
-                      <td className="py-1 pr-3">
-                        {passenger.bookings?.customer_name ?? ""}
-                      </td>
-                      <td className="py-1">☐</td>
-                    </tr>
+            {/* Etiquetas de bagagem para impressão */}
+            {printMode === "tags" && (
+              <div className="hidden print:block">
+                <div className="grid grid-cols-2 gap-4">
+                  {passengers.map((passenger) => (
+                    <div
+                      className="break-inside-avoid rounded-lg border-2 border-dashed border-black p-4"
+                      key={passenger.id}
+                    >
+                      <p className="text-xs font-bold uppercase tracking-wide">
+                        RW Turismo · Etiqueta de bagagem
+                      </p>
+                      <p className="mt-2 text-xl font-bold">
+                        {passenger.full_name}
+                      </p>
+                      <p className="mt-1 text-sm">
+                        {departure.products?.title}
+                      </p>
+                      <p className="text-sm">
+                        {formatDateRangeBR(
+                          departure.start_date,
+                          departure.end_date
+                        )}
+                      </p>
+                      <p className="mt-2 text-sm">
+                        {[
+                          passenger.seat_number
+                            ? `Assento ${passenger.seat_number}`
+                            : null,
+                          passenger.bookings?.customer_phone
+                            ? `Contato: ${passenger.bookings.customer_phone}`
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </p>
+                    </div>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </div>
+              </div>
+            )}
+
+            {/* Relação limpa para impressão */}
+            {printMode === "list" && (
+              <div className="hidden print:block">
+                <table className="mt-4 w-full border-collapse text-sm">
+                  <thead>
+                    <tr className="border-b-2 border-black text-left">
+                      <th className="py-1 pr-3">#</th>
+                      <th className="py-1 pr-3">Nome</th>
+                      <th className="py-1 pr-3">Documento</th>
+                      <th className="py-1 pr-3">Tipo</th>
+                      <th className="py-1 pr-3">Assento</th>
+                      <th className="py-1 pr-3">Reserva de</th>
+                      <th className="py-1">Check-in</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {passengers.map((passenger, index) => (
+                      <tr
+                        className="border-b border-gray-300"
+                        key={passenger.id}
+                      >
+                        <td className="py-1 pr-3">{index + 1}</td>
+                        <td className="py-1 pr-3">{passenger.full_name}</td>
+                        <td className="py-1 pr-3">
+                          {passenger.document ?? ""}
+                        </td>
+                        <td className="py-1 pr-3">
+                          {typeLabels[passenger.type] ?? passenger.type}
+                        </td>
+                        <td className="py-1 pr-3">
+                          {passenger.seat_number ?? ""}
+                        </td>
+                        <td className="py-1 pr-3">
+                          {passenger.bookings?.customer_name ?? ""}
+                        </td>
+                        <td className="py-1">☐</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </>
         )}
       </AdminLayout>

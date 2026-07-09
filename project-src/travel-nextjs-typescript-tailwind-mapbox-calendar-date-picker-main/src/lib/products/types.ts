@@ -26,6 +26,7 @@ export type ProductDate = {
   end_date: string;
   available_slots: number;
   price_override: number | null;
+  total_seats?: number | null;
   active: boolean;
   created_at: string;
   updated_at: string;

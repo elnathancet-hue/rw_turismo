@@ -103,6 +103,8 @@ export type AdminPassenger = {
   birth_date: string | null;
   type: string;
   checked_in_at?: string | null;
+  seat_number?: string | null;
+  room_label?: string | null;
   created_at: string;
 };
 
@@ -829,5 +831,139 @@ export const updateAdminWaitlistStatus = async (
 
 export const deleteAdminWaitlist = async (id: string): Promise<void> => {
   const { error } = await supabase().from("waitlist").delete().eq("id", id);
+  throwIfError(error);
+};
+
+// ---------------------------------------------------------------------------
+// Fase 2 — Logística da saída: assentos, quartos e transfers.
+// ---------------------------------------------------------------------------
+
+export const setPassengerSeat = async (
+  id: string,
+  seatNumber: string | null
+): Promise<void> => {
+  const { error } = await supabase()
+    .from("passengers")
+    .update({ seat_number: seatNumber })
+    .eq("id", id);
+  throwIfError(error);
+};
+
+export const setPassengerRoom = async (
+  id: string,
+  roomLabel: string | null
+): Promise<void> => {
+  const { error } = await supabase()
+    .from("passengers")
+    .update({ room_label: roomLabel })
+    .eq("id", id);
+  throwIfError(error);
+};
+
+export const updateDepartureTotalSeats = async (
+  productDateId: string,
+  totalSeats: number | null
+): Promise<void> => {
+  const { error } = await supabase()
+    .from("product_dates")
+    .update({ total_seats: totalSeats })
+    .eq("id", productDateId);
+  throwIfError(error);
+};
+
+export type Transfer = {
+  id: string;
+  product_date_id: string;
+  title: string;
+  transfer_date: string | null;
+  transfer_time: string | null;
+  meeting_point: string | null;
+  driver_name: string | null;
+  driver_phone: string | null;
+  vehicle: string | null;
+  supplier_id: string | null;
+  capacity: number | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  suppliers?: { name: string } | null;
+};
+
+export type TransferFormValues = {
+  title: string;
+  transfer_date: string;
+  transfer_time: string;
+  meeting_point: string;
+  driver_name: string;
+  driver_phone: string;
+  vehicle: string;
+  supplier_id: string;
+  capacity: number | null;
+  notes: string;
+};
+
+const transferPayload = (
+  productDateId: string,
+  values: TransferFormValues
+) => ({
+  product_date_id: productDateId,
+  title: values.title.trim(),
+  transfer_date: values.transfer_date || null,
+  transfer_time: values.transfer_time || null,
+  meeting_point: values.meeting_point.trim() || null,
+  driver_name: values.driver_name.trim() || null,
+  driver_phone: values.driver_phone.trim() || null,
+  vehicle: values.vehicle.trim() || null,
+  supplier_id: values.supplier_id || null,
+  capacity: values.capacity,
+  notes: values.notes.trim() || null,
+});
+
+export const listDepartureTransfers = async (
+  productDateId: string
+): Promise<Transfer[]> => {
+  const { data, error } = await supabase()
+    .from("transfers")
+    .select("*, suppliers(name)")
+    .eq("product_date_id", productDateId)
+    .order("transfer_date", { ascending: true })
+    .order("transfer_time", { ascending: true });
+
+  throwIfError(error);
+  return (data ?? []) as Transfer[];
+};
+
+export const createAdminTransfer = async (
+  productDateId: string,
+  values: TransferFormValues
+): Promise<Transfer> => {
+  const { data, error } = await supabase()
+    .from("transfers")
+    .insert(transferPayload(productDateId, values))
+    .select("*, suppliers(name)")
+    .single();
+
+  throwIfError(error);
+  return data as Transfer;
+};
+
+export const updateAdminTransfer = async (
+  id: string,
+  productDateId: string,
+  values: TransferFormValues
+): Promise<Transfer> => {
+  const { data, error } = await supabase()
+    .from("transfers")
+    .update(transferPayload(productDateId, values))
+    .eq("id", id)
+    .select("*, suppliers(name)")
+    .single();
+
+  throwIfError(error);
+  return data as Transfer;
+};
+
+export const deleteAdminTransfer = async (id: string): Promise<void> => {
+  const { error } = await supabase().from("transfers").delete().eq("id", id);
   throwIfError(error);
 };

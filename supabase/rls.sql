@@ -467,6 +467,13 @@ create policy "waitlist_admin_delete" on public.waitlist
 for delete to authenticated
 using (public.is_admin());
 
+alter table public.transfers enable row level security;
+
+drop policy if exists "transfers_admin_all" on public.transfers;
+create policy "transfers_admin_all" on public.transfers
+for all to authenticated
+using (public.is_admin()) with check (public.is_admin());
+
 drop policy if exists "public_read_site_assets" on storage.objects;
 create policy "public_read_site_assets" on storage.objects
 for select to public using (bucket_id in ('site-assets', 'product-images', 'blog-images'));

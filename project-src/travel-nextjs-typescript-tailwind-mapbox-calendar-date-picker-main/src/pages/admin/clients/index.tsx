@@ -10,6 +10,7 @@ import {
   searchAdminClients,
   type AdminClient,
 } from "../../../lib/admin/client";
+import { downloadCsv } from "../../../lib/csv";
 import { formatDateBR } from "../../../lib/format";
 
 const PAGE_SIZE = 25;
@@ -86,6 +87,30 @@ const AdminClients = () => {
           </label>
           <Button type="submit" variant="secondary">
             Buscar
+          </Button>
+          <Button
+            onClick={async () => {
+              // Mala direta: exporta a base inteira (respeitando a busca atual).
+              const all = await searchAdminClients({
+                search: appliedSearch,
+                page: 1,
+                limit: 1000,
+              });
+              downloadCsv("mala-direta-clientes.csv", [
+                ["Nome", "E-mail", "Telefone", "Nascimento", "Documento"],
+                ...all.clients.map((c) => [
+                  c.name,
+                  c.email,
+                  c.phone,
+                  c.birth_date ? formatDateBR(c.birth_date) : "",
+                  c.document,
+                ]),
+              ]);
+            }}
+            type="button"
+            variant="secondary"
+          >
+            Mala direta (CSV)
           </Button>
         </form>
 
