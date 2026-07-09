@@ -438,6 +438,35 @@ create policy "pages_admin_all" on public.pages
 for all to authenticated
 using (public.is_admin()) with check (public.is_admin());
 
+alter table public.suppliers enable row level security;
+
+drop policy if exists "suppliers_admin_all" on public.suppliers;
+create policy "suppliers_admin_all" on public.suppliers
+for all to authenticated
+using (public.is_admin()) with check (public.is_admin());
+
+alter table public.waitlist enable row level security;
+
+drop policy if exists "waitlist_public_insert" on public.waitlist;
+create policy "waitlist_public_insert" on public.waitlist
+for insert to anon, authenticated
+with check (status = 'pending');
+
+drop policy if exists "waitlist_select_own_or_admin" on public.waitlist;
+create policy "waitlist_select_own_or_admin" on public.waitlist
+for select to authenticated
+using (user_id = auth.uid() or public.is_admin());
+
+drop policy if exists "waitlist_admin_update" on public.waitlist;
+create policy "waitlist_admin_update" on public.waitlist
+for update to authenticated
+using (public.is_admin()) with check (public.is_admin());
+
+drop policy if exists "waitlist_admin_delete" on public.waitlist;
+create policy "waitlist_admin_delete" on public.waitlist
+for delete to authenticated
+using (public.is_admin());
+
 drop policy if exists "public_read_site_assets" on storage.objects;
 create policy "public_read_site_assets" on storage.objects
 for select to public using (bucket_id in ('site-assets', 'product-images', 'blog-images'));

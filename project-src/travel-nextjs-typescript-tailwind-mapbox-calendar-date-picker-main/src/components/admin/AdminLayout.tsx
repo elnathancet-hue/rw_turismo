@@ -11,6 +11,8 @@ import {
   QueueListIcon,
   DocumentTextIcon,
   Cog6ToothIcon,
+  TruckIcon,
+  CakeIcon,
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -24,26 +26,55 @@ type Props = {
 };
 
 const navigation = [
-  { href: "/admin", label: "Dashboard", icon: HomeIcon },
-  { href: "/admin/products", label: "Produtos", icon: Squares2X2Icon },
-  { href: "/admin/product-dates", label: "Datas", icon: CalendarDaysIcon },
-  { href: "/admin/bookings", label: "Reservas", icon: ClipboardDocumentListIcon },
-  { href: "/admin/payments", label: "Pagamentos", icon: CreditCardIcon },
-  { href: "/admin/categories", label: "Categorias", icon: TagIcon },
-  { href: "/admin/home", label: "Home", icon: PhotoIcon },
-  { href: "/admin/menu", label: "Menu", icon: Bars3Icon },
-  { href: "/admin/blog", label: "Blog", icon: NewspaperIcon },
-  { href: "/admin/pages", label: "Páginas", icon: DocumentTextIcon },
-  { href: "/admin/footer", label: "Rodapé", icon: QueueListIcon },
-  { href: "/admin/settings", label: "Configurações", icon: Cog6ToothIcon },
+  {
+    section: "Vendas",
+    items: [
+      { href: "/admin", label: "Dashboard", icon: HomeIcon },
+      { href: "/admin/bookings", label: "Reservas", icon: ClipboardDocumentListIcon },
+      { href: "/admin/payments", label: "Pagamentos", icon: CreditCardIcon },
+    ],
+  },
+  {
+    section: "Operação",
+    items: [
+      { href: "/admin/departures", label: "Saídas", icon: TruckIcon },
+      { href: "/admin/birthdays", label: "Aniversariantes", icon: CakeIcon },
+    ],
+  },
+  {
+    section: "Catálogo",
+    items: [
+      { href: "/admin/products", label: "Produtos", icon: Squares2X2Icon },
+      { href: "/admin/product-dates", label: "Datas", icon: CalendarDaysIcon },
+      { href: "/admin/categories", label: "Categorias", icon: TagIcon },
+    ],
+  },
+  {
+    section: "Conteúdo",
+    items: [
+      { href: "/admin/home", label: "Home", icon: PhotoIcon },
+      { href: "/admin/pages", label: "Páginas", icon: DocumentTextIcon },
+      { href: "/admin/blog", label: "Blog", icon: NewspaperIcon },
+      { href: "/admin/menu", label: "Menu", icon: Bars3Icon },
+      { href: "/admin/footer", label: "Rodapé", icon: QueueListIcon },
+    ],
+  },
+  {
+    section: "Sistema",
+    items: [
+      { href: "/admin/settings", label: "Configurações", icon: Cog6ToothIcon },
+    ],
+  },
 ];
+
+const allNavItems = navigation.flatMap((group) => group.items);
 
 const AdminLayout = ({ children, title, description, action }: Props) => {
   const router = useRouter();
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
-      <aside className="fixed inset-y-0 left-0 hidden w-64 border-r bg-white px-4 py-6 lg:block">
+      <aside className="fixed inset-y-0 left-0 hidden w-64 border-r bg-white px-4 py-6 lg:block print:hidden">
         <Link className="flex items-center gap-3 px-3" href="/">
           <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-500 font-bold text-white">
             RW
@@ -53,31 +84,41 @@ const AdminLayout = ({ children, title, description, action }: Props) => {
             <span className="block text-xs text-gray-500">Operações</span>
           </span>
         </Link>
-        <nav className="mt-8 space-y-1">
-          {navigation.map((item) => {
-            const isActive =
-              router.pathname === item.href ||
-              (item.href !== "/admin" && router.pathname.startsWith(item.href));
-            const Icon = item.icon;
+        <nav className="mt-6 space-y-5">
+          {navigation.map((group) => (
+            <div key={group.section}>
+              <p className="px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                {group.section}
+              </p>
+              <div className="mt-1 space-y-1">
+                {group.items.map((item) => {
+                  const isActive =
+                    router.pathname === item.href ||
+                    (item.href !== "/admin" &&
+                      router.pathname.startsWith(item.href));
+                  const Icon = item.icon;
 
-            return (
-              <Link
-                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium ${
-                  isActive
-                    ? "bg-orange-50 text-orange-700"
-                    : "text-gray-600 hover:bg-gray-100"
-                }`}
-                href={item.href}
-                key={item.href}
-              >
-                <Icon className="h-5 w-5" />
-                {item.label}
-              </Link>
-            );
-          })}
+                  return (
+                    <Link
+                      className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium ${
+                        isActive
+                          ? "bg-orange-50 text-orange-700"
+                          : "text-gray-600 hover:bg-gray-100"
+                      }`}
+                      href={item.href}
+                      key={item.href}
+                    >
+                      <Icon className="h-5 w-5" />
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
       </aside>
-      <div className="lg:pl-64">
+      <div className="lg:pl-64 print:pl-0">
         <header className="border-b bg-white px-6 py-5">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
@@ -88,8 +129,8 @@ const AdminLayout = ({ children, title, description, action }: Props) => {
             </div>
             {action}
           </div>
-          <nav className="mt-5 flex gap-2 overflow-x-auto lg:hidden">
-            {navigation.map((item) => (
+          <nav className="mt-5 flex gap-2 overflow-x-auto lg:hidden print:hidden">
+            {allNavItems.map((item) => (
               <Link
                 className="whitespace-nowrap rounded-lg border px-3 py-2 text-sm font-medium"
                 href={item.href}

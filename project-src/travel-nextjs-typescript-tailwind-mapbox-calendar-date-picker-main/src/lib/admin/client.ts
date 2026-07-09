@@ -102,6 +102,7 @@ export type AdminPassenger = {
   document: string | null;
   birth_date: string | null;
   type: string;
+  checked_in_at?: string | null;
   created_at: string;
 };
 
@@ -363,6 +364,216 @@ export const getAdminPayments = async (): Promise<AdminPayment[]> => {
 
   throwIfError(error);
   return (data ?? []) as AdminPayment[];
+};
+
+// ---------------------------------------------------------------------------
+// Fase 1 — Operação: saídas, passageiros/check-in, aniversariantes e busca
+// paginada de reservas.
+// ---------------------------------------------------------------------------
+
+export type AdminDeparture = ProductDate & {
+  products?: {
+    title: string;
+    destination: string;
+    origin?: string | null;
+  } | null;
+};
+
+export type DeparturePassenger = AdminPassenger & {
+  bookings?: {
+    id: string;
+    status: BookingStatus;
+    payment_status: PaymentStatus;
+    customer_name: string;
+    customer_phone: string | null;
+    product_date_id: string;
+  } | null;
+};
+
+export const listAdminDepartures = async (
+  includePast = false
+): Promise<AdminDeparture[]> => {
+  let query = supabase()
+    .from("product_dates")
+    .select("*, products(title, destination, origin)")
+    .order("start_date", { ascending: !includePast });
+
+  if (!includePast) {
+    query = query.gte("end_date", new Date().toISOString().slice(0, 10));
+  }
+
+  const { data, error } = await query;
+  throwIfError(error);
+  return (data ?? []) as AdminDeparture[];
+};
+
+export const getAdminDeparture = async (
+  id: string
+): Promise<AdminDeparture | null> => {
+  const { data, error } = await supabase()
+    .from("product_dates")
+    .select("*, products(title, destination, origin)")
+    .eq("id", id)
+    .maybeSingle();
+
+  throwIfError(error);
+  return data as AdminDeparture | null;
+};
+
+// Pax reservados (pendentes + confirmados) por saída, para a lista de saídas.
+export const getDepartureBookingTotals = async (): Promise<
+  Record<string, number>
+> => {
+  const { data, error } = await supabase()
+    .from("bookings")
+    .select("product_date_id, travelers_count, status");
+
+  throwIfError(error);
+
+  const totals: Record<string, number> = {};
+  for (const row of (data ?? []) as {
+    product_date_id: string;
+    travelers_count: number;
+    status: BookingStatus;
+  }[]) {
+    if (row.status !== "pending" && row.status !== "confirmed") continue;
+    totals[row.product_date_id] =
+      (totals[row.product_date_id] ?? 0) + row.travelers_count;
+  }
+  return totals;
+};
+
+export const listDeparturePassengers = async (
+  productDateId: string
+): Promise<DeparturePassenger[]> => {
+  const { data, error } = await supabase()
+    .from("passengers")
+    .select(
+      "*, bookings!inner(id, status, payment_status, customer_name, customer_phone, product_date_id)"
+    )
+    .eq("bookings.product_date_id", productDateId)
+    .order("full_name", { ascending: true });
+
+  throwIfError(error);
+
+  const rows = (data ?? []) as DeparturePassenger[];
+  return rows.filter(
+    (row) =>
+      row.bookings &&
+      row.bookings.status !== "cancelled" &&
+      row.bookings.status !== "expired"
+  );
+};
+
+export const setAdminPassengerCheckin = async (
+  id: string,
+  checkedIn: boolean
+): Promise<void> => {
+  const { error } = await supabase()
+    .from("passengers")
+    .update({ checked_in_at: checkedIn ? new Date().toISOString() : null })
+    .eq("id", id);
+
+  throwIfError(error);
+};
+
+export type BirthdayPerson = {
+  name: string;
+  birth_date: string;
+  phone: string | null;
+  source: "passageiro" | "cliente";
+};
+
+export const listBirthdayPeople = async (): Promise<BirthdayPerson[]> => {
+  const people: BirthdayPerson[] = [];
+
+  const { data: pax, error: paxError } = await supabase()
+    .from("passengers")
+    .select("full_name, birth_date, bookings(customer_phone)")
+    .not("birth_date", "is", null);
+  throwIfError(paxError);
+  for (const row of (pax ?? []) as {
+    full_name: string;
+    birth_date: string;
+    bookings?: { customer_phone: string | null } | null;
+  }[]) {
+    people.push({
+      name: row.full_name,
+      birth_date: row.birth_date,
+      phone: row.bookings?.customer_phone ?? null,
+      source: "passageiro",
+    });
+  }
+
+  // Clientes: a coluna birth_date chega com a migration da Fase 1 — se ainda
+  // não existir no banco, seguimos só com os passageiros.
+  try {
+    const { data: clients, error: clientsError } = await supabase()
+      .from("users_profiles")
+      .select("name, phone, birth_date")
+      .not("birth_date", "is", null);
+    if (!clientsError) {
+      for (const row of (clients ?? []) as {
+        name: string | null;
+        phone: string | null;
+        birth_date: string | null;
+      }[]) {
+        if (row.name && row.birth_date) {
+          people.push({
+            name: row.name,
+            birth_date: row.birth_date,
+            phone: row.phone ?? null,
+            source: "cliente",
+          });
+        }
+      }
+    }
+  } catch {
+    // coluna ausente — ignora até a migration rodar
+  }
+
+  return people;
+};
+
+export type AdminBookingSearch = {
+  status?: BookingStatus | "all";
+  paymentStatus?: PaymentStatus | "all";
+  search?: string;
+  page?: number;
+  limit?: number;
+};
+
+export const searchAdminBookings = async (
+  q: AdminBookingSearch = {}
+): Promise<{ bookings: AdminBooking[]; count: number }> => {
+  const limit = q.limit ?? 25;
+  const page = Math.max(q.page ?? 1, 1);
+
+  let query = supabase()
+    .from("bookings")
+    .select(
+      "*, products(title, destination, cover_image), product_dates(start_date, end_date, available_slots)",
+      { count: "exact" }
+    )
+    .order("created_at", { ascending: false })
+    .range((page - 1) * limit, page * limit - 1);
+
+  if (q.status && q.status !== "all") {
+    query = query.eq("status", q.status);
+  }
+  if (q.paymentStatus && q.paymentStatus !== "all") {
+    query = query.eq("payment_status", q.paymentStatus);
+  }
+  const term = (q.search ?? "").replace(/[(),%]/g, " ").trim();
+  if (term) {
+    query = query.or(
+      `customer_name.ilike.%${term}%,customer_email.ilike.%${term}%`
+    );
+  }
+
+  const { data, error, count } = await query;
+  throwIfError(error);
+  return { bookings: (data ?? []) as AdminBooking[], count: count ?? 0 };
 };
 
 export const getAdminPaymentById = async (
