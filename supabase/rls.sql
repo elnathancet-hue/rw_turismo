@@ -502,6 +502,20 @@ create policy "notification_log_admin_read" on public.notification_log
 for select to authenticated
 using (public.is_admin());
 
+alter table public.expenses enable row level security;
+
+drop policy if exists "expenses_admin_all" on public.expenses;
+create policy "expenses_admin_all" on public.expenses
+for all to authenticated
+using (public.is_admin()) with check (public.is_admin());
+
+alter table public.receivables enable row level security;
+
+drop policy if exists "receivables_admin_all" on public.receivables;
+create policy "receivables_admin_all" on public.receivables
+for all to authenticated
+using (public.is_admin()) with check (public.is_admin());
+
 drop policy if exists "public_read_site_assets" on storage.objects;
 create policy "public_read_site_assets" on storage.objects
 for select to public using (bucket_id in ('site-assets', 'product-images', 'blog-images'));

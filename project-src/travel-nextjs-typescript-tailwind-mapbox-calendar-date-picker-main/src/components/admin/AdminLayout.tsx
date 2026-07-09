@@ -18,6 +18,9 @@ import {
   BuildingStorefrontIcon,
   ViewColumnsIcon,
   PuzzlePieceIcon,
+  BanknotesIcon,
+  ArrowTrendingDownIcon,
+  ArrowTrendingUpIcon,
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -66,6 +69,14 @@ const navigation = [
       { href: "/admin/blog", label: "Blog", icon: NewspaperIcon },
       { href: "/admin/menu", label: "Menu", icon: Bars3Icon },
       { href: "/admin/footer", label: "Rodapé", icon: QueueListIcon },
+    ],
+  },
+  {
+    section: "Financeiro",
+    items: [
+      { href: "/admin/finance", label: "Visão geral", icon: BanknotesIcon },
+      { href: "/admin/finance/expenses", label: "Despesas", icon: ArrowTrendingDownIcon },
+      { href: "/admin/finance/receivables", label: "Recebíveis", icon: ArrowTrendingUpIcon },
     ],
   },
   {
