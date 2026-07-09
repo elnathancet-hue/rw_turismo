@@ -1,5 +1,4 @@
 import {
-  Bars3Icon,
   CalendarDaysIcon,
   ClipboardDocumentListIcon,
   CreditCardIcon,
@@ -11,6 +10,8 @@ import {
   QueueListIcon,
   DocumentTextIcon,
   Cog6ToothIcon,
+  Bars3Icon,
+  XMarkIcon,
   TruckIcon,
   CakeIcon,
   UsersIcon,
@@ -21,10 +22,14 @@ import {
   BanknotesIcon,
   ArrowTrendingDownIcon,
   ArrowTrendingUpIcon,
+  ArrowRightOnRectangleIcon,
+  GlobeAltIcon,
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import useSupabaseSession from "../../hooks/useSupabaseSession";
+import { signOutFromSupabase } from "../../lib/auth/client";
 
 type Props = {
   children: ReactNode;
@@ -88,81 +93,203 @@ const navigation = [
   },
 ];
 
-const allNavItems = navigation.flatMap((group) => group.items);
+// O item ativo é o de href MAIS específico que casa com a rota atual — assim
+// /admin/finance/expenses acende "Despesas" (e não também "Visão geral").
+const findActiveHref = (pathname: string): string | null => {
+  let best: string | null = null;
+  for (const group of navigation) {
+    for (const item of group.items) {
+      const matches =
+        pathname === item.href ||
+        (item.href !== "/admin" && pathname.startsWith(`${item.href}/`));
+      if (matches && (!best || item.href.length > best.length)) {
+        best = item.href;
+      }
+    }
+  }
+  return best;
+};
+
+const NavGroups = ({
+  activeHref,
+  onNavigate,
+}: {
+  activeHref: string | null;
+  onNavigate?: () => void;
+}) => (
+  <div className="space-y-5">
+    {navigation.map((group) => (
+      <div key={group.section}>
+        <p className="px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+          {group.section}
+        </p>
+        <div className="mt-1 space-y-0.5">
+          {group.items.map((item) => {
+            const isActive = item.href === activeHref;
+            const Icon = item.icon;
+            return (
+              <Link
+                className={`flex items-center gap-3 rounded-lg border-l-2 px-3 py-2 text-sm font-medium transition ${
+                  isActive
+                    ? "border-orange-500 bg-orange-50 text-orange-700"
+                    : "border-transparent text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                }`}
+                href={item.href}
+                key={item.href}
+                onClick={onNavigate}
+              >
+                <Icon
+                  className={`h-5 w-5 ${isActive ? "text-orange-600" : "text-gray-400"}`}
+                />
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
+const UserBlock = ({ email }: { email: string | null }) => {
+  const router = useRouter();
+  return (
+    <div className="border-t px-3 pt-3">
+      {email && (
+        <p className="truncate px-1 text-xs text-gray-400" title={email}>
+          {email}
+        </p>
+      )}
+      <div className="mt-2 flex items-center gap-1">
+        <Link
+          className="flex flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100"
+          href="/"
+        >
+          <GlobeAltIcon className="h-4 w-4 text-gray-400" />
+          Ver site
+        </Link>
+        <button
+          className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium text-gray-600 hover:bg-red-50 hover:text-red-700"
+          onClick={async () => {
+            await signOutFromSupabase();
+            router.push("/signin");
+          }}
+          type="button"
+        >
+          <ArrowRightOnRectangleIcon className="h-4 w-4" />
+          Sair
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const AdminLayout = ({ children, title, description, action }: Props) => {
   const router = useRouter();
+  const { user } = useSupabaseSession();
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const activeHref = findActiveHref(router.pathname);
+
+  // Fecha o menu mobile ao navegar e com Esc.
+  useEffect(() => {
+    setIsMobileNavOpen(false);
+  }, [router.pathname]);
+
+  useEffect(() => {
+    if (!isMobileNavOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsMobileNavOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isMobileNavOpen]);
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
-      <aside className="fixed inset-y-0 left-0 hidden w-64 border-r bg-white px-4 py-6 lg:block print:hidden">
-        <Link className="flex items-center gap-3 px-3" href="/">
+      {/* Sidebar desktop */}
+      <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r bg-white lg:flex print:hidden">
+        <Link className="flex items-center gap-3 px-7 py-6" href="/admin">
           <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-500 font-bold text-white">
             RW
           </span>
           <span>
-            <span className="block text-sm font-semibold">RW Turismo Admin</span>
-            <span className="block text-xs text-gray-500">Operações</span>
+            <span className="block text-sm font-semibold">RW Turismo</span>
+            <span className="block text-xs text-gray-500">
+              Painel de operações
+            </span>
           </span>
         </Link>
-        <nav className="mt-6 space-y-5">
-          {navigation.map((group) => (
-            <div key={group.section}>
-              <p className="px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-                {group.section}
-              </p>
-              <div className="mt-1 space-y-1">
-                {group.items.map((item) => {
-                  const isActive =
-                    router.pathname === item.href ||
-                    (item.href !== "/admin" &&
-                      router.pathname.startsWith(item.href));
-                  const Icon = item.icon;
-
-                  return (
-                    <Link
-                      className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium ${
-                        isActive
-                          ? "bg-orange-50 text-orange-700"
-                          : "text-gray-600 hover:bg-gray-100"
-                      }`}
-                      href={item.href}
-                      key={item.href}
-                    >
-                      <Icon className="h-5 w-5" />
-                      {item.label}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
+        <nav className="flex-1 overflow-y-auto px-4 pb-4">
+          <NavGroups activeHref={activeHref} />
         </nav>
+        <div className="px-4 pb-4">
+          <UserBlock email={user?.email ?? null} />
+        </div>
       </aside>
-      <div className="lg:pl-64 print:pl-0">
-        <header className="border-b bg-white px-6 py-5">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h1 className="text-2xl font-semibold">{title}</h1>
-              {description && (
-                <p className="mt-1 text-sm text-gray-500">{description}</p>
-              )}
-            </div>
-            {action}
-          </div>
-          <nav className="mt-5 flex gap-2 overflow-x-auto lg:hidden print:hidden">
-            {allNavItems.map((item) => (
-              <Link
-                className="whitespace-nowrap rounded-lg border px-3 py-2 text-sm font-medium"
-                href={item.href}
-                key={item.href}
+
+      {/* Menu mobile (slide-over) */}
+      {isMobileNavOpen && (
+        <div
+          className="fixed inset-0 z-[80] bg-black/40 lg:hidden print:hidden"
+          onClick={() => setIsMobileNavOpen(false)}
+        >
+          <div
+            className="flex h-full w-72 flex-col bg-white shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4">
+              <span className="flex items-center gap-2 font-semibold">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500 text-sm font-bold text-white">
+                  RW
+                </span>
+                Painel
+              </span>
+              <button
+                aria-label="Fechar menu"
+                className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100"
+                onClick={() => setIsMobileNavOpen(false)}
+                type="button"
               >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
+                <XMarkIcon className="h-6 w-6" />
+              </button>
+            </div>
+            <nav className="flex-1 overflow-y-auto px-4 pb-4">
+              <NavGroups
+                activeHref={activeHref}
+                onNavigate={() => setIsMobileNavOpen(false)}
+              />
+            </nav>
+            <div className="px-4 pb-4">
+              <UserBlock email={user?.email ?? null} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="lg:pl-64 print:pl-0">
+        <header className="border-b bg-white px-4 py-4 sm:px-6 sm:py-5 print:hidden">
+          <div className="flex items-start gap-3">
+            <button
+              aria-expanded={isMobileNavOpen}
+              aria-label="Abrir menu do painel"
+              className="mt-0.5 rounded-lg border p-2 text-gray-600 hover:bg-gray-50 lg:hidden"
+              onClick={() => setIsMobileNavOpen(true)}
+              type="button"
+            >
+              <Bars3Icon className="h-5 w-5" />
+            </button>
+            <div className="flex flex-1 flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h1 className="text-xl font-semibold sm:text-2xl">{title}</h1>
+                {description && (
+                  <p className="mt-0.5 text-sm text-gray-500">{description}</p>
+                )}
+              </div>
+              {action}
+            </div>
+          </div>
         </header>
-        <main className="px-6 py-6">{children}</main>
+        <main className="px-4 py-5 sm:px-6 sm:py-6">{children}</main>
       </div>
     </div>
   );
