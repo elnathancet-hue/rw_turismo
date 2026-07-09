@@ -474,6 +474,20 @@ create policy "transfers_admin_all" on public.transfers
 for all to authenticated
 using (public.is_admin()) with check (public.is_admin());
 
+alter table public.leads enable row level security;
+
+drop policy if exists "leads_admin_all" on public.leads;
+create policy "leads_admin_all" on public.leads
+for all to authenticated
+using (public.is_admin()) with check (public.is_admin());
+
+alter table public.lead_activities enable row level security;
+
+drop policy if exists "lead_activities_admin_all" on public.lead_activities;
+create policy "lead_activities_admin_all" on public.lead_activities
+for all to authenticated
+using (public.is_admin()) with check (public.is_admin());
+
 drop policy if exists "public_read_site_assets" on storage.objects;
 create policy "public_read_site_assets" on storage.objects
 for select to public using (bucket_id in ('site-assets', 'product-images', 'blog-images'));

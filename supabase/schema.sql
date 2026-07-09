@@ -700,6 +700,45 @@ create trigger set_transfers_updated_at
 before update on public.transfers
 for each row execute function public.set_updated_at();
 
+-- Fase 4 (CRM): leads, atividades e UTM na lista de espera.
+create table if not exists public.leads (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  email text,
+  phone text,
+  interest text,
+  source text not null default 'manual',
+  utm jsonb not null default '{}'::jsonb,
+  stage_id text not null default 'new',
+  position integer not null default 0,
+  waitlist_id uuid references public.waitlist(id) on delete set null,
+  user_id uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint leads_utm_object_check check (jsonb_typeof(utm) = 'object')
+);
+
+create index if not exists leads_stage_idx on public.leads(stage_id, position);
+create index if not exists leads_created_idx on public.leads(created_at desc);
+create index if not exists leads_waitlist_idx on public.leads(waitlist_id);
+
+drop trigger if exists set_leads_updated_at on public.leads;
+create trigger set_leads_updated_at
+before update on public.leads
+for each row execute function public.set_updated_at();
+
+create table if not exists public.lead_activities (
+  id uuid primary key default gen_random_uuid(),
+  lead_id uuid not null references public.leads(id) on delete cascade,
+  note text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists lead_activities_lead_idx on public.lead_activities(lead_id, created_at desc);
+
+alter table public.waitlist
+  add column if not exists utm jsonb not null default '{}'::jsonb;
+
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values
   ('site-assets', 'site-assets', true, 5242880, array['image/jpeg','image/png','image/webp','image/svg+xml','image/x-icon']),

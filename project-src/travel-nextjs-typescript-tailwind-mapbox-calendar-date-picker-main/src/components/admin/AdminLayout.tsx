@@ -16,6 +16,7 @@ import {
   UsersIcon,
   UserPlusIcon,
   BuildingStorefrontIcon,
+  ViewColumnsIcon,
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -35,6 +36,7 @@ const navigation = [
       { href: "/admin", label: "Dashboard", icon: HomeIcon },
       { href: "/admin/bookings", label: "Reservas", icon: ClipboardDocumentListIcon },
       { href: "/admin/payments", label: "Pagamentos", icon: CreditCardIcon },
+      { href: "/admin/crm", label: "CRM", icon: ViewColumnsIcon },
       { href: "/admin/waitlist", label: "Lista de espera", icon: UserPlusIcon },
       { href: "/admin/clients", label: "Clientes", icon: UsersIcon },
     ],

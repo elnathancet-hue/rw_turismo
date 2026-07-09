@@ -1,4 +1,5 @@
 import { createSupabaseBrowserClient } from "../supabase/browser";
+import { getStoredUtm } from "../utm";
 
 export type JoinWaitlistInput = {
   product_id: string;
@@ -28,6 +29,8 @@ export const joinWaitlist = async (input: JoinWaitlistInput): Promise<void> => {
         ? input.travelers_count
         : 1,
     status: "pending",
+    // Campanha de origem (primeiro toque) — alimenta o CRM.
+    utm: getStoredUtm(),
   });
 
   if (error) throw error;

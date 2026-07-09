@@ -1,6 +1,8 @@
 import ProgressBar from "@badrap/bar-of-progress";
 import type { AppProps } from "next/app";
 import { Router } from "next/router";
+import { useEffect } from "react";
+import { captureUtmFromUrl } from "../lib/utm";
 import "../styles/globals.css";
 
 const progress = new ProgressBar({
@@ -15,6 +17,11 @@ Router.events.on("routeChangeComplete", progress.finish);
 Router.events.on("routeChangeError", progress.finish);
 
 const MyApp = ({ Component, pageProps }: AppProps) => {
+  // Guarda a UTM da campanha (primeiro toque) para o CRM.
+  useEffect(() => {
+    captureUtmFromUrl();
+  }, []);
+
   return <Component {...pageProps} />;
 };
 
