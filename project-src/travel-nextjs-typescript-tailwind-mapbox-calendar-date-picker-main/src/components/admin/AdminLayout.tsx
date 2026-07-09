@@ -62,7 +62,7 @@ const navigation = [
     section: "Catálogo",
     items: [
       { href: "/admin/products", label: "Produtos", icon: Squares2X2Icon },
-      { href: "/admin/product-dates", label: "Datas", icon: CalendarDaysIcon },
+      { href: "/admin/product-dates", label: "Datas de saída", icon: CalendarDaysIcon },
       { href: "/admin/categories", label: "Categorias", icon: TagIcon },
     ],
   },

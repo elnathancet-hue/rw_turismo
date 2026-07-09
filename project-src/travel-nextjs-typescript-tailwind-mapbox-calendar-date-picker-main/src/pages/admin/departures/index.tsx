@@ -48,7 +48,7 @@ const AdminDepartures = () => {
     <AdminGuard>
       <AdminLayout
         title="Saídas"
-        description="Operação por data de saída: passageiros, check-in e relatórios."
+        description="O dia da viagem: check-in, assentos, quartos e transfers de cada turma. (Para criar turmas, use Catálogo → Datas de saída.)"
       >
         <label className="mb-4 flex w-fit items-center gap-2 text-sm text-gray-600">
           <input

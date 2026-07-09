@@ -54,8 +54,8 @@ const AdminProductDates = () => {
             Nova data
           </Link>
         }
-        title="Datas disponíveis"
-        description="Configure disponibilidade e preço por produto."
+        title="Datas de saída"
+        description="Cada data é uma turma do produto, com suas próprias vagas e preço. O cliente reserva sempre numa data — e no dia da viagem você a opera em Operação → Saídas."
       >
         <AdminListState
           emptyHint="Cadastre uma janela de datas para permitir reservas."
