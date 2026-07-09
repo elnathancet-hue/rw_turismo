@@ -1,5 +1,6 @@
 import Stripe from "stripe";
-import { getPublicEnv, getStripeCheckoutEnv } from "../env";
+import { getPublicEnv } from "../env";
+import { getSecret } from "../server/secrets";
 import { createSupabaseAdminClient } from "../supabase/admin";
 import type { CreateCheckoutInput, CreateCheckoutResult } from "./types";
 
@@ -140,7 +141,16 @@ export const createInternalCheckoutSession = async (
   }
 
   const { siteUrl } = getPublicEnv();
-  const { stripeSecretKey } = getStripeCheckoutEnv();
+  // Chave do painel de integrações (fallback: env STRIPE_SECRET_KEY).
+  const stripeSecretKey = await getSecret("stripe_secret_key");
+
+  if (!stripeSecretKey) {
+    throw new InternalCheckoutError(
+      "Pagamento ainda não configurado. Cole as chaves do Stripe em Admin → Integrações.",
+      503
+    );
+  }
+
   const stripe = new Stripe(stripeSecretKey, {
     apiVersion: "2022-11-15",
   });

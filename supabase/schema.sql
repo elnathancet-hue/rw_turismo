@@ -739,6 +739,37 @@ create index if not exists lead_activities_lead_idx on public.lead_activities(le
 alter table public.waitlist
   add column if not exists utm jsonb not null default '{}'::jsonb;
 
+-- Fase 0/3 (integrações + notificações).
+create table if not exists public.integration_secrets (
+  key text primary key,
+  value text not null,
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists set_integration_secrets_updated_at on public.integration_secrets;
+create trigger set_integration_secrets_updated_at
+before update on public.integration_secrets
+for each row execute function public.set_updated_at();
+
+create table if not exists public.notification_log (
+  id uuid primary key default gen_random_uuid(),
+  event text not null,
+  channel text not null,
+  recipient text,
+  subject text,
+  body text,
+  status text not null,
+  error text,
+  ref text,
+  booking_id uuid references public.bookings(id) on delete set null,
+  created_at timestamptz not null default now(),
+  constraint notification_log_channel_check check (channel in ('whatsapp', 'email')),
+  constraint notification_log_status_check check (status in ('sent', 'skipped', 'failed'))
+);
+
+create index if not exists notification_log_event_ref_idx on public.notification_log(event, ref);
+create index if not exists notification_log_created_idx on public.notification_log(created_at desc);
+
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values
   ('site-assets', 'site-assets', true, 5242880, array['image/jpeg','image/png','image/webp','image/svg+xml','image/x-icon']),

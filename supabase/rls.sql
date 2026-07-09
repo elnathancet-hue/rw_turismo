@@ -488,6 +488,20 @@ create policy "lead_activities_admin_all" on public.lead_activities
 for all to authenticated
 using (public.is_admin()) with check (public.is_admin());
 
+alter table public.integration_secrets enable row level security;
+
+drop policy if exists "integration_secrets_admin_all" on public.integration_secrets;
+create policy "integration_secrets_admin_all" on public.integration_secrets
+for all to authenticated
+using (public.is_admin()) with check (public.is_admin());
+
+alter table public.notification_log enable row level security;
+
+drop policy if exists "notification_log_admin_read" on public.notification_log;
+create policy "notification_log_admin_read" on public.notification_log
+for select to authenticated
+using (public.is_admin());
+
 drop policy if exists "public_read_site_assets" on storage.objects;
 create policy "public_read_site_assets" on storage.objects
 for select to public using (bucket_id in ('site-assets', 'product-images', 'blog-images'));

@@ -7,6 +7,7 @@ import type {
   CreatePendingBookingInput,
   CreatePendingBookingResult,
 } from "../../../lib/bookings/types";
+import { notifyBookingEvent } from "../../../lib/server/notifications";
 import { createSupabaseServerClient } from "../../../lib/supabase/server";
 
 type ErrorResponse = {
@@ -44,6 +45,11 @@ const handler = async (
     };
 
     const result = await createPendingBooking(input);
+
+    // Notificação "reserva realizada" (WhatsApp/e-mail) — nunca bloqueia a reserva.
+    await notifyBookingEvent("booking_created", result.booking_id).catch(
+      (notifyError) => console.error("booking_created notify failed", notifyError)
+    );
 
     return res.status(201).json(result);
   } catch (error) {

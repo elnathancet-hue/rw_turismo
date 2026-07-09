@@ -17,6 +17,7 @@ import {
   UserPlusIcon,
   BuildingStorefrontIcon,
   ViewColumnsIcon,
+  PuzzlePieceIcon,
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -70,6 +71,7 @@ const navigation = [
   {
     section: "Sistema",
     items: [
+      { href: "/admin/integracoes", label: "Integrações", icon: PuzzlePieceIcon },
       { href: "/admin/settings", label: "Configurações", icon: Cog6ToothIcon },
     ],
   },
