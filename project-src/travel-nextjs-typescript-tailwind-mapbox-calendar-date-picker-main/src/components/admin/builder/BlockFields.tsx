@@ -291,6 +291,46 @@ const BlockFields = ({ block, onPatch }: Props) => {
           </Select>
         </Field>
       );
+
+    case "form":
+      return (
+        <div className="space-y-3">
+          <Field label="Título">
+            <Input
+              onChange={(e) => onPatch({ title: e.target.value })}
+              value={block.title}
+            />
+          </Field>
+          <Field label="Subtítulo">
+            <Input
+              onChange={(e) => onPatch({ subtitle: e.target.value })}
+              value={block.subtitle}
+            />
+          </Field>
+          <Field
+            hint="Rotula o lead no CRM — use o nome da campanha ou do pacote."
+            label="Interesse / campanha"
+          >
+            <Input
+              onChange={(e) => onPatch({ interest: e.target.value })}
+              placeholder="Ex.: Landing Lençóis setembro"
+              value={block.interest}
+            />
+          </Field>
+          <Field label="Texto do botão">
+            <Input
+              onChange={(e) => onPatch({ button_label: e.target.value })}
+              value={block.button_label}
+            />
+          </Field>
+          <Field label="Mensagem de sucesso">
+            <Input
+              onChange={(e) => onPatch({ success_message: e.target.value })}
+              value={block.success_message}
+            />
+          </Field>
+        </div>
+      );
   }
 };
 

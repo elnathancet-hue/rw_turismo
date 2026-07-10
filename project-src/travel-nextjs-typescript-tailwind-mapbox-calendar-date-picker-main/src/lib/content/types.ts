@@ -74,7 +74,17 @@ export type PageBlock =
       type: "faq";
       items: { question: string; answer: string }[];
     }
-  | { id: string; type: "spacer"; size: "small" | "medium" | "large" };
+  | { id: string; type: "spacer"; size: "small" | "medium" | "large" }
+  | {
+      id: string;
+      type: "form";
+      title: string;
+      subtitle: string;
+      button_label: string;
+      // Rótulo que vira o "interesse" do lead no CRM (ex.: nome da landing).
+      interest: string;
+      success_message: string;
+    };
 
 export type Page = {
   id: string;

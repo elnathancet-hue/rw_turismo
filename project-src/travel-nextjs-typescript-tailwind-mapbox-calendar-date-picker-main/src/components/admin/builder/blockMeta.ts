@@ -2,6 +2,7 @@ import {
   ArrowsUpDownIcon,
   Bars3BottomLeftIcon,
   ChatBubbleBottomCenterTextIcon,
+  InboxArrowDownIcon,
   MegaphoneIcon,
   PhotoIcon,
   PlayCircleIcon,
@@ -62,6 +63,11 @@ export const blockMeta: Record<PageBlock["type"], BlockMeta> = {
     description: "Perguntas e respostas",
     icon: QuestionMarkCircleIcon,
   },
+  form: {
+    label: "Formulário (lead)",
+    description: "Captação direto para o CRM",
+    icon: InboxArrowDownIcon,
+  },
   spacer: {
     label: "Espaço",
     description: "Respiro entre seções",
@@ -100,6 +106,17 @@ export const createBlock = (type: PageBlock["type"]): PageBlock => {
       return { id, type, items: [] };
     case "spacer":
       return { id, type, size: "medium" };
+    case "form":
+      return {
+        id,
+        type,
+        title: "Fale com a gente",
+        subtitle: "Deixe seus dados e um consultor de viagens te chama.",
+        button_label: "Quero saber mais",
+        interest: "",
+        success_message:
+          "Recebemos seus dados! Em breve entraremos em contato. 💛",
+      };
   }
 };
 
@@ -140,6 +157,8 @@ export const summarizeBlock = (block: PageBlock): string => {
         : "Sem perguntas ainda";
     case "spacer":
       return { small: "Pequeno", medium: "Médio", large: "Grande" }[block.size];
+    case "form":
+      return truncate(block.interest || block.title) || "Formulário de contato";
   }
 };
 
@@ -164,6 +183,8 @@ export const isBlockEmpty = (block: PageBlock): boolean => {
     case "faq":
       return !block.items.some((item) => item.question);
     case "spacer":
+      return false;
+    case "form":
       return false;
   }
 };

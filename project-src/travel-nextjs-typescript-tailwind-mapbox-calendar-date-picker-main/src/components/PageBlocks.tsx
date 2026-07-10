@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { useState, type FormEvent } from "react";
 import type { PageBlock } from "../lib/content/types";
+import { submitSiteLead } from "../lib/leads/client";
 import MarkdownContent from "./MarkdownContent";
 
 const buttonClass =
@@ -183,9 +185,128 @@ export const PageBlockView = ({ block }: { block: PageBlock }) => {
       return (
         <div aria-hidden="true" className={spacerHeight[block.size] ?? "h-12"} />
       );
+    case "form":
+      return <LeadFormBlock block={block} />;
     default:
       return null;
   }
+};
+
+const leadInputClass =
+  "mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-orange-500";
+
+// Bloco de captação: os envios viram leads no CRM (origem "Formulário do
+// site"), carregando a UTM da campanha guardada no navegador.
+const LeadFormBlock = ({
+  block,
+}: {
+  block: Extract<PageBlock, { type: "form" }>;
+}) => {
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setError(null);
+    if (!name.trim() || (!phone.trim() && !email.trim())) {
+      setError("Preencha seu nome e um contato (WhatsApp ou e-mail).");
+      return;
+    }
+    setIsSending(true);
+    try {
+      await submitSiteLead({
+        name,
+        phone,
+        email,
+        message,
+        interest: block.interest,
+      });
+      setDone(true);
+    } catch {
+      setError("Não foi possível enviar agora. Tente novamente.");
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  return (
+    <section className="rounded-2xl border bg-white p-6 shadow-sm sm:p-8">
+      {block.title && <h2 className="text-2xl font-semibold">{block.title}</h2>}
+      {block.subtitle && <p className="mt-1 text-gray-600">{block.subtitle}</p>}
+
+      {done ? (
+        <p
+          className="mt-5 rounded-lg border border-green-200 bg-green-50 p-4 text-green-800"
+          role="status"
+        >
+          {block.success_message || "Recebemos seus dados! Obrigado."}
+        </p>
+      ) : (
+        <form className="mt-5 grid gap-4 sm:grid-cols-2" onSubmit={submit}>
+          <label className="block text-sm font-medium text-gray-700">
+            Nome
+            <input
+              className={leadInputClass}
+              onChange={(event) => setName(event.target.value)}
+              required
+              value={name}
+            />
+          </label>
+          <label className="block text-sm font-medium text-gray-700">
+            WhatsApp
+            <input
+              className={leadInputClass}
+              onChange={(event) => setPhone(event.target.value)}
+              placeholder="(86) 9…"
+              type="tel"
+              value={phone}
+            />
+          </label>
+          <label className="block text-sm font-medium text-gray-700 sm:col-span-2">
+            E-mail
+            <input
+              className={leadInputClass}
+              onChange={(event) => setEmail(event.target.value)}
+              type="email"
+              value={email}
+            />
+          </label>
+          <label className="block text-sm font-medium text-gray-700 sm:col-span-2">
+            Mensagem (opcional)
+            <textarea
+              className={`${leadInputClass} min-h-[90px]`}
+              onChange={(event) => setMessage(event.target.value)}
+              value={message}
+            />
+          </label>
+          {error && (
+            <p
+              className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700 sm:col-span-2"
+              role="alert"
+            >
+              {error}
+            </p>
+          )}
+          <div className="sm:col-span-2">
+            <button
+              className="rounded-lg bg-orange-500 px-6 py-2.5 font-semibold text-white transition hover:bg-orange-600 disabled:opacity-60"
+              disabled={isSending}
+              type="submit"
+            >
+              {isSending
+                ? "Enviando…"
+                : block.button_label || "Quero saber mais"}
+            </button>
+          </div>
+        </form>
+      )}
+    </section>
+  );
 };
 
 const PageBlocks = ({ blocks }: { blocks: PageBlock[] }) => (

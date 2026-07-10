@@ -967,3 +967,29 @@ export const deleteAdminTransfer = async (id: string): Promise<void> => {
   const { error } = await supabase().from("transfers").delete().eq("id", id);
   throwIfError(error);
 };
+
+// ---------------------------------------------------------------------------
+// Semana 3 — Pesquisa de satisfação (NPS).
+// ---------------------------------------------------------------------------
+
+export type SurveyResponse = {
+  id: string;
+  booking_id: string;
+  rating: number;
+  comment: string | null;
+  created_at: string;
+  bookings?: {
+    customer_name: string;
+    products?: { title: string } | null;
+  } | null;
+};
+
+export const listSurveyResponses = async (): Promise<SurveyResponse[]> => {
+  const { data, error } = await supabase()
+    .from("survey_responses")
+    .select("*, bookings(customer_name, products(title))")
+    .order("created_at", { ascending: false });
+
+  throwIfError(error);
+  return (data ?? []) as SurveyResponse[];
+};

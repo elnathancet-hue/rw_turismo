@@ -870,6 +870,19 @@ create trigger set_receivables_updated_at
 before update on public.receivables
 for each row execute function public.set_updated_at();
 
+-- Semana 3: pesquisa de satisfação pós-viagem.
+create table if not exists public.survey_responses (
+  id uuid primary key default gen_random_uuid(),
+  booking_id uuid not null references public.bookings(id) on delete cascade,
+  rating integer not null,
+  comment text,
+  created_at timestamptz not null default now(),
+  constraint survey_responses_rating_check check (rating >= 0 and rating <= 10),
+  constraint survey_responses_booking_key unique (booking_id)
+);
+
+create index if not exists survey_responses_created_idx on public.survey_responses(created_at desc);
+
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values
   ('site-assets', 'site-assets', true, 5242880, array['image/jpeg','image/png','image/webp','image/svg+xml','image/x-icon']),

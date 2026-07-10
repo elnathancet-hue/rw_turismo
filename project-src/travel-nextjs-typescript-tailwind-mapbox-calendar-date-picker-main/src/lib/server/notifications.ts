@@ -392,7 +392,7 @@ export const runDailyNotifications = async (): Promise<JobSummary> => {
         phone: booking.customer_phone,
         email: booking.customer_email,
         subject: `Como foi a viagem? — ${product}`,
-        text: `Olá, ${firstName}! 💛\n\nObrigado por viajar com a RW Turismo (${product}).\n\nSua opinião vale ouro: responda esta mensagem com uma nota de 0 a 10 e o que podemos melhorar.\n\nAté a próxima viagem!`,
+        text: `Olá, ${firstName}! 💛\n\nObrigado por viajar com a RW Turismo (${product}).\n\nSua opinião vale ouro — avalie em 30 segundos:\n${siteUrl()}/avaliar/${booking.id}\n\nAté a próxima viagem!`,
       });
       summary.post_trip += 1;
     }

@@ -516,6 +516,23 @@ create policy "receivables_admin_all" on public.receivables
 for all to authenticated
 using (public.is_admin()) with check (public.is_admin());
 
+drop policy if exists "leads_public_insert" on public.leads;
+create policy "leads_public_insert" on public.leads
+for insert to anon, authenticated
+with check (source = 'site_form' and stage_id = 'new');
+
+alter table public.survey_responses enable row level security;
+
+drop policy if exists "survey_responses_public_insert" on public.survey_responses;
+create policy "survey_responses_public_insert" on public.survey_responses
+for insert to anon, authenticated
+with check (rating >= 0 and rating <= 10);
+
+drop policy if exists "survey_responses_admin_read" on public.survey_responses;
+create policy "survey_responses_admin_read" on public.survey_responses
+for select to authenticated
+using (public.is_admin());
+
 drop policy if exists "public_read_site_assets" on storage.objects;
 create policy "public_read_site_assets" on storage.objects
 for select to public using (bucket_id in ('site-assets', 'product-images', 'blog-images'));
