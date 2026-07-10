@@ -154,7 +154,19 @@ export const searchPackages = async (
     );
   }
 
-  return rows as Product[];
+  // Rotula quem está sem saída futura e joga para o fim da lista (continua
+  // visível para capturar lista de espera).
+  const today = new Date().toISOString().slice(0, 10);
+  const annotated = rows
+    .map((product) => ({
+      ...product,
+      has_future_date: (product.product_dates ?? []).some(
+        (date) => date.active && date.start_date >= today
+      ),
+    }))
+    .sort((a, b) => Number(b.has_future_date) - Number(a.has_future_date));
+
+  return annotated as Product[];
 };
 
 export const getActiveCategories = async (): Promise<Category[]> => {

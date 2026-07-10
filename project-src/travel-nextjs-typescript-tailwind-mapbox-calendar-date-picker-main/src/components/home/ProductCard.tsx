@@ -15,6 +15,11 @@ const ProductCard = ({ product }: { product: Product }) => {
             Promoção
           </span>
         )}
+        {product.has_future_date === false && (
+          <span className="absolute top-3 right-3 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+            Novas datas em breve
+          </span>
+        )}
       </div>
       <div className="p-5">
         <p className="text-sm text-gray-500">{product.destination}</p>

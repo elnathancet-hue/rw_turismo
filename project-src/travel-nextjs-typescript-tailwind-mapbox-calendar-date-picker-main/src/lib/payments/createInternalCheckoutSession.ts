@@ -24,6 +24,7 @@ type BookingRecord = {
   status: string;
   payment_status: string;
   expires_at: string | null;
+  stripe_checkout_session_id?: string | null;
   products?: {
     title?: string | null;
     destination?: string | null;
@@ -75,7 +76,7 @@ export const createInternalCheckoutSession = async (
   const { data: booking, error: bookingError } = await supabase
     .from("bookings")
     .select(
-      "id, user_id, product_id, product_date_id, travelers_count, total_amount, status, payment_status, expires_at, products(title, destination, cover_image)"
+      "id, user_id, product_id, product_date_id, travelers_count, total_amount, status, payment_status, expires_at, stripe_checkout_session_id, products(title, destination, cover_image)"
     )
     .eq("id", input.booking_id)
     .maybeSingle();
@@ -154,6 +155,19 @@ export const createInternalCheckoutSession = async (
   const stripe = new Stripe(stripeSecretKey, {
     apiVersion: "2022-11-15",
   });
+
+  // Nova tentativa de pagamento: expira a sessão antiga no Stripe antes de
+  // abrir outra, para nunca existirem dois checkouts vivos da mesma reserva.
+  // Melhor esforço: sessão já completada/expirada apenas ignora o erro.
+  if (bookingRecord.stripe_checkout_session_id) {
+    try {
+      await stripe.checkout.sessions.expire(
+        bookingRecord.stripe_checkout_session_id
+      );
+    } catch {
+      // já expirada, já completada ou inexistente — seguir em frente
+    }
+  }
 
   const productName = bookingRecord.products?.title ?? "Reserva RWTurismo";
 

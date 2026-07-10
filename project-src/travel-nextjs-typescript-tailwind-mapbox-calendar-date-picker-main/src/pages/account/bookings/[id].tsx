@@ -193,14 +193,33 @@ const BookingDetails = () => {
               )}
 
               {payable ? (
-                <button
-                  className="rounded bg-orange-600 px-6 py-2.5 font-semibold text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-orange-300"
-                  disabled={isCreatingCheckout}
-                  onClick={handlePayNow}
-                  type="button"
-                >
-                  {isCreatingCheckout ? "Abrindo pagamento…" : "Pagar agora"}
-                </button>
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    className="rounded bg-orange-600 px-6 py-2.5 font-semibold text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-orange-300"
+                    disabled={isCreatingCheckout}
+                    onClick={handlePayNow}
+                    type="button"
+                  >
+                    {isCreatingCheckout
+                      ? "Abrindo pagamento…"
+                      : booking.stripe_checkout_session_id
+                        ? "Tentar pagamento novamente"
+                        : "Pagar agora"}
+                  </button>
+                  {isProcessingPayment(booking) && (
+                    <button
+                      className="rounded border px-6 py-2.5 font-semibold hover:bg-gray-50"
+                      onClick={() =>
+                        getMyBookingById(booking.id)
+                          .then(setBooking)
+                          .catch(() => {})
+                      }
+                      type="button"
+                    >
+                      Atualizar status
+                    </button>
+                  )}
+                </div>
               ) : isBookingExpired(booking) ? (
                 <Link
                   className="inline-flex rounded bg-orange-600 px-6 py-2.5 font-semibold text-white hover:bg-orange-700"

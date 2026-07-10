@@ -15,6 +15,9 @@ export type Product = {
   cover_image: string | null;
   gallery: Json;
   active: boolean;
+  // Anotado na vitrine: o produto tem alguma saída futura ativa? (undefined =
+  // não calculado; false = mostrar "novas datas em breve" e despriorizar)
+  has_future_date?: boolean;
   created_at: string;
   updated_at: string;
 };

@@ -44,6 +44,27 @@ export const getProductBySlugServer = async (
   return data as Product | null;
 };
 
+// Ids de produtos com alguma saída futura ativa — para a vitrine rotular e
+// despriorizar os que estão sem data.
+export const getFutureDateProductIdsServer = async (
+  context: ProductServerContext = {}
+): Promise<Set<string>> => {
+  const today = new Date().toISOString().slice(0, 10);
+  const { data, error } = await serverClient(context)
+    .from("product_dates")
+    .select("product_id")
+    .eq("active", true)
+    .gte("start_date", today);
+
+  if (error) {
+    throw error;
+  }
+
+  return new Set(
+    ((data ?? []) as { product_id: string }[]).map((row) => row.product_id)
+  );
+};
+
 export const getActiveProductDatesServer = async (
   productId: string,
   context: ProductServerContext = {}

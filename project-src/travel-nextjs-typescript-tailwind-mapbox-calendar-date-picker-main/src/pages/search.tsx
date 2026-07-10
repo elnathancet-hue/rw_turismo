@@ -182,7 +182,7 @@ const Search = () => {
                 href={`/products/${product.slug}`}
                 key={product.id}
               >
-                <div className="h-52 bg-gray-100">
+                <div className="relative h-52 bg-gray-100">
                   {product.cover_image && (
                     <img
                       alt={product.title}
@@ -190,6 +190,11 @@ const Search = () => {
                       loading="lazy"
                       src={product.cover_image}
                     />
+                  )}
+                  {product.has_future_date === false && (
+                    <span className="absolute right-3 top-3 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                      Novas datas em breve
+                    </span>
                   )}
                 </div>
                 <div className="p-5">

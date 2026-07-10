@@ -49,11 +49,13 @@ export const isExpiredPendingBooking = (booking: BookingSummary): boolean =>
 export const isBookingExpired = (booking: BookingSummary): boolean =>
   booking.status === "expired" || isExpiredPendingBooking(booking);
 
-// Pending hold, still in time, no checkout started yet — the user can pay.
+// Pending hold, still in time — the user can (re)start the checkout. A
+// previous Stripe session does NOT block a new attempt: abandoning the
+// checkout was the biggest funnel leak; the server expires the old session
+// before opening a new one.
 export const isPayablePendingBooking = (booking: BookingSummary): boolean =>
   booking.status === "pending" &&
   booking.payment_status === "pending" &&
-  !booking.stripe_checkout_session_id &&
   Boolean(booking.expires_at) &&
   new Date(booking.expires_at as string).getTime() > Date.now();
 
@@ -126,7 +128,7 @@ export const getCustomerBookingState = (
       label: "Processando pagamento",
       tone: "info",
       description:
-        "Estamos confirmando seu pagamento. Costuma levar só alguns instantes — atualize a página em um minuto.",
+        "Estamos confirmando seu pagamento. Se você não concluiu o checkout, pode tentar pagar novamente pelo botão abaixo.",
     };
   }
 

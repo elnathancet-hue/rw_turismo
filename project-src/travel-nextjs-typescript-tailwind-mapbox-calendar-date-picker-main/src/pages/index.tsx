@@ -2,7 +2,10 @@ import EditableHome from "../components/home/EditableHome";
 import { getPublicHomeContent } from "../lib/content/server";
 import type { HomeBanner, HomeSection, SiteSetting } from "../lib/content/types";
 import { fallbackProducts } from "../lib/products/fallback";
-import { getActiveProductsServer } from "../lib/products/server";
+import {
+  getActiveProductsServer,
+  getFutureDateProductIdsServer,
+} from "../lib/products/server";
 
 export default EditableHome;
 
@@ -74,6 +77,22 @@ export const getStaticProps = async () => {
 
   try {
     products = await getActiveProductsServer();
+    // Rotula e despriorizada quem está sem saída futura (vitrine honesta:
+    // continua visível — vira captação de lista de espera — mas vai pro fim).
+    try {
+      const withFutureDate = await getFutureDateProductIdsServer();
+      products = products
+        .map((product) => ({
+          ...product,
+          has_future_date: withFutureDate.has(product.id),
+        }))
+        .sort(
+          (a, b) =>
+            Number(b.has_future_date ?? true) - Number(a.has_future_date ?? true)
+        );
+    } catch (annotateError) {
+      console.error("Failed to annotate future dates", annotateError);
+    }
   } catch (error) {
     console.error("Failed to load products for homepage; using fallback", error);
   }
