@@ -330,8 +330,11 @@ const PageBuilder = ({ page }: { page: Page | null }) => {
   };
 
   // ----- Save ---------------------------------------------------------------
-  const save = useCallback(async () => {
-    const { draft: current, menuState: menu } = stateRef.current;
+  // `overrides` permite salvar já com outro estado (ex.: o botão Publicar
+  // salva com status "published" num clique só).
+  const save = useCallback(async (overrides?: Partial<Draft>) => {
+    const { menuState: menu } = stateRef.current;
+    const current = { ...stateRef.current.draft, ...(overrides ?? {}) };
     // Synchronous re-entry guard: two triggers in the same tick (Ctrl+S +
     // click) would both pass a state-based check before React re-renders.
     if (savingRef.current) return;
@@ -379,7 +382,14 @@ const PageBuilder = ({ page }: { page: Page | null }) => {
       }
 
       const nextDraft: Draft = { ...current, title, slug: saved.slug };
-      if (current.title !== title || current.slug !== saved.slug) {
+      const statusChanged =
+        overrides?.status !== undefined &&
+        overrides.status !== stateRef.current.draft.status;
+      if (
+        current.title !== title ||
+        current.slug !== saved.slug ||
+        statusChanged
+      ) {
         set(() => nextDraft, { coalesce: "save" });
       }
       setSavedSnapshot(serialize(nextDraft, menu));
@@ -389,7 +399,13 @@ const PageBuilder = ({ page }: { page: Page | null }) => {
               tone: "error",
               text: "Página salva, mas o menu do site não pôde ser atualizado.",
             }
-          : { tone: "ok", text: "Página salva." }
+          : {
+              tone: "ok",
+              text:
+                overrides?.status === "published"
+                  ? "Página publicada! Ela já está no ar."
+                  : "Página salva.",
+            }
       );
 
       if (!page?.id) {
@@ -561,18 +577,39 @@ const PageBuilder = ({ page }: { page: Page | null }) => {
           </div>
           {publishedUrl && (
             <a
-              className={`${topbarIconButton} hidden md:flex`}
+              className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-sm font-semibold text-gray-700 transition hover:border-orange-400 hover:text-orange-700"
               href={publishedUrl}
               rel="noopener noreferrer"
               target="_blank"
-              title="Abrir página publicada"
             >
-              <ArrowTopRightOnSquareIcon className="h-5 w-5" />
+              <ArrowTopRightOnSquareIcon className="h-4 w-4" />
+              <span className="hidden sm:inline">Ver página</span>
             </a>
           )}
-          <Button loading={isSaving} onClick={() => void save()} size="sm">
-            Salvar
-          </Button>
+          {draft.status === "draft" ? (
+            <>
+              <Button
+                loading={isSaving}
+                onClick={() => void save()}
+                size="sm"
+                variant="secondary"
+              >
+                Salvar
+              </Button>
+              <Button
+                loading={isSaving}
+                onClick={() => void save({ status: "published" })}
+                size="sm"
+                title="Salva e coloca a página no ar"
+              >
+                Publicar
+              </Button>
+            </>
+          ) : (
+            <Button loading={isSaving} onClick={() => void save()} size="sm">
+              Salvar
+            </Button>
+          )}
         </div>
       </header>
 
@@ -920,6 +957,17 @@ const PageBuilder = ({ page }: { page: Page | null }) => {
                     <option value="published">Publicada (no ar)</option>
                   </Select>
                 </Field>
+                {publishedUrl && (
+                  <a
+                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-orange-600 hover:text-orange-700"
+                    href={publishedUrl}
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    <ArrowTopRightOnSquareIcon className="h-4 w-4" />
+                    Ver página publicada
+                  </a>
+                )}
 
                 <div className="rounded-lg border p-3">
                   <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
