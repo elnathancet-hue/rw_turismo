@@ -11,6 +11,10 @@ type Props = {
   submitLabel: string;
 };
 
+// Hoje no fuso local do admin (en-CA = YYYY-MM-DD), para o min dos inputs.
+const todayLocalISO = () =>
+  new Intl.DateTimeFormat("en-CA").format(new Date());
+
 const ProductDateForm = ({ initialDate, onSubmit, submitLabel }: Props) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [values, setValues] = useState<ProductDateFormValues>({
@@ -91,6 +95,7 @@ const ProductDateForm = ({ initialDate, onSubmit, submitLabel }: Props) => {
           Inicio
           <input
             className="mt-1 w-full rounded border px-3 py-2"
+            min={initialDate ? undefined : todayLocalISO()}
             onChange={(event) => updateValue("start_date", event.target.value)}
             required
             type="date"
@@ -101,6 +106,7 @@ const ProductDateForm = ({ initialDate, onSubmit, submitLabel }: Props) => {
           Fim
           <input
             className="mt-1 w-full rounded border px-3 py-2"
+            min={values.start_date || (initialDate ? undefined : todayLocalISO())}
             onChange={(event) => updateValue("end_date", event.target.value)}
             required
             type="date"

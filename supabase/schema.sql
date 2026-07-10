@@ -354,6 +354,12 @@ begin
     raise exception 'PRODUCT_DATE_MISMATCH' using errcode = 'P0001';
   end if;
 
+  -- A departure that already left must never be sellable, even if the admin
+  -- forgot to deactivate it.
+  if v_product_date.start_date < current_date then
+    raise exception 'PRODUCT_DATE_IN_PAST' using errcode = 'P0001';
+  end if;
+
   if v_product_date.available_slots < p_travelers_count then
     raise exception 'NOT_ENOUGH_SLOTS' using errcode = 'P0001';
   end if;
@@ -463,6 +469,45 @@ $$;
 
 revoke all on function public.expire_pending_booking(uuid) from public;
 grant execute on function public.expire_pending_booking(uuid) to service_role;
+
+-- Batch sweep for the cron: expires every overdue pending hold and returns
+-- the seats to inventory. Reuses expire_pending_booking (row lock + idempotent
+-- slot release), so it is safe to run concurrently with page-driven expiry.
+create or replace function public.expire_overdue_pending_bookings()
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_booking_id uuid;
+  v_result record;
+  v_expired integer := 0;
+begin
+  for v_booking_id in
+    select id
+    from public.bookings
+    where status = 'pending'
+      and payment_status = 'pending'
+      and expires_at is not null
+      and expires_at < now()
+    order by expires_at
+    limit 500
+  loop
+    select * into v_result
+    from public.expire_pending_booking(v_booking_id);
+
+    if v_result.expired then
+      v_expired := v_expired + 1;
+    end if;
+  end loop;
+
+  return v_expired;
+end;
+$$;
+
+revoke all on function public.expire_overdue_pending_bookings() from public;
+grant execute on function public.expire_overdue_pending_bookings() to service_role;
 
 -- Editable home, site settings and blog.
 create table if not exists public.home_sections (

@@ -157,9 +157,27 @@ export const createInternalCheckoutSession = async (
 
   const productName = bookingRecord.products?.title ?? "Reserva RWTurismo";
 
+  // Tenta alinhar a vida da sessão Stripe ao hold da reserva (30 min) em vez
+  // do padrão de 24h — mas o Stripe só aceita expires_at >= agora + 30 min
+  // (erro de API abaixo disso), e o checkout é sempre criado ALGUM tempo
+  // depois do início do hold. Na prática isso significa que
+  // "agora + 31min de folga" quase sempre é maior que o expires_at real da
+  // reserva, então esse piso do Stripe é o que realmente decide a vida da
+  // sessão na maioria dos casos — o Math.max não é o bug em si, é o piso
+  // físico da API. O resíduo (sessão Stripe viva além do hold) é coberto
+  // pelo gate de expiração em confirmInternalPayment: um pagamento
+  // completado depois do expires_at da reserva cai em requires_review em vez
+  // de confirmar uma reserva já expirada/com vaga já liberada.
+  const bookingExpiresAtMs = new Date(bookingRecord.expires_at as string).getTime();
+  const minSessionExpiryMs = Date.now() + 31 * 60 * 1000;
+  const sessionExpiresAt = Math.floor(
+    Math.max(bookingExpiresAtMs, minSessionExpiryMs) / 1000
+  );
+
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
     payment_method_types: ["card"],
+    expires_at: sessionExpiresAt,
     line_items: [
       {
         price_data: {

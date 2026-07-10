@@ -249,7 +249,10 @@ export const confirmInternalPayment = async (
   if (
     bookingRecord.status !== "pending" ||
     bookingRecord.payment_status !== "pending" ||
-    !["pending", "paid"].includes(paymentRecord.status)
+    // "failed" é confirmável: cartão recusado seguido de nova tentativa na
+    // MESMA sessão de checkout. Valor/moeda e expiração já foram validados
+    // acima, então o dinheiro capturado corresponde à reserva ainda válida.
+    !["pending", "paid", "failed"].includes(paymentRecord.status)
   ) {
     return markRequiresReview(
       paymentRecord,

@@ -55,6 +55,10 @@ const mapRpcError = (message: string) => {
     return new PendingBookingError("Product date does not belong to product.");
   }
 
+  if (message.includes("PRODUCT_DATE_IN_PAST")) {
+    return new PendingBookingError("Product date has already departed.", 404);
+  }
+
   if (message.includes("NOT_ENOUGH_SLOTS")) {
     return new PendingBookingError("Not enough available slots.", 409);
   }

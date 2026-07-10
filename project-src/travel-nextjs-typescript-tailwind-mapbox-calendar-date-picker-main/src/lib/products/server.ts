@@ -48,11 +48,15 @@ export const getActiveProductDatesServer = async (
   productId: string,
   context: ProductServerContext = {}
 ): Promise<ProductDate[]> => {
+  // UTC hoje, mesma referência do current_date do Postgres — uma saída que já
+  // partiu nunca deve aparecer como comprável (a RPC de reserva também barra).
+  const today = new Date().toISOString().slice(0, 10);
   const { data, error } = await serverClient(context)
     .from("product_dates")
     .select("*")
     .eq("product_id", productId)
     .eq("active", true)
+    .gte("start_date", today)
     .order("start_date", { ascending: true });
 
   if (error) {
