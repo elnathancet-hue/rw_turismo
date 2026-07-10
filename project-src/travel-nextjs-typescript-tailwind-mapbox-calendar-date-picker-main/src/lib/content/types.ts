@@ -95,6 +95,11 @@ export type Page = {
   seo_title: string | null;
   seo_description: string | null;
   blocks?: PageBlock[];
+  // Modo HTML: quando preenchido, a página publicada é este HTML (os blocos
+  // são ignorados). custom_html_chrome decide se o menu/rodapé do site
+  // envolvem a página ou se ela é servida sozinha, exatamente como colada.
+  custom_html?: string | null;
+  custom_html_chrome?: boolean;
   created_at: string;
   updated_at: string;
 };

@@ -1,7 +1,7 @@
 -- ============================================================================
 -- RW TURISMO — TODAS AS MIGRATIONS PENDENTES (cole este arquivo inteiro no
 -- SQL Editor do Supabase e execute UMA vez). Tudo é idempotente.
--- Atualizado em 2026-07-10 (inclui Semana 3: formulário de lead + pesquisa NPS).
+-- Atualizado em 2026-07-10 (inclui modo HTML nas páginas).
 -- ============================================================================
 
 -- ---------- 20260704000000_add_product_origin.sql ----------
@@ -617,3 +617,11 @@ drop policy if exists "survey_responses_admin_read" on public.survey_responses;
 create policy "survey_responses_admin_read" on public.survey_responses
 for select to authenticated
 using (public.is_admin());
+
+-- ---------- 20260710020000_paginas_html.sql ----------
+-- Modo HTML nas páginas: o admin cola um HTML completo e a página publica
+-- exatamente esse HTML (com ou sem o menu/rodapé do site). Idempotente.
+
+alter table public.pages
+  add column if not exists custom_html text,
+  add column if not exists custom_html_chrome boolean not null default false;

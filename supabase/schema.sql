@@ -870,6 +870,11 @@ create trigger set_receivables_updated_at
 before update on public.receivables
 for each row execute function public.set_updated_at();
 
+-- Modo HTML nas páginas (colar HTML completo).
+alter table public.pages
+  add column if not exists custom_html text,
+  add column if not exists custom_html_chrome boolean not null default false;
+
 -- Semana 3: pesquisa de satisfação pós-viagem.
 create table if not exists public.survey_responses (
   id uuid primary key default gen_random_uuid(),

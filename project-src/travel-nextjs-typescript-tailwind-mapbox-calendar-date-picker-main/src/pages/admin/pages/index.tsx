@@ -108,6 +108,8 @@ const AdminPages = () => {
         status: "draft",
         seo_title: page.seo_title,
         seo_description: page.seo_description,
+        custom_html: page.custom_html ?? null,
+        custom_html_chrome: page.custom_html_chrome ?? false,
       };
       if (page.blocks) payload.blocks = copyBlocks(page.blocks);
       await saveAdminPage(payload);

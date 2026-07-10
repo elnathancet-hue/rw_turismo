@@ -71,6 +71,9 @@ type Draft = {
   seo_title: string;
   seo_description: string;
   blocks: PageBlock[];
+  // Modo HTML: quando preenchido, a página publicada usa este HTML.
+  custom_html: string;
+  custom_html_chrome: boolean;
 };
 
 type MenuState = { show: boolean; label: string };
@@ -85,6 +88,8 @@ const draftFromPage = (page: Page | null): Draft => ({
   status: page?.status ?? "draft",
   seo_title: page?.seo_title ?? "",
   seo_description: page?.seo_description ?? "",
+  custom_html: page?.custom_html ?? "",
+  custom_html_chrome: page?.custom_html_chrome ?? false,
   blocks: page?.blocks?.length
     ? page.blocks
     : page?.content
@@ -352,6 +357,8 @@ const PageBuilder = ({ page }: { page: Page | null }) => {
         seo_title: current.seo_title.trim() || null,
         seo_description: current.seo_description.trim() || null,
         blocks: current.blocks,
+        custom_html: current.custom_html.trim() || null,
+        custom_html_chrome: current.custom_html_chrome,
       });
       pageIdRef.current = saved.id;
       savedSlugRef.current = saved.slug;
@@ -979,6 +986,50 @@ const PageBuilder = ({ page }: { page: Page | null }) => {
                       value={draft.seo_description}
                     />
                   </Field>
+                </div>
+
+                <div className="space-y-3 rounded-lg border p-3">
+                  <p className="text-sm font-semibold text-gray-700">
+                    Página em HTML (avançado)
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Cole aqui um HTML completo (landing pronta) e a página
+                    publicada será <b>exatamente</b> este HTML — os blocos são
+                    ignorados. Apague o HTML para voltar aos blocos.
+                  </p>
+                  <Textarea
+                    aria-label="HTML da página"
+                    className="min-h-[220px] font-mono text-xs"
+                    onChange={(event) =>
+                      setDraftField("custom_html", event.target.value, true)
+                    }
+                    placeholder="<!DOCTYPE html>&#10;<html>…"
+                    spellCheck={false}
+                    value={draft.custom_html}
+                  />
+                  {draft.custom_html.trim() && (
+                    <>
+                      <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                        <input
+                          checked={draft.custom_html_chrome}
+                          className="h-4 w-4 rounded border-gray-300 text-orange-500 focus:ring-orange-400"
+                          onChange={(event) =>
+                            setDraftField(
+                              "custom_html_chrome",
+                              event.target.checked
+                            )
+                          }
+                          type="checkbox"
+                        />
+                        Mostrar menu e rodapé do site
+                      </label>
+                      <p className="text-xs text-gray-500">
+                        {draft.custom_html_chrome
+                          ? "O HTML aparece isolado dentro da página do site (o CSS dele não conflita com o do site)."
+                          : "A página é servida sozinha, exatamente como colada — tela cheia, scripts e pixels funcionando."}
+                      </p>
+                    </>
+                  )}
                 </div>
 
                 {pageIdRef.current && (
