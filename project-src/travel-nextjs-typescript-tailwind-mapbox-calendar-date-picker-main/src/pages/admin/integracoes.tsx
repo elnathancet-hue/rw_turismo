@@ -4,7 +4,13 @@ import AdminLayout from "../../components/admin/AdminLayout";
 import StatusPill from "../../components/StatusPill";
 import Button from "../../components/ui/Button";
 import Card from "../../components/ui/Card";
-import { Field, Input } from "../../components/ui/form";
+import { Field, Input, Textarea } from "../../components/ui/form";
+import {
+  defaultWhatsAppWidget,
+  getWhatsAppWidget,
+  saveWhatsAppWidget,
+  type WhatsAppWidget,
+} from "../../lib/content/whatsapp";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
 import { formatDateTimeBR } from "../../lib/format";
 
@@ -93,6 +99,10 @@ const AdminIntegracoes = () => {
   const [testingGroup, setTestingGroup] = useState<string | null>(null);
   const [results, setResults] = useState<Record<string, TestResult>>({});
   const [message, setMessage] = useState<string | null>(null);
+  const [whatsWidget, setWhatsWidget] = useState<WhatsAppWidget>(
+    defaultWhatsAppWidget
+  );
+  const [isSavingWidget, setIsSavingWidget] = useState(false);
 
   const load = async () => {
     setLoadError(null);
@@ -125,6 +135,11 @@ const AdminIntegracoes = () => {
       if (response.ok) setStatus(await response.json());
     } catch {
       // status indisponível — ignora
+    }
+    try {
+      setWhatsWidget(await getWhatsAppWidget());
+    } catch {
+      // configuração ausente — usa o padrão
     }
   };
 
@@ -335,6 +350,113 @@ const AdminIntegracoes = () => {
             );
           })}
         </div>
+
+        {/* Botão de WhatsApp no site (não é segredo — fica em site_settings) */}
+        <Card className="mt-6 p-5">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <h2 className="font-semibold">Botão de WhatsApp no site</h2>
+              <p className="mt-1 text-xs text-gray-500">
+                Botão flutuante no canto direito de todas as páginas + botão
+                "Tirar dúvida" acima do botão de compra no pacote.
+              </p>
+            </div>
+            <StatusPill
+              label={
+                whatsWidget.enabled && whatsWidget.phone
+                  ? "Ativo"
+                  : "Desativado"
+              }
+              tone={
+                whatsWidget.enabled && whatsWidget.phone
+                  ? "success"
+                  : "neutral"
+              }
+            />
+          </div>
+          <div className="mt-4 grid gap-4 md:grid-cols-3">
+            <Field
+              hint="Com DDD. Ex.: (86) 99999-9999"
+              label="Número do WhatsApp"
+            >
+              <Input
+                onChange={(event) =>
+                  setWhatsWidget((current) => ({
+                    ...current,
+                    phone: event.target.value,
+                  }))
+                }
+                placeholder="(86) 9…"
+                value={whatsWidget.phone}
+              />
+            </Field>
+            <Field
+              hint="Texto do botão flutuante."
+              label="Chamada (CTA)"
+            >
+              <Input
+                onChange={(event) =>
+                  setWhatsWidget((current) => ({
+                    ...current,
+                    cta: event.target.value,
+                  }))
+                }
+                value={whatsWidget.cta}
+              />
+            </Field>
+            <Field
+              hint="Mensagem que chega pré-preenchida na conversa."
+              label="Mensagem inicial"
+            >
+              <Textarea
+                className="min-h-[42px]"
+                onChange={(event) =>
+                  setWhatsWidget((current) => ({
+                    ...current,
+                    message: event.target.value,
+                  }))
+                }
+                value={whatsWidget.message}
+              />
+            </Field>
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+              <input
+                checked={whatsWidget.enabled}
+                onChange={(event) =>
+                  setWhatsWidget((current) => ({
+                    ...current,
+                    enabled: event.target.checked,
+                  }))
+                }
+                type="checkbox"
+              />
+              Exibir no site
+            </label>
+            <Button
+              loading={isSavingWidget}
+              onClick={async () => {
+                setIsSavingWidget(true);
+                setMessage(null);
+                try {
+                  setWhatsWidget(await saveWhatsAppWidget(whatsWidget));
+                  setMessage("Botão de WhatsApp salvo.");
+                } catch {
+                  setMessage(
+                    "Não foi possível salvar o botão de WhatsApp."
+                  );
+                } finally {
+                  setIsSavingWidget(false);
+                }
+              }}
+              size="sm"
+              type="button"
+            >
+              Salvar
+            </Button>
+          </div>
+        </Card>
 
         <Card className="mt-6 p-5">
           <h2 className="font-semibold">Últimas notificações</h2>

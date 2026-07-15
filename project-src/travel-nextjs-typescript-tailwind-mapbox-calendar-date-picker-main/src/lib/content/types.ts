@@ -100,6 +100,9 @@ export type Page = {
   // envolvem a página ou se ela é servida sozinha, exatamente como colada.
   custom_html?: string | null;
   custom_html_chrome?: boolean;
+  // Aparência: topo da página (menu do site / barra simples / nenhum) e rodapé.
+  header_style?: "site" | "simple" | "none";
+  show_footer?: boolean;
   created_at: string;
   updated_at: string;
 };

@@ -2,6 +2,7 @@ import ProgressBar from "@badrap/bar-of-progress";
 import type { AppProps } from "next/app";
 import { Router } from "next/router";
 import { useEffect } from "react";
+import WhatsAppFloat from "../components/WhatsAppFloat";
 import { captureUtmFromUrl } from "../lib/utm";
 import "../styles/globals.css";
 
@@ -22,7 +23,12 @@ const MyApp = ({ Component, pageProps }: AppProps) => {
     captureUtmFromUrl();
   }, []);
 
-  return <Component {...pageProps} />;
+  return (
+    <>
+      <Component {...pageProps} />
+      <WhatsAppFloat />
+    </>
+  );
 };
 
 export default MyApp;

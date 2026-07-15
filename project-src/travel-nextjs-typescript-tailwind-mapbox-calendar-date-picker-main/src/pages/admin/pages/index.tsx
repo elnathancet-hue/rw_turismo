@@ -106,6 +106,8 @@ const AdminPages = () => {
         slug: uniqueCopySlug(page.slug, pages),
         content: page.content,
         status: "draft",
+        header_style: page.header_style ?? "simple",
+        show_footer: page.show_footer ?? true,
         seo_title: page.seo_title,
         seo_description: page.seo_description,
         custom_html: page.custom_html ?? null,

@@ -2,7 +2,9 @@ import type { GetServerSidePropsContext } from "next";
 import Head from "next/head";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import Drawer from "../../components/Drawer";
 import Footer from "../../components/Footer";
+import Header from "../../components/Header";
 import MarkdownContent from "../../components/MarkdownContent";
 import PageBlocks from "../../components/PageBlocks";
 import { getPublishedPageBySlug } from "../../lib/content/server";
@@ -54,8 +56,14 @@ const HtmlEmbed = ({ html, title }: { html: string; title: string }) => {
 };
 
 const PagePage = ({ page }: { page?: Page | null }) => {
+  // Estado do menu completo do site (hooks antes de qualquer return).
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [headerSearch, setHeaderSearch] = useState("");
+
   if (!page) return null; // HTML puro já foi servido pelo servidor
   const base = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") ?? "";
+  const headerStyle = page.header_style ?? "simple";
+  const showFooter = page.show_footer ?? true;
 
   return (
     <>
@@ -70,16 +78,25 @@ const PagePage = ({ page }: { page?: Page | null }) => {
           <meta content={page.seo_description} property="og:description" />
         )}
       </Head>
-      <header className="border-b">
-        <div className="mx-auto flex max-w-5xl justify-between px-6 py-5">
-          <Link className="font-bold text-orange-600" href="/">
-            RW Turismo
-          </Link>
-          <Link className="font-semibold text-orange-600" href="/#pacotes">
-            Ver pacotes
-          </Link>
-        </div>
-      </header>
+      {headerStyle === "site" ? (
+        <Header
+          isOpen={isMenuOpen}
+          searchInput={headerSearch}
+          setIsOpen={setIsMenuOpen}
+          setSearchInput={setHeaderSearch}
+        />
+      ) : headerStyle === "simple" ? (
+        <header className="border-b">
+          <div className="mx-auto flex max-w-5xl justify-between px-6 py-5">
+            <Link className="font-bold text-orange-600" href="/">
+              RW Turismo
+            </Link>
+            <Link className="font-semibold text-orange-600" href="/#pacotes">
+              Ver pacotes
+            </Link>
+          </div>
+        </header>
+      ) : null}
       {page.custom_html ? (
         // Modo HTML com menu/rodapé: landing isolada em iframe.
         <main className="min-h-[60vh]">
@@ -100,7 +117,17 @@ const PagePage = ({ page }: { page?: Page | null }) => {
           </div>
         </main>
       )}
-      <Footer />
+      {showFooter && <Footer />}
+      {headerStyle === "site" && (
+        <Drawer isOpen={isMenuOpen} setIsOpen={setIsMenuOpen}>
+          <p className="drawer-item">
+            <Link href={"/favorites"}>Meus favoritos</Link>
+          </p>
+          <p className="drawer-item">
+            <Link href={"/account/bookings"}>Minhas reservas</Link>
+          </p>
+        </Drawer>
+      )}
     </>
   );
 };

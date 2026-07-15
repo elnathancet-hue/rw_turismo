@@ -74,6 +74,9 @@ type Draft = {
   // Modo HTML: quando preenchido, a página publicada usa este HTML.
   custom_html: string;
   custom_html_chrome: boolean;
+  // Aparência: topo (menu do site / simples / nenhum) e rodapé.
+  header_style: "site" | "simple" | "none";
+  show_footer: boolean;
 };
 
 type MenuState = { show: boolean; label: string };
@@ -90,6 +93,8 @@ const draftFromPage = (page: Page | null): Draft => ({
   seo_description: page?.seo_description ?? "",
   custom_html: page?.custom_html ?? "",
   custom_html_chrome: page?.custom_html_chrome ?? false,
+  header_style: page?.header_style ?? "simple",
+  show_footer: page?.show_footer ?? true,
   blocks: page?.blocks?.length
     ? page.blocks
     : page?.content
@@ -362,6 +367,8 @@ const PageBuilder = ({ page }: { page: Page | null }) => {
         blocks: current.blocks,
         custom_html: current.custom_html.trim() || null,
         custom_html_chrome: current.custom_html_chrome,
+        header_style: current.header_style,
+        show_footer: current.show_footer,
       });
       pageIdRef.current = saved.id;
       savedSlugRef.current = saved.slug;
@@ -1004,6 +1011,41 @@ const PageBuilder = ({ page }: { page: Page | null }) => {
                       />
                     </Field>
                   )}
+                </div>
+
+                <div className="space-y-3 rounded-lg border p-3">
+                  <p className="text-sm font-semibold text-gray-700">
+                    Aparência
+                  </p>
+                  <Field
+                    hint="Vale para páginas de blocos e para HTML com moldura do site."
+                    label="Topo da página"
+                  >
+                    <Select
+                      onChange={(event) =>
+                        setDraftField(
+                          "header_style",
+                          event.target.value as Draft["header_style"]
+                        )
+                      }
+                      value={draft.header_style}
+                    >
+                      <option value="site">Menu completo do site</option>
+                      <option value="simple">Topo simples (só a logo)</option>
+                      <option value="none">Sem topo</option>
+                    </Select>
+                  </Field>
+                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                    <input
+                      checked={draft.show_footer}
+                      className="h-4 w-4 rounded border-gray-300 text-orange-500 focus:ring-orange-400"
+                      onChange={(event) =>
+                        setDraftField("show_footer", event.target.checked)
+                      }
+                      type="checkbox"
+                    />
+                    Mostrar rodapé do site
+                  </label>
                 </div>
 
                 <div className="space-y-3 rounded-lg border p-3">

@@ -1,7 +1,7 @@
 -- ============================================================================
 -- RW TURISMO — TODAS AS MIGRATIONS PENDENTES (cole este arquivo inteiro no
 -- SQL Editor do Supabase e execute UMA vez). Tudo é idempotente.
--- Atualizado em 2026-07-10 (inclui modo HTML nas páginas).
+-- Atualizado em 2026-07-15 (inclui aparência por página: topo/rodapé).
 -- ============================================================================
 
 -- ---------- 20260704000000_add_product_origin.sql ----------
@@ -625,3 +625,17 @@ using (public.is_admin());
 alter table public.pages
   add column if not exists custom_html text,
   add column if not exists custom_html_chrome boolean not null default false;
+
+-- ---------- 20260715000000_pagina_aparencia.sql ----------
+-- Aparência por página: escolher o topo (menu do site / simples / nenhum) e
+-- mostrar/ocultar o rodapé. Idempotente.
+
+alter table public.pages
+  add column if not exists header_style text not null default 'simple',
+  add column if not exists show_footer boolean not null default true;
+
+alter table public.pages
+  drop constraint if exists pages_header_style_check;
+alter table public.pages
+  add constraint pages_header_style_check
+  check (header_style in ('site', 'simple', 'none'));

@@ -870,6 +870,17 @@ create trigger set_receivables_updated_at
 before update on public.receivables
 for each row execute function public.set_updated_at();
 
+-- Aparência por página (topo e rodapé).
+alter table public.pages
+  add column if not exists header_style text not null default 'simple',
+  add column if not exists show_footer boolean not null default true;
+
+alter table public.pages
+  drop constraint if exists pages_header_style_check;
+alter table public.pages
+  add constraint pages_header_style_check
+  check (header_style in ('site', 'simple', 'none'));
+
 -- Modo HTML nas páginas (colar HTML completo).
 alter table public.pages
   add column if not exists custom_html text,

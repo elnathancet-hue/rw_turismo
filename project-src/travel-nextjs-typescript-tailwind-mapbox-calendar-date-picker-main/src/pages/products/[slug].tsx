@@ -7,6 +7,9 @@ import Drawer from "../../components/Drawer";
 import Footer from "../../components/Footer";
 import Header from "../../components/Header";
 import useSupabaseSession from "../../hooks/useSupabaseSession";
+import useWhatsAppWidget from "../../hooks/useWhatsAppWidget";
+import { WhatsAppIcon } from "../../components/WhatsAppFloat";
+import { buildWaLink } from "../../lib/content/whatsapp";
 import {
   addFavorite,
   isFavorite as checkIsFavorite,
@@ -45,6 +48,7 @@ const formatDate = (value: string) =>
 const ProductDetails = ({ product, productDates }: Props) => {
   const router = useRouter();
   const { user, profile, isAuthenticated } = useSupabaseSession();
+  const whatsApp = useWhatsAppWidget();
   const [isOpen, setIsOpen] = useState(false);
   const [searchInput, setSearchInput] = useState("");
   const [selectedCity, setSelectedCity] = useState<ISuggestionFormatted | null>(
@@ -275,6 +279,14 @@ const ProductDetails = ({ product, productDates }: Props) => {
     }
   };
 
+  // Botão de WhatsApp acima do botão de compra (configurado em Integrações).
+  const whatsAppLink = whatsApp.enabled
+    ? buildWaLink(
+        whatsApp.phone,
+        `Olá! Tenho interesse em "${product.title}". Pode me ajudar?`
+      )
+    : null;
+
   return (
     <div>
       <Head>
@@ -408,6 +420,17 @@ const ProductDetails = ({ product, productDates }: Props) => {
                   {formatCurrency(estimatedTotal)}
                 </span>
               </p>
+              {whatsAppLink && (
+                <a
+                  className="mt-4 flex w-full items-center justify-center gap-2 rounded border border-green-600 px-4 py-2 font-semibold text-green-700 transition hover:bg-green-50"
+                  href={whatsAppLink}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  <WhatsAppIcon className="h-5 w-5" />
+                  Tirar dúvida no WhatsApp
+                </a>
+              )}
               {soldOut ? (
                 <div className="mt-4">
                   {waitlistDone ? (
