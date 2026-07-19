@@ -9,7 +9,7 @@ import { Field, Input, Select, Textarea } from "../../components/ui/form";
 import {
   createAdminSupplier,
   deleteAdminSupplier,
-  listAdminSuppliers,
+  searchAdminSuppliers,
   updateAdminSupplier,
   type Supplier,
   type SupplierFormValues,
@@ -35,8 +35,12 @@ const emptyValues: SupplierFormValues = {
   active: true,
 };
 
+const PAGE_SIZE = 25;
+
 const AdminSuppliers = () => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [count, setCount] = useState(0);
+  const [page, setPage] = useState(1);
   const [values, setValues] = useState<SupplierFormValues>(emptyValues);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loadStatus, setLoadStatus] = useState<"loading" | "ready" | "error">(
@@ -53,7 +57,9 @@ const AdminSuppliers = () => {
     setLoadStatus("loading");
     setLoadError(null);
     try {
-      setSuppliers(await listAdminSuppliers());
+      const result = await searchAdminSuppliers({ page, limit: PAGE_SIZE });
+      setSuppliers(result.items);
+      setCount(result.count);
       setLoadStatus("ready");
     } catch (caught) {
       setLoadError(
@@ -67,7 +73,10 @@ const AdminSuppliers = () => {
 
   useEffect(() => {
     void load();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
+
+  const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
 
   const set = <K extends keyof SupplierFormValues>(
     key: K,
@@ -280,6 +289,31 @@ const AdminSuppliers = () => {
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-gray-500">
+                Página {page} de {totalPages} · {count}{" "}
+                {count === 1 ? "fornecedor" : "fornecedores"}
+              </p>
+              <div className="flex gap-2">
+                <button
+                  className="rounded border px-4 py-1.5 text-sm font-semibold disabled:opacity-50"
+                  disabled={page <= 1}
+                  onClick={() => setPage((current) => current - 1)}
+                  type="button"
+                >
+                  ‹ Anterior
+                </button>
+                <button
+                  className="rounded border px-4 py-1.5 text-sm font-semibold disabled:opacity-50"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((current) => current + 1)}
+                  type="button"
+                >
+                  Próxima ›
+                </button>
+              </div>
             </div>
           </AdminListState>
         </div>

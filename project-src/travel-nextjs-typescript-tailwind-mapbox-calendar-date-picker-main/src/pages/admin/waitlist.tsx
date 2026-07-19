@@ -8,7 +8,7 @@ import Button from "../../components/ui/Button";
 import { Select } from "../../components/ui/form";
 import {
   deleteAdminWaitlist,
-  listAdminWaitlist,
+  searchAdminWaitlist,
   updateAdminWaitlistStatus,
   type WaitlistEntry,
   type WaitlistStatus,
@@ -32,8 +32,12 @@ const toWhatsAppLink = (phone: string | null): string | null => {
   return `https://wa.me/${digits}`;
 };
 
+const PAGE_SIZE = 25;
+
 const AdminWaitlist = () => {
   const [entries, setEntries] = useState<WaitlistEntry[]>([]);
+  const [count, setCount] = useState(0);
+  const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<WaitlistStatus | "all">(
     "pending"
   );
@@ -47,7 +51,13 @@ const AdminWaitlist = () => {
     setLoadStatus("loading");
     setError(null);
     try {
-      setEntries(await listAdminWaitlist(statusFilter));
+      const result = await searchAdminWaitlist({
+        status: statusFilter,
+        page,
+        limit: PAGE_SIZE,
+      });
+      setEntries(result.items);
+      setCount(result.count);
       setLoadStatus("ready");
     } catch (caught) {
       setError(
@@ -62,7 +72,9 @@ const AdminWaitlist = () => {
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter]);
+  }, [statusFilter, page]);
+
+  const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
 
   const setStatus = async (entry: WaitlistEntry, status: WaitlistStatus) => {
     setSavingId(entry.id);
@@ -86,9 +98,10 @@ const AdminWaitlist = () => {
           Status
           <Select
             className="mt-1 w-44"
-            onChange={(event) =>
-              setStatusFilter(event.target.value as WaitlistStatus | "all")
-            }
+            onChange={(event) => {
+              setPage(1);
+              setStatusFilter(event.target.value as WaitlistStatus | "all");
+            }}
             value={statusFilter}
           >
             <option value="all">Todos</option>
@@ -212,6 +225,31 @@ const AdminWaitlist = () => {
                 })}
               </tbody>
             </table>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-gray-500">
+              Página {page} de {totalPages} · {count}{" "}
+              {count === 1 ? "interessado" : "interessados"}
+            </p>
+            <div className="flex gap-2">
+              <button
+                className="rounded border px-4 py-1.5 text-sm font-semibold disabled:opacity-50"
+                disabled={page <= 1}
+                onClick={() => setPage((current) => current - 1)}
+                type="button"
+              >
+                ‹ Anterior
+              </button>
+              <button
+                className="rounded border px-4 py-1.5 text-sm font-semibold disabled:opacity-50"
+                disabled={page >= totalPages}
+                onClick={() => setPage((current) => current + 1)}
+                type="button"
+              >
+                Próxima ›
+              </button>
+            </div>
           </div>
         </AdminListState>
       </AdminLayout>

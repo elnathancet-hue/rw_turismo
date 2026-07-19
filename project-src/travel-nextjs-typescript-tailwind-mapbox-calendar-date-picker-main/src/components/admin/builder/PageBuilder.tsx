@@ -28,6 +28,7 @@ import {
   useState,
 } from "react";
 import { invalidateSiteMenu } from "../../../hooks/useSiteMenu";
+import { useSlugStatus, slugFieldProps } from "../../../hooks/useSlugStatus";
 import { deleteAdminPage, saveAdminPage } from "../../../lib/content/client";
 import {
   getSiteMenu,
@@ -148,6 +149,9 @@ const PageBuilder = ({ page }: { page: Page | null }) => {
   const [panelOpen, setPanelOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<Message | null>(null);
+  // Reactive mirror of pageIdRef so the live slug check can exclude the page's
+  // own saved slug after the first save (Fase 5.2).
+  const [savedId, setSavedId] = useState<string | null>(page?.id ?? null);
 
   // Live refs so stable callbacks (shortcuts, save) read current state.
   const stateRef = useRef({ draft, menuState, isSaving });
@@ -171,6 +175,11 @@ const PageBuilder = ({ page }: { page: Page | null }) => {
   );
   const selectedBlock =
     selectedIndex >= 0 ? draft.blocks[selectedIndex] : null;
+
+  // Checagem debounced de slug único (Fase 5.2). O save já trata a colisão no
+  // servidor; isto dá feedback ao vivo enquanto o admin digita.
+  const slugStatus = useSlugStatus("pages", draft.slug, savedId);
+  const slugProps = slugFieldProps(slugStatus);
 
   // ----- Load the page's menu entry (if any) -------------------------------
   useEffect(() => {
@@ -371,6 +380,7 @@ const PageBuilder = ({ page }: { page: Page | null }) => {
         show_footer: current.show_footer,
       });
       pageIdRef.current = saved.id;
+      setSavedId(saved.id);
       savedSlugRef.current = saved.slug;
 
       let menuWarning = false;
@@ -937,9 +947,11 @@ const PageBuilder = ({ page }: { page: Page | null }) => {
                   />
                 </Field>
                 <Field
-                  hint={`A página fica em /paginas/${
-                    draft.slug || "endereco"
-                  }.`}
+                  error={slugProps.error}
+                  hint={
+                    slugProps.hint ??
+                    `A página fica em /paginas/${draft.slug || "endereco"}.`
+                  }
                   label="Endereço (slug)"
                 >
                   <Input

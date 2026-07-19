@@ -869,6 +869,22 @@ export const listAdminSuppliers = async (): Promise<Supplier[]> => {
   return (data ?? []) as Supplier[];
 };
 
+// Versão paginada para a listagem do admin (Fase 5.1). A list acima continua
+// existindo para o dropdown de fornecedor nos transfers.
+export const searchAdminSuppliers = async (
+  q: { page?: number; limit?: number } = {}
+): Promise<{ items: Supplier[]; count: number }> => {
+  const limit = q.limit ?? 25;
+  const page = Math.max(q.page ?? 1, 1);
+  const { data, error, count } = await supabase()
+    .from("suppliers")
+    .select("*", { count: "exact" })
+    .order("name", { ascending: true })
+    .range((page - 1) * limit, page * limit - 1);
+  throwIfError(error);
+  return { items: (data ?? []) as Supplier[], count: count ?? 0 };
+};
+
 export const createAdminSupplier = async (
   values: SupplierFormValues
 ): Promise<Supplier> => {
@@ -939,6 +955,30 @@ export const listAdminWaitlist = async (
   const { data, error } = await query;
   throwIfError(error);
   return (data ?? []) as WaitlistEntry[];
+};
+
+// Versão paginada para a listagem do admin (Fase 5.1). A list acima continua
+// disponível caso algum caller precise de todos os registros.
+export const searchAdminWaitlist = async (
+  q: { status?: WaitlistStatus | "all"; page?: number; limit?: number } = {}
+): Promise<{ items: WaitlistEntry[]; count: number }> => {
+  const limit = q.limit ?? 25;
+  const page = Math.max(q.page ?? 1, 1);
+  let query = supabase()
+    .from("waitlist")
+    .select("*, products(title), product_dates(start_date, end_date)", {
+      count: "exact",
+    })
+    .order("created_at", { ascending: false })
+    .range((page - 1) * limit, page * limit - 1);
+
+  if (q.status && q.status !== "all") {
+    query = query.eq("status", q.status);
+  }
+
+  const { data, error, count } = await query;
+  throwIfError(error);
+  return { items: (data ?? []) as WaitlistEntry[], count: count ?? 0 };
 };
 
 export const updateAdminWaitlistStatus = async (

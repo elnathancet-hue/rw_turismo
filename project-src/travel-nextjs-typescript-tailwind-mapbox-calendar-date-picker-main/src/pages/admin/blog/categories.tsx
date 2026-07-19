@@ -10,6 +10,8 @@ import {
   saveAdminBlogCategory,
 } from "../../../lib/content/client";
 import type { BlogCategory } from "../../../lib/content/types";
+import { useSlugStatus } from "../../../hooks/useSlugStatus";
+import { isUniqueViolation } from "../../../lib/admin/slugs";
 
 const Categories = () => {
   const [items, setItems] = useState<BlogCategory[]>([]);
@@ -19,6 +21,8 @@ const Categories = () => {
     "loading"
   );
   const [error, setError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const slugStatus = useSlugStatus("blog_categories", slug);
 
   const load = async () => {
     setLoadStatus("loading");
@@ -42,36 +46,57 @@ const Categories = () => {
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    await saveAdminBlogCategory({ name, slug, active: true });
-    setName("");
-    setSlug("");
-    await load();
+    setSaveError(null);
+    try {
+      await saveAdminBlogCategory({ name, slug, active: true });
+      setName("");
+      setSlug("");
+      await load();
+    } catch (caught) {
+      setSaveError(
+        isUniqueViolation(caught)
+          ? "Este slug já está em uso. Escolha outro."
+          : "Não foi possível salvar a categoria."
+      );
+    }
   };
 
   return (
     <AdminGuard>
       <AdminLayout title="Categorias do blog">
-        <form
-          className="mb-6 flex max-w-2xl flex-wrap items-center gap-3"
-          onSubmit={submit}
-        >
-          <input
-            aria-label="Nome da categoria"
-            className="flex-1 rounded-lg border border-gray-300 px-3 py-2"
-            onChange={(event) => setName(event.target.value)}
-            placeholder="Nome"
-            required
-            value={name}
-          />
-          <input
-            aria-label="Slug da categoria"
-            className="flex-1 rounded-lg border border-gray-300 px-3 py-2"
-            onChange={(event) => setSlug(event.target.value)}
-            placeholder="slug"
-            required
-            value={slug}
-          />
-          <Button type="submit">Adicionar</Button>
+        <form className="mb-6 max-w-2xl" onSubmit={submit}>
+          <div className="flex flex-wrap items-center gap-3">
+            <input
+              aria-label="Nome da categoria"
+              className="flex-1 rounded-lg border border-gray-300 px-3 py-2"
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Nome"
+              required
+              value={name}
+            />
+            <input
+              aria-label="Slug da categoria"
+              className="flex-1 rounded-lg border border-gray-300 px-3 py-2"
+              onChange={(event) => setSlug(event.target.value)}
+              placeholder="slug"
+              required
+              value={slug}
+            />
+            <Button disabled={slugStatus === "taken"} type="submit">
+              Adicionar
+            </Button>
+          </div>
+          {slugStatus === "taken" && (
+            <p className="mt-2 text-xs text-red-600">
+              Este slug já está em uso.
+            </p>
+          )}
+          {slugStatus === "available" && (
+            <p className="mt-2 text-xs text-gray-500">Slug disponível ✓</p>
+          )}
+          {saveError && (
+            <p className="mt-2 text-xs text-red-600">{saveError}</p>
+          )}
         </form>
         <AdminListState
           emptyTitle="Nenhuma categoria ainda"
