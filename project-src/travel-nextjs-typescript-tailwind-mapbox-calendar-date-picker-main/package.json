@@ -17,6 +17,7 @@
     "date-fns": "^2.29.3",
     "framer-motion": "^7.10.2",
     "geolib": "^3.3.3",
+    "lru-cache": "^11.5.2",
     "mapbox-gl": "^2.15.0",
     "markdown-to-jsx": "^9.8.2",
     "micro": "^10.0.1",

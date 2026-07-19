@@ -13,6 +13,8 @@ import {
   type CategoryFormValues,
 } from "../../lib/admin/client";
 import type { Category, Product } from "../../lib/products/types";
+import { useSlugStatus } from "../../hooks/useSlugStatus";
+import { isUniqueViolation } from "../../lib/admin/slugs";
 
 const emptyCategory: CategoryFormValues = {
   name: "",
@@ -34,6 +36,7 @@ const AdminCategories = () => {
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [savingProducts, setSavingProducts] = useState(false);
   const [productsMsg, setProductsMsg] = useState<string | null>(null);
+  const slugStatus = useSlugStatus("categories", values.slug, editingId);
 
   const loadCategories = async () => {
     setLoadStatus("loading");
@@ -107,9 +110,11 @@ const AdminCategories = () => {
       await loadCategories();
     } catch (submitError) {
       setError(
-        submitError instanceof Error
-          ? submitError.message
-          : "Nao foi possivel salvar categoria."
+        isUniqueViolation(submitError)
+          ? "Este slug já está em uso. Escolha outro."
+          : submitError instanceof Error
+            ? submitError.message
+            : "Nao foi possivel salvar categoria."
       );
     }
   };
@@ -183,6 +188,16 @@ const AdminCategories = () => {
                 required
                 value={values.slug}
               />
+              {slugStatus === "taken" && (
+                <span className="mt-1 block text-xs font-normal text-red-600">
+                  Este slug já está em uso.
+                </span>
+              )}
+              {slugStatus === "available" && (
+                <span className="mt-1 block text-xs font-normal text-gray-500">
+                  Slug disponível ✓
+                </span>
+              )}
             </label>
             <label className="mt-4 flex items-center gap-2 text-sm font-medium">
               <input
@@ -199,7 +214,8 @@ const AdminCategories = () => {
             </label>
             <div className="mt-5 flex gap-3">
               <button
-                className="rounded bg-orange-500 px-4 py-2 font-semibold text-white hover:bg-orange-600"
+                className="rounded bg-orange-500 px-4 py-2 font-semibold text-white hover:bg-orange-600 disabled:opacity-60"
+                disabled={slugStatus === "taken"}
                 type="submit"
               >
                 {editingId ? "Salvar" : "Criar"}

@@ -10,6 +10,8 @@ import type {
 import Button from "../ui/Button";
 import Card from "../ui/Card";
 import { Field, Input, Select, Textarea } from "../ui/form";
+import { slugFieldProps, useSlugStatus } from "../../hooks/useSlugStatus";
+import { isUniqueViolation } from "../../lib/admin/slugs";
 
 type Props = {
   initialProduct?: Product | null;
@@ -64,6 +66,8 @@ const ProductForm = ({ initialProduct, onSubmit, submitLabel }: Props) => {
   ) => {
     setValues((current) => ({ ...current, [key]: value }));
   };
+
+  const slugStatus = useSlugStatus("products", values.slug, initialProduct?.id);
 
   const toggleCategory = (id: string) => {
     setValues((current) => ({
@@ -152,9 +156,11 @@ const ProductForm = ({ initialProduct, onSubmit, submitLabel }: Props) => {
       await onSubmit(normalized);
     } catch (submitError) {
       setError(
-        submitError instanceof Error
-          ? submitError.message
-          : "Não foi possível salvar o produto."
+        isUniqueViolation(submitError)
+          ? "Este slug já está em uso. Escolha outro."
+          : submitError instanceof Error
+            ? submitError.message
+            : "Não foi possível salvar o produto."
       );
     } finally {
       setIsSaving(false);
@@ -181,7 +187,7 @@ const ProductForm = ({ initialProduct, onSubmit, submitLabel }: Props) => {
               value={values.title}
             />
           </Field>
-          <Field label="Slug">
+          <Field label="Slug" {...slugFieldProps(slugStatus)}>
             <Input
               onChange={(event) => updateValue("slug", event.target.value)}
               required
@@ -461,7 +467,12 @@ const ProductForm = ({ initialProduct, onSubmit, submitLabel }: Props) => {
           Produto ativo
         </label>
 
-        <Button className="w-fit" loading={isSaving} type="submit">
+        <Button
+          className="w-fit"
+          disabled={slugStatus === "taken"}
+          loading={isSaving}
+          type="submit"
+        >
           {isSaving ? "Salvando..." : submitLabel}
         </Button>
       </form>

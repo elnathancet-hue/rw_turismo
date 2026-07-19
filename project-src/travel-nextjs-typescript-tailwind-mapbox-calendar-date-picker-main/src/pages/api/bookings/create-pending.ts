@@ -8,6 +8,7 @@ import type {
   CreatePendingBookingResult,
 } from "../../../lib/bookings/types";
 import { notifyBookingEvent } from "../../../lib/server/notifications";
+import { checkRateLimit } from "../../../lib/server/rateLimit";
 import { createSupabaseServerClient } from "../../../lib/supabase/server";
 
 type ErrorResponse = {
@@ -31,6 +32,18 @@ const handler = async (
 
     if (error || !data.user) {
       return res.status(401).json({ error: "Authentication required." });
+    }
+
+    // Rate limit: no máximo 5 reservas pendentes por minuto por usuário.
+    const rate = checkRateLimit(`create-pending:${data.user.id}`, {
+      limit: 5,
+      windowMs: 60_000,
+    });
+    if (!rate.allowed) {
+      res.setHeader("Retry-After", String(rate.retryAfterSeconds));
+      return res.status(429).json({
+        error: "Muitas reservas em pouco tempo. Aguarde um instante.",
+      });
     }
 
     const travelersCount = Number(req.body?.travelers_count);
