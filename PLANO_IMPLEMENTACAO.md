@@ -1,7 +1,7 @@
 # Plano de Implementação — RW Turismo
 
 > Baseado na auditoria de funcionalidades de 16/07/2026.
-> Caminho base do app: `project-src/travel-nextjs-typescript-tailwind-mapbox-calendar-date-picker-main/` (abaixo, `APP/`).
+> Caminho base do app: `project-src/rw-turismo/` (abaixo, `APP/`).
 >
 > **Como usar:** as fases estão em ordem de execução recomendada. Cada tarefa tem
 > escopo, arquivos afetados e critério de aceite. Marcar `[x]` conforme concluir.

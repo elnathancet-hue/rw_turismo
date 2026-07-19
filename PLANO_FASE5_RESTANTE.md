@@ -5,7 +5,7 @@
 > nos forms de produto e categoria. Este doc detalha o que falta, com decisões já
 > tomadas, para executar em sessões dedicadas.
 >
-> Caminho base: `project-src/travel-nextjs-typescript-tailwind-mapbox-calendar-date-picker-main/` (`APP/`).
+> Caminho base: `project-src/rw-turismo/` (`APP/`).
 
 ## Ordem sugerida
 1. 5.1 paginação (isolado, sem migration) — **em andamento nesta sessão**.

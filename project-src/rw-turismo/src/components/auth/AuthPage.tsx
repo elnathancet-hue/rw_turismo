@@ -135,7 +135,7 @@ const AuthPage = () => {
                 alt="Planeje sua viagem com a RW Turismo"
                 className="object-contain"
                 fill
-                src="/travel-signin.svg"
+                src="/signin-illustration.svg"
               />
             </div>
             <p className="text-sm text-slate-600">

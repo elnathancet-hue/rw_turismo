@@ -32,7 +32,7 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 Na producao:
 
 ```env
-NEXT_PUBLIC_SITE_URL=https://travel-nextjs-typescript-tailwind-m.vercel.app
+NEXT_PUBLIC_SITE_URL=https://rw-turismo.vercel.app
 ```
 
 O helper de autenticacao remove barras finais duplicadas. Google OAuth,

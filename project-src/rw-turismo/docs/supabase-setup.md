@@ -22,7 +22,7 @@ No SQL Editor do Supabase, rode nesta ordem:
 6. Adicione redirects locais e de producao, por exemplo:
 
 `http://localhost:3000/auth/callback`
-`https://travel-nextjs-typescript-tailwind-m.vercel.app/auth/callback`
+`https://rw-turismo.vercel.app/auth/callback`
 
 ## Email Auth, cadastro e códigos de acesso
 
@@ -47,8 +47,8 @@ e inclua em `Redirect URLs`:
 ```text
 http://localhost:3000/auth/callback
 http://localhost:3000/reset-password
-https://travel-nextjs-typescript-tailwind-m.vercel.app/auth/callback
-https://travel-nextjs-typescript-tailwind-m.vercel.app/reset-password
+https://rw-turismo.vercel.app/auth/callback
+https://rw-turismo.vercel.app/reset-password
 ```
 
 O fluxo de recuperação começa em `/forgot-password`. O link enviado pelo

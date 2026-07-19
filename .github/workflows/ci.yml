@@ -8,7 +8,7 @@ on:
 
 # Caminho do app Next dentro do repo.
 env:
-  APP_DIR: project-src/travel-nextjs-typescript-tailwind-mapbox-calendar-date-picker-main
+  APP_DIR: project-src/rw-turismo
 
 jobs:
   # ---------------------------------------------------------------------------

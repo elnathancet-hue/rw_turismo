@@ -216,15 +216,15 @@ const AdminLayout = ({ children, title, description, action }: Props) => {
     <div className="min-h-screen bg-gray-50 text-gray-900">
       {/* Sidebar desktop */}
       <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r bg-white lg:flex print:hidden">
-        <Link className="flex items-center gap-3 px-7 py-6" href="/admin">
-          <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-500 font-bold text-white">
-            RW
-          </span>
-          <span>
-            <span className="block text-sm font-semibold">RW Turismo</span>
-            <span className="block text-xs text-gray-500">
-              Painel de operações
-            </span>
+        <Link className="flex items-center gap-3 px-6 py-5" href="/admin">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            alt="RW Turismo"
+            className="h-12 w-auto shrink-0"
+            src="/rw-turismo-logo.png"
+          />
+          <span className="block text-xs font-medium text-gray-500">
+            Painel de operações
           </span>
         </Link>
         <nav className="flex-1 overflow-y-auto px-4 pb-4">
@@ -247,10 +247,13 @@ const AdminLayout = ({ children, title, description, action }: Props) => {
           >
             <div className="flex items-center justify-between px-5 py-4">
               <span className="flex items-center gap-2 font-semibold">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500 text-sm font-bold text-white">
-                  RW
-                </span>
-                Painel
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  alt="RW Turismo"
+                  className="h-8 w-auto"
+                  src="/rw-turismo-logo.png"
+                />
+                <span className="text-sm text-gray-500">Painel</span>
               </span>
               <button
                 aria-label="Fechar menu"
