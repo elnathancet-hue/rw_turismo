@@ -81,35 +81,35 @@
 
 ### 2.1 Galeria de fotos no produto
 > O admin já salva `gallery` (`APP/src/components/admin/ProductForm.tsx`), mas a página pública só mostra `cover_image`.
-- [ ] Em `APP/src/pages/products/[slug].tsx`: carrossel/lightbox com capa + galeria (thumbnails clicáveis, swipe no mobile, `next/image` + lazy).
+- [x] Em `APP/src/pages/products/[slug].tsx`: carrossel/lightbox com capa + galeria (thumbnails clicáveis, swipe no mobile, `next/image` + lazy).
 - **Aceite:** produto com 5 fotos exibe galeria navegável; produto só com capa mantém layout atual.
 
 ### 2.2 Itinerário dia-a-dia
-- [ ] Migration: `products.itinerary jsonb` (`[{day, title, description}]`).
-- [ ] Editor no `ProductForm.tsx` (adicionar/remover/reordenar dias).
-- [ ] Render na página do produto (timeline vertical) + schema.org `itinerary` no `TouristTrip`.
+- [x] Migration: `products.itinerary jsonb` (`[{day, title, description}]`).
+- [x] Editor no `ProductForm.tsx` (adicionar/remover/reordenar dias).
+- [x] Render na página do produto (timeline vertical) + schema.org `itinerary` no `TouristTrip`.
 - **Aceite:** admin monta itinerário de 3 dias e ele aparece na página pública.
 
 ### 2.3 FAQ por produto
-- [ ] Migration: `products.faq jsonb` (`[{question, answer}]`) — reusar o visual do bloco FAQ do page builder (`APP/src/components/PageBlocks.tsx`).
-- [ ] Editor no `ProductForm.tsx` + render com `<details>` + schema.org `FAQPage`.
+- [x] Migration: `products.faq jsonb` (`[{question, answer}]`) — reusar o visual do bloco FAQ do page builder (`APP/src/components/PageBlocks.tsx`).
+- [x] Editor no `ProductForm.tsx` + render com `<details>` + schema.org `FAQPage`.
 - **Aceite:** FAQ aparece no produto e no rich snippet (validar no Rich Results Test).
 
 ### 2.4 Depoimentos na home (reusar NPS)
-- [ ] Migration: `surveys.approved boolean default false`, `surveys.display_name text`.
-- [ ] Em `APP/src/pages/admin/surveys.tsx`: botão "Aprovar para o site" (só notas ≥ 9 com comentário).
-- [ ] Nova seção `testimonials` no home builder (`APP/src/lib/content/home-registry.ts` + `SectionFields.tsx`) puxando surveys aprovados.
+- [x] Migration: `surveys.approved boolean default false`, `surveys.display_name text`.
+- [x] Em `APP/src/pages/admin/surveys.tsx`: botão "Aprovar para o site" (só notas ≥ 9 com comentário).
+- [x] Nova seção `testimonials` no home builder (`APP/src/lib/content/home-registry.ts` + `SectionFields.tsx`) puxando surveys aprovados.
 - **Aceite:** depoimento aprovado aparece na home; não aprovado, nunca.
 
 ### 2.5 Cupom de desconto
-- [ ] Migration: tabela `coupons` (code unique, tipo percent/fixed, valor, validade, max_uses, used_count, produto opcional, active) + RLS admin-only para escrita.
-- [ ] Validação server-side: campo de cupom no produto → validar na RPC de criação de booking e aplicar no `create-checkout-session` (`APP/src/pages/api/payments/create-checkout-session.ts`) via Stripe discount ou ajuste de preço — **nunca confiar no valor vindo do client**.
-- [ ] CRUD `APP/src/pages/admin/coupons.tsx` (seguir padrão de `suppliers.tsx`).
+- [x] Migration: tabela `coupons` (code unique, tipo percent/fixed, valor, validade, max_uses, used_count, produto opcional, active) + RLS admin-only para escrita.
+- [x] Validação server-side: campo de cupom no produto → validar na RPC de criação de booking e aplicar no `create-checkout-session` (`APP/src/pages/api/payments/create-checkout-session.ts`) via Stripe discount ou ajuste de preço — **nunca confiar no valor vindo do client**.
+- [x] CRUD `APP/src/pages/admin/coupons.tsx` (seguir padrão de `suppliers.tsx`).
 - **Aceite:** cupom válido desconta no checkout Stripe; expirado/esgotado retorna erro amigável; `used_count` incrementa só após pagamento confirmado (no webhook).
 
 ### 2.6 Busca: ordenação e paginação
-- [ ] Em `APP/src/pages/search.tsx`: select de ordenação (menor preço, maior preço, data mais próxima) + paginação (12/página) via query string.
-- [ ] Ajustar `searchPackages()` em `APP/src/lib/products/client.ts` para `order()` + `range()`.
+- [x] Em `APP/src/pages/search.tsx`: select de ordenação (menor preço, maior preço, data mais próxima) + paginação (12/página) via query string.
+- [x] Ajustar `searchPackages()` em `APP/src/lib/products/client.ts` para `order()` + `range()`.
 - **Aceite:** busca com 30 resultados pagina e ordena; URL compartilhável preserva filtros.
 
 ---

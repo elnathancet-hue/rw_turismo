@@ -25,6 +25,7 @@ import {
   ArrowRightOnRectangleIcon,
   GlobeAltIcon,
   StarIcon,
+  TicketIcon,
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -66,6 +67,7 @@ const navigation = [
       { href: "/admin/products", label: "Produtos", icon: Squares2X2Icon },
       { href: "/admin/product-dates", label: "Datas de saída", icon: CalendarDaysIcon },
       { href: "/admin/categories", label: "Categorias", icon: TagIcon },
+      { href: "/admin/coupons", label: "Cupons", icon: TicketIcon },
     ],
   },
   {

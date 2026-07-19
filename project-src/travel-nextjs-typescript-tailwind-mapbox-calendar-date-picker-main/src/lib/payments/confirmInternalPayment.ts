@@ -12,6 +12,7 @@ type BookingRecord = {
   status: string;
   payment_status: string;
   expires_at: string | null;
+  coupon_id: string | null;
 };
 
 type PaymentRecord = {
@@ -157,7 +158,7 @@ export const confirmInternalPayment = async (
 
   const { data: booking, error: bookingError } = await supabase
     .from("bookings")
-    .select("id, user_id, total_amount, status, payment_status, expires_at")
+    .select("id, user_id, total_amount, status, payment_status, expires_at, coupon_id")
     .eq("id", metadata.booking_id)
     .maybeSingle();
 
@@ -292,6 +293,17 @@ export const confirmInternalPayment = async (
 
   if (updateBookingError) {
     throw updateBookingError;
+  }
+
+  // Cupom só é "consumido" quando o pagamento confirma (Fase 2.5). Falha aqui
+  // não desfaz a confirmação — apenas registra.
+  if (bookingRecord.coupon_id) {
+    const { error: couponError } = await supabase.rpc("increment_coupon_usage", {
+      p_coupon_id: bookingRecord.coupon_id,
+    });
+    if (couponError) {
+      console.error("Failed to increment coupon usage", couponError);
+    }
   }
 
   await logEvent("payment_confirmed", "payment", paymentRecord.id, {

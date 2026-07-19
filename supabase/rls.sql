@@ -539,6 +539,16 @@ for update to authenticated
 using (public.is_admin())
 with check (public.is_admin());
 
+-- Fase 2.5 — Cupons: só admin gerencia. A validação em reserva é feita pela RPC
+-- create_pending_booking_transaction (security definer), não por leitura pública.
+alter table public.coupons enable row level security;
+
+drop policy if exists "coupons_admin_all" on public.coupons;
+create policy "coupons_admin_all" on public.coupons
+for all to authenticated
+using (public.is_admin())
+with check (public.is_admin());
+
 drop policy if exists "public_read_site_assets" on storage.objects;
 create policy "public_read_site_assets" on storage.objects
 for select to public using (bucket_id in ('site-assets', 'product-images', 'blog-images'));

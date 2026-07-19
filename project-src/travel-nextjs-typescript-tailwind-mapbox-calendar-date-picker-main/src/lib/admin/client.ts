@@ -1096,3 +1096,76 @@ export const updateSurveyResponse = async (
     .eq("id", id);
   throwIfError(error);
 };
+
+// ---------------------------------------------------------------------------
+// Fase 2.5 — Cupons de desconto.
+// ---------------------------------------------------------------------------
+
+export type Coupon = {
+  id: string;
+  code: string;
+  discount_type: "percent" | "fixed";
+  discount_value: number;
+  product_id: string | null;
+  max_uses: number | null;
+  used_count: number;
+  active: boolean;
+  expires_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CouponFormValues = {
+  code: string;
+  discount_type: "percent" | "fixed";
+  discount_value: number;
+  product_id: string | null;
+  max_uses: number | null;
+  active: boolean;
+  expires_at: string | null;
+};
+
+export const listAdminCoupons = async (): Promise<Coupon[]> => {
+  const { data, error } = await supabase()
+    .from("coupons")
+    .select("*")
+    .order("created_at", { ascending: false });
+  throwIfError(error);
+  return (data ?? []) as Coupon[];
+};
+
+const normalizeCoupon = (values: CouponFormValues) => ({
+  ...values,
+  code: values.code.trim().toUpperCase(),
+});
+
+export const createAdminCoupon = async (
+  values: CouponFormValues
+): Promise<Coupon> => {
+  const { data, error } = await supabase()
+    .from("coupons")
+    .insert(normalizeCoupon(values))
+    .select("*")
+    .single();
+  throwIfError(error);
+  return data as Coupon;
+};
+
+export const updateAdminCoupon = async (
+  id: string,
+  values: CouponFormValues
+): Promise<Coupon> => {
+  const { data, error } = await supabase()
+    .from("coupons")
+    .update(normalizeCoupon(values))
+    .eq("id", id)
+    .select("*")
+    .single();
+  throwIfError(error);
+  return data as Coupon;
+};
+
+export const deleteAdminCoupon = async (id: string): Promise<void> => {
+  const { error } = await supabase().from("coupons").delete().eq("id", id);
+  throwIfError(error);
+};

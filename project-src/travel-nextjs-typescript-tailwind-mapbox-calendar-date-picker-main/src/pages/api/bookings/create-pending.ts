@@ -42,6 +42,7 @@ const handler = async (
       customer_name: getString(req.body?.customer_name),
       customer_email: getString(req.body?.customer_email),
       customer_phone: getString(req.body?.customer_phone) || null,
+      coupon_code: getString(req.body?.coupon_code) || null,
     };
 
     const result = await createPendingBooking(input);

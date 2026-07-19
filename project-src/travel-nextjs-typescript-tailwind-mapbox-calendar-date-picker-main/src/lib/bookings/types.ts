@@ -16,6 +16,7 @@ export type CreatePendingBookingInput = {
   customer_name: string;
   customer_email: string;
   customer_phone?: string | null;
+  coupon_code?: string | null;
 };
 
 export type CreatePendingBookingResult = {

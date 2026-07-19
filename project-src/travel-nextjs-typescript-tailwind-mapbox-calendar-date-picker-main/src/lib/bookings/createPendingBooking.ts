@@ -63,6 +63,25 @@ const mapRpcError = (message: string) => {
     return new PendingBookingError("Not enough available slots.", 409);
   }
 
+  if (message.includes("COUPON_NOT_FOUND")) {
+    return new PendingBookingError("Cupom inválido ou inativo.", 400);
+  }
+
+  if (message.includes("COUPON_EXPIRED")) {
+    return new PendingBookingError("Cupom expirado.", 400);
+  }
+
+  if (message.includes("COUPON_EXHAUSTED")) {
+    return new PendingBookingError("Este cupom já esgotou.", 400);
+  }
+
+  if (message.includes("COUPON_WRONG_PRODUCT")) {
+    return new PendingBookingError(
+      "Este cupom não é válido para este produto.",
+      400
+    );
+  }
+
   return null;
 };
 
@@ -91,6 +110,7 @@ export const createPendingBooking = async (
       p_customer_email: input.customer_email,
       p_customer_phone: input.customer_phone ?? null,
       p_travelers_count: input.travelers_count,
+      p_coupon_code: input.coupon_code ?? null,
     }
   );
 

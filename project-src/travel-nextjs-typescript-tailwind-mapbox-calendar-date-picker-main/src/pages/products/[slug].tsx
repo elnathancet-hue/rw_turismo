@@ -67,6 +67,7 @@ const ProductDetails = ({ product, productDates }: Props) => {
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [couponCode, setCouponCode] = useState("");
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [isBooking, setIsBooking] = useState(false);
   const [isJoiningWaitlist, setIsJoiningWaitlist] = useState(false);
@@ -103,6 +104,7 @@ const ProductDetails = ({ product, productDates }: Props) => {
       if (typeof draft.customerName === "string") setCustomerName(draft.customerName);
       if (typeof draft.customerEmail === "string") setCustomerEmail(draft.customerEmail);
       if (typeof draft.customerPhone === "string") setCustomerPhone(draft.customerPhone);
+      if (typeof draft.couponCode === "string") setCouponCode(draft.couponCode);
     } catch {
       // ignore malformed draft
     }
@@ -239,6 +241,7 @@ const ProductDetails = ({ product, productDates }: Props) => {
         customerName,
         customerEmail,
         customerPhone,
+        couponCode,
       })
     );
   };
@@ -272,6 +275,7 @@ const ProductDetails = ({ product, productDates }: Props) => {
           customer_name: customerName,
           customer_email: customerEmail,
           customer_phone: customerPhone,
+          coupon_code: couponCode || null,
         }),
       });
 
@@ -460,6 +464,15 @@ const ProductDetails = ({ product, productDates }: Props) => {
                   className="mt-1 w-full rounded border px-3 py-2"
                   onChange={(event) => setCustomerPhone(event.target.value)}
                   value={customerPhone}
+                />
+              </label>
+              <label className="mt-3 block text-sm font-medium">
+                Cupom de desconto
+                <input
+                  className="mt-1 w-full rounded border px-3 py-2 uppercase placeholder:normal-case"
+                  onChange={(event) => setCouponCode(event.target.value)}
+                  placeholder="Se você tiver um cupom"
+                  value={couponCode}
                 />
               </label>
               <p className="mt-4 text-sm text-gray-500">

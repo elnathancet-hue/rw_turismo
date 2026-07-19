@@ -272,6 +272,36 @@ alter table public.payments
 alter table public.payments
   add constraint payments_provider_check check (provider in ('stripe', 'manual'));
 
+-- Fase 2.5 — Cupons de desconto.
+create table if not exists public.coupons (
+  id uuid primary key default gen_random_uuid(),
+  code text not null unique,
+  discount_type text not null,
+  discount_value numeric(12,2) not null,
+  product_id uuid references public.products(id) on delete cascade,
+  max_uses integer,
+  used_count integer not null default 0,
+  active boolean not null default true,
+  expires_at date,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint coupons_discount_type_check check (discount_type in ('percent', 'fixed')),
+  constraint coupons_discount_value_positive_check check (discount_value > 0),
+  constraint coupons_percent_max_check check (discount_type <> 'percent' or discount_value <= 100),
+  constraint coupons_used_count_check check (used_count >= 0),
+  constraint coupons_max_uses_check check (max_uses is null or max_uses >= 0)
+);
+create index if not exists coupons_active_idx on public.coupons(active);
+create index if not exists coupons_product_id_idx on public.coupons(product_id);
+drop trigger if exists set_coupons_updated_at on public.coupons;
+create trigger set_coupons_updated_at
+before update on public.coupons
+for each row execute function public.set_updated_at();
+
+alter table public.bookings
+  add column if not exists coupon_id uuid references public.coupons(id) on delete set null;
+create index if not exists bookings_coupon_id_idx on public.bookings(coupon_id);
+
 drop trigger if exists set_users_profiles_updated_at on public.users_profiles;
 create trigger set_users_profiles_updated_at
 before update on public.users_profiles
@@ -319,7 +349,8 @@ create or replace function public.create_pending_booking_transaction(
   p_customer_name text,
   p_customer_email text,
   p_customer_phone text,
-  p_travelers_count integer
+  p_travelers_count integer,
+  p_coupon_code text default null
 )
 returns table (
   booking_id uuid,
@@ -337,6 +368,9 @@ declare
   v_total_amount numeric(12,2);
   v_expires_at timestamptz := now() + interval '30 minutes';
   v_booking_id uuid;
+  v_coupon public.coupons%rowtype;
+  v_coupon_id uuid := null;
+  v_coupon_code text;
 begin
   if p_user_id is null then
     raise exception 'AUTH_REQUIRED' using errcode = 'P0001';
@@ -397,6 +431,45 @@ begin
   v_unit_amount := coalesce(v_product_date.price_override, v_product.promotional_price, v_product.price);
   v_total_amount := round(v_unit_amount * p_travelers_count, 2);
 
+  -- Cupom (opcional): validado no servidor e aplicado ao total. used_count NÃO
+  -- incrementa aqui — só quando o pagamento é confirmado (webhook).
+  v_coupon_code := nullif(upper(trim(coalesce(p_coupon_code, ''))), '');
+  if v_coupon_code is not null then
+    select *
+      into v_coupon
+    from public.coupons
+    where upper(code) = v_coupon_code
+    for update;
+
+    if not found or v_coupon.active = false then
+      raise exception 'COUPON_NOT_FOUND' using errcode = 'P0001';
+    end if;
+
+    if v_coupon.expires_at is not null and v_coupon.expires_at < current_date then
+      raise exception 'COUPON_EXPIRED' using errcode = 'P0001';
+    end if;
+
+    if v_coupon.max_uses is not null and v_coupon.used_count >= v_coupon.max_uses then
+      raise exception 'COUPON_EXHAUSTED' using errcode = 'P0001';
+    end if;
+
+    if v_coupon.product_id is not null and v_coupon.product_id <> p_product_id then
+      raise exception 'COUPON_WRONG_PRODUCT' using errcode = 'P0001';
+    end if;
+
+    if v_coupon.discount_type = 'percent' then
+      v_total_amount := round(v_total_amount * (1 - v_coupon.discount_value / 100.0), 2);
+    else
+      v_total_amount := round(v_total_amount - v_coupon.discount_value, 2);
+    end if;
+
+    if v_total_amount < 0.01 then
+      v_total_amount := 0.01;
+    end if;
+
+    v_coupon_id := v_coupon.id;
+  end if;
+
   update public.product_dates
   set available_slots = available_slots - p_travelers_count
   where id = p_product_date_id;
@@ -413,7 +486,8 @@ begin
     status,
     payment_status,
     expires_at,
-    slots_released
+    slots_released,
+    coupon_id
   )
   values (
     p_user_id,
@@ -427,7 +501,8 @@ begin
     'pending',
     'pending',
     v_expires_at,
-    false
+    false,
+    v_coupon_id
   )
   returning id into v_booking_id;
 
@@ -435,8 +510,21 @@ begin
 end;
 $$;
 
-revoke all on function public.create_pending_booking_transaction(uuid, uuid, uuid, text, text, text, integer) from public;
-grant execute on function public.create_pending_booking_transaction(uuid, uuid, uuid, text, text, text, integer) to service_role;
+revoke all on function public.create_pending_booking_transaction(uuid, uuid, uuid, text, text, text, integer, text) from public;
+grant execute on function public.create_pending_booking_transaction(uuid, uuid, uuid, text, text, text, integer, text) to service_role;
+
+-- Fase 2.5 — incremento atômico de uso do cupom (webhook, ao confirmar pagamento).
+create or replace function public.increment_coupon_usage(p_coupon_id uuid)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.coupons set used_count = used_count + 1 where id = p_coupon_id;
+$$;
+
+revoke all on function public.increment_coupon_usage(uuid) from public;
+grant execute on function public.increment_coupon_usage(uuid) to service_role;
 
 create or replace function public.expire_pending_booking(p_booking_id uuid)
 returns table (
