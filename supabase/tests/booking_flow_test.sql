@@ -83,7 +83,13 @@ where id = 'aaaaaaa1-0000-0000-0000-000000000001';
 
 -- ---------------------------------------------------------------------------
 -- 4) Expirar a reserva pendente devolve as vagas
+--    (a RPC só expira quem já passou de expires_at; forçamos o vencimento)
 -- ---------------------------------------------------------------------------
+update public.bookings
+set expires_at = now() - interval '1 minute'
+where product_date_id = 'bbbbbbb1-0000-0000-0000-000000000001'
+  and status = 'pending';
+
 select lives_ok(
   $$ select public.expire_pending_booking(
        (select id from public.bookings

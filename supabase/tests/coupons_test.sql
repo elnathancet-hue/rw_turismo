@@ -23,12 +23,12 @@ values
   ('ESGOTADO','percent', 20,   null, 0,    true, null),
   ('SOOUTRO', 'percent', 30,   'ddddddd2-0000-0000-0000-000000000002', null, true, null);
 
--- 1) Percentual: 1000 → 900
+-- 1) Percentual: 1000 → 900 (is() do pgTAP é tipado; casta os literais p/ numeric)
 select is(
   (select total_amount from public.create_pending_booking_transaction(
      '33333333-3333-3333-3333-333333333333', 'ddddddd1-0000-0000-0000-000000000001',
      'eeeeeee1-0000-0000-0000-000000000001', 'C', 'cupom@tap.test', null, 1, 'PERC10')),
-  1000 - 100,
+  900::numeric(12,2),
   'cupom percentual (10%) aplica 900'
 );
 
@@ -37,7 +37,7 @@ select is(
   (select total_amount from public.create_pending_booking_transaction(
      '33333333-3333-3333-3333-333333333333', 'ddddddd1-0000-0000-0000-000000000001',
      'eeeeeee1-0000-0000-0000-000000000001', 'C', 'cupom@tap.test', null, 1, 'FIXA100')),
-  900,
+  900::numeric(12,2),
   'cupom fixo (R$100) aplica 900'
 );
 
