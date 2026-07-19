@@ -2,6 +2,7 @@ import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import type { PageBlock } from "../lib/content/types";
 import { submitSiteLead } from "../lib/leads/client";
+import { gaEvent } from "../lib/analytics/gtag";
 import MarkdownContent from "./MarkdownContent";
 
 const buttonClass =
@@ -226,6 +227,7 @@ const LeadFormBlock = ({
         message,
         interest: block.interest,
       });
+      gaEvent("generate_lead", { interest: block.interest ?? undefined });
       setDone(true);
     } catch {
       setError("Não foi possível enviar agora. Tente novamente.");

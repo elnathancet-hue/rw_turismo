@@ -2,8 +2,10 @@ import ProgressBar from "@badrap/bar-of-progress";
 import type { AppProps } from "next/app";
 import Head from "next/head";
 import { Router } from "next/router";
+import Script from "next/script";
 import { useEffect } from "react";
 import WhatsAppFloat from "../components/WhatsAppFloat";
+import { GA_ID, pageview } from "../lib/analytics/gtag";
 import { captureUtmFromUrl } from "../lib/utm";
 import "../styles/globals.css";
 
@@ -24,8 +26,29 @@ const MyApp = ({ Component, pageProps }: AppProps) => {
     captureUtmFromUrl();
   }, []);
 
+  // GA4: pageview a cada troca de rota (SPA).
+  useEffect(() => {
+    const handleRouteChange = (url: string) => pageview(url);
+    Router.events.on("routeChangeComplete", handleRouteChange);
+    return () => Router.events.off("routeChangeComplete", handleRouteChange);
+  }, []);
+
   return (
     <>
+      {GA_ID && (
+        <>
+          <Script
+            src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
+            strategy="afterInteractive"
+          />
+          <Script id="ga-init" strategy="afterInteractive">
+            {`window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', '${GA_ID}');`}
+          </Script>
+        </>
+      )}
       <Head>
         <link href="/favicon-32.png" rel="icon" type="image/png" sizes="32x32" />
         <link href="/rw-turismo-icon-512.png" rel="icon" type="image/png" sizes="512x512" />

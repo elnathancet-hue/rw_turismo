@@ -26,6 +26,7 @@ import {
   GlobeAltIcon,
   StarIcon,
   TicketIcon,
+  DocumentMagnifyingGlassIcon,
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -92,6 +93,7 @@ const navigation = [
     section: "Sistema",
     items: [
       { href: "/admin/integracoes", label: "Integrações", icon: PuzzlePieceIcon },
+      { href: "/admin/logs", label: "Logs", icon: DocumentMagnifyingGlassIcon },
       { href: "/admin/settings", label: "Configurações", icon: Cog6ToothIcon },
     ],
   },

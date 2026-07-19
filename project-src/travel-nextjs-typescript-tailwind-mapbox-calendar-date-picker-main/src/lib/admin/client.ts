@@ -1169,3 +1169,74 @@ export const deleteAdminCoupon = async (id: string): Promise<void> => {
   const { error } = await supabase().from("coupons").delete().eq("id", id);
   throwIfError(error);
 };
+
+// ---------------------------------------------------------------------------
+// Fase 3.4 — Logs do sistema (auditoria).
+// ---------------------------------------------------------------------------
+
+export type AdminSystemLogRow = AdminSystemLog & { author_name: string | null };
+
+export type AdminSystemLogSearch = {
+  search?: string;
+  entity?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  page?: number;
+  limit?: number;
+};
+
+export const listAdminSystemLogs = async (
+  q: AdminSystemLogSearch = {}
+): Promise<{ logs: AdminSystemLogRow[]; count: number }> => {
+  const limit = q.limit ?? 25;
+  const page = Math.max(q.page ?? 1, 1);
+
+  let query = supabase()
+    .from("system_logs")
+    .select("*", { count: "exact" })
+    .order("created_at", { ascending: false })
+    .range((page - 1) * limit, page * limit - 1);
+
+  const term = (q.search ?? "").replace(/[(),%]/g, " ").trim();
+  if (term) {
+    query = query.or(`action.ilike.%${term}%,entity.ilike.%${term}%`);
+  }
+  if (q.entity && q.entity !== "all") {
+    query = query.eq("entity", q.entity);
+  }
+  if (q.dateFrom) {
+    query = query.gte("created_at", q.dateFrom);
+  }
+  if (q.dateTo) {
+    query = query.lte("created_at", `${q.dateTo}T23:59:59`);
+  }
+
+  const { data, error, count } = await query;
+  throwIfError(error);
+  const logs = (data ?? []) as AdminSystemLog[];
+
+  // Nome do autor (system_logs.user_id → users_profiles), em uma query extra.
+  const userIds = Array.from(
+    new Set(logs.map((log) => log.user_id).filter(Boolean))
+  ) as string[];
+  let names: Record<string, string> = {};
+  if (userIds.length > 0) {
+    const { data: profiles } = await supabase()
+      .from("users_profiles")
+      .select("user_id, name, email")
+      .in("user_id", userIds);
+    names = Object.fromEntries(
+      ((profiles ?? []) as { user_id: string; name: string | null; email: string | null }[]).map(
+        (p) => [p.user_id, p.name || p.email || ""]
+      )
+    );
+  }
+
+  return {
+    logs: logs.map((log) => ({
+      ...log,
+      author_name: log.user_id ? names[log.user_id] ?? null : null,
+    })),
+    count: count ?? 0,
+  };
+};

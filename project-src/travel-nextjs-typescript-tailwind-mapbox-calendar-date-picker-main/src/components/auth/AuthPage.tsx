@@ -11,6 +11,7 @@ import {
   signInWithSupabaseGoogle,
   signUpWithEmailPassword,
 } from "../../lib/auth/client";
+import { gaEvent } from "../../lib/analytics/gtag";
 
 type Mode = "signin" | "signup";
 type Action = "password" | "google" | "otp" | null;
@@ -67,6 +68,7 @@ const AuthPage = () => {
           nextPath
         );
         if (result.error) return setError(getFriendlyAuthError(result.error));
+        gaEvent("sign_up", { method: "email" });
         if (result.data.session) await router.replace(nextPath);
         else
           setSuccess(

@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import BookingSummaryCard from "../../../components/BookingSummaryCard";
 import Drawer from "../../../components/Drawer";
 import Footer from "../../../components/Footer";
 import Header from "../../../components/Header";
 import useSupabaseSession from "../../../hooks/useSupabaseSession";
+import { gaEvent } from "../../../lib/analytics/gtag";
 import { getMyBookingById } from "../../../lib/bookings/client";
 import { isProcessingPayment } from "../../../lib/bookings/status";
 import type { BookingSummary } from "../../../lib/bookings/types";
@@ -21,6 +22,7 @@ const PaymentSuccess = () => {
   );
   const [isOpen, setIsOpen] = useState(false);
   const [headerSearch, setHeaderSearch] = useState("");
+  const purchaseFired = useRef(false);
 
   const loadBooking = () => {
     if (!bookingId) {
@@ -54,6 +56,26 @@ const PaymentSuccess = () => {
         .catch(() => {});
     }, 5000);
     return () => clearInterval(timer);
+  }, [booking]);
+
+  // GA4: purchase — dispara uma vez, quando o pagamento consta como pago.
+  useEffect(() => {
+    if (!booking || booking.payment_status !== "paid" || purchaseFired.current) {
+      return;
+    }
+    purchaseFired.current = true;
+    gaEvent("purchase", {
+      transaction_id: booking.id,
+      currency: "BRL",
+      value: Number(booking.total_amount),
+      items: [
+        {
+          item_id: booking.product_id,
+          item_name: booking.products?.title,
+          quantity: booking.travelers_count,
+        },
+      ],
+    });
   }, [booking]);
 
   return (

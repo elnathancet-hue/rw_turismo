@@ -244,10 +244,10 @@ export type FinanceSummary = {
   departures: DepartureMargin[];
 };
 
-export const getFinanceSummary = async (
-  month: string
+export const getFinanceSummaryRange = async (
+  start: string,
+  end: string
 ): Promise<FinanceSummary> => {
-  const { start, end } = monthRange(month);
   const today = new Date().toISOString().slice(0, 10);
 
   const [payments, receivables, expenses, departures] = await Promise.all([
@@ -355,4 +355,75 @@ export const getFinanceSummary = async (
     balance: totalReceived - expensesPaid,
     departures: departuresSummary,
   };
+};
+
+export const getFinanceSummary = async (
+  month: string
+): Promise<FinanceSummary> => {
+  const { start, end } = monthRange(month);
+  return getFinanceSummaryRange(start, end);
+};
+
+export type MonthlyFinancePoint = {
+  month: string;
+  received: number;
+  expenses: number;
+};
+
+// Série dos últimos N meses (receita recebida × despesas pagas) para o gráfico.
+export const getMonthlyFinanceSeries = async (
+  months = 12
+): Promise<MonthlyFinancePoint[]> => {
+  const now = new Date();
+  const startDate = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (months - 1), 1)
+  );
+  const startIso = startDate.toISOString().slice(0, 10);
+
+  const [payments, receivables, expenses] = await Promise.all([
+    db()
+      .from("payments")
+      .select("amount, paid_at")
+      .eq("status", "paid")
+      .gte("paid_at", `${startIso}T00:00:00Z`),
+    db()
+      .from("receivables")
+      .select("amount, received_at, status")
+      .eq("status", "received")
+      .gte("received_at", startIso),
+    db()
+      .from("expenses")
+      .select("amount, expense_date, paid")
+      .eq("paid", true)
+      .gte("expense_date", startIso),
+  ]);
+  throwIfError(payments.error);
+  throwIfError(receivables.error);
+  throwIfError(expenses.error);
+
+  const buckets: Record<string, { received: number; expenses: number }> = {};
+  const keys: string[] = [];
+  for (let i = months - 1; i >= 0; i--) {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+    const key = d.toISOString().slice(0, 7);
+    buckets[key] = { received: 0, expenses: 0 };
+    keys.push(key);
+  }
+  for (const row of (payments.data ?? []) as any[]) {
+    const key = String(row.paid_at).slice(0, 7);
+    if (buckets[key]) buckets[key].received += Number(row.amount);
+  }
+  for (const row of (receivables.data ?? []) as any[]) {
+    const key = String(row.received_at).slice(0, 7);
+    if (buckets[key]) buckets[key].received += Number(row.amount);
+  }
+  for (const row of (expenses.data ?? []) as any[]) {
+    const key = String(row.expense_date).slice(0, 7);
+    if (buckets[key]) buckets[key].expenses += Number(row.amount);
+  }
+  return keys.map((key) => ({
+    month: key,
+    received: buckets[key].received,
+    expenses: buckets[key].expenses,
+  }));
 };

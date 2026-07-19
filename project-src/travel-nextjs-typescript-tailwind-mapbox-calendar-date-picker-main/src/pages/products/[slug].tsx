@@ -17,6 +17,7 @@ import {
   removeFavorite,
 } from "../../lib/favorites/client";
 import { joinWaitlist } from "../../lib/waitlist/client";
+import { gaEvent } from "../../lib/analytics/gtag";
 import {
   getActiveProductDatesServer,
   getProductBySlugServer,
@@ -84,6 +85,15 @@ const ProductDetails = ({ product, productDates }: Props) => {
       .then(setIsFav)
       .catch(console.error);
   }, [isAuthenticated, product.id]);
+
+  // GA4: visualização do produto (funil).
+  useEffect(() => {
+    gaEvent("view_item", {
+      currency: "BRL",
+      value: product.promotional_price ?? product.price,
+      items: [{ item_id: product.id, item_name: product.title }],
+    });
+  }, [product.id, product.promotional_price, product.price, product.title]);
 
   // Restore a booking draft saved before the user was sent to login.
   useEffect(() => {
@@ -284,6 +294,18 @@ const ProductDetails = ({ product, productDates }: Props) => {
       if (!response.ok) {
         throw new Error(result.error ?? "Não foi possível iniciar a reserva.");
       }
+
+      gaEvent("begin_checkout", {
+        currency: "BRL",
+        value: Number(result.total_amount ?? estimatedTotal),
+        items: [
+          {
+            item_id: product.id,
+            item_name: product.title,
+            quantity: travelersCount,
+          },
+        ],
+      });
 
       router.push(`/account/bookings/${result.booking_id}`);
     } catch (error) {
