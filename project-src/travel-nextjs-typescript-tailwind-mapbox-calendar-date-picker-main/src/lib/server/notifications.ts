@@ -219,7 +219,8 @@ const departuresStarting = async (dateIso: string) => {
     .from("product_dates")
     .select("id, start_date, end_date, products(title)")
     .eq("start_date", dateIso)
-    .eq("active", true);
+    .eq("active", true)
+    .is("deleted_at", null);
   return (data ?? []) as {
     id: string;
     start_date: string;
@@ -379,7 +380,8 @@ export const runDailyNotifications = async (): Promise<JobSummary> => {
       .from("product_dates")
       .select("id, products(title)")
       .eq("end_date", isoDatePlus(-1))
-      .eq("active", true);
+      .eq("active", true)
+      .is("deleted_at", null);
     const dateIds = ((ended ?? []) as { id: string }[]).map((d) => d.id);
     const bookings = await confirmedBookingsForDates(dateIds);
     for (const booking of bookings) {

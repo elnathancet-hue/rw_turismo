@@ -680,7 +680,7 @@ const AdminCrm = () => {
                   <ConfirmButton
                     className="text-sm font-semibold text-red-600 hover:text-red-700"
                     confirmLabel="Excluir lead"
-                    message={`Excluir o lead "${selectedLead.name}"? As anotações também serão apagadas.`}
+                    message={`Excluir o lead "${selectedLead.name}"? Ele vai para a Lixeira (com as anotações) e pode ser restaurado depois.`}
                     onConfirm={() => deleteLead(selectedLead.id)}
                     onDone={() => {
                       setSelectedId(null);

@@ -154,6 +154,7 @@ export const listAdminProducts = async (): Promise<Product[]> => {
   const { data, error } = await supabase()
     .from("products")
     .select("*")
+    .is("deleted_at", null)
     .order("created_at", { ascending: false });
 
   throwIfError(error);
@@ -170,6 +171,7 @@ export const searchAdminProducts = async (
   const { data, error, count } = await supabase()
     .from("products")
     .select("*", { count: "exact" })
+    .is("deleted_at", null)
     .order("created_at", { ascending: false })
     .range((page - 1) * limit, page * limit - 1);
   throwIfError(error);
@@ -248,8 +250,21 @@ export const updateAdminProduct = async (
   return { ...(data as Product), category_ids: category_ids ?? [] };
 };
 
+// Soft delete (Fase 5.4): marca deleted_at em vez de apagar, para o produto
+// sumir das listas/site mas continuar referenciável pelo histórico de reservas.
 export const deleteAdminProduct = async (id: string): Promise<void> => {
-  const { error } = await supabase().from("products").delete().eq("id", id);
+  const { error } = await supabase()
+    .from("products")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", id);
+  throwIfError(error);
+};
+
+export const restoreAdminProduct = async (id: string): Promise<void> => {
+  const { error } = await supabase()
+    .from("products")
+    .update({ deleted_at: null })
+    .eq("id", id);
   throwIfError(error);
 };
 
@@ -297,7 +312,9 @@ export const searchAdminProductDates = async (
   const page = Math.max(q.page ?? 1, 1);
   const { data, error, count } = await supabase()
     .from("product_dates")
-    .select("*, products(title)", { count: "exact" })
+    .select("*, products!inner(title)", { count: "exact" })
+    .is("deleted_at", null)
+    .is("products.deleted_at", null)
     .order("start_date", { ascending: true })
     .range((page - 1) * limit, page * limit - 1);
   throwIfError(error);
@@ -310,7 +327,9 @@ export const searchAdminProductDates = async (
 export const listAdminProductDates = async (): Promise<ProductDateWithProduct[]> => {
   const { data, error } = await supabase()
     .from("product_dates")
-    .select("*, products(title)")
+    .select("*, products!inner(title)")
+    .is("deleted_at", null)
+    .is("products.deleted_at", null)
     .order("start_date", { ascending: true });
 
   throwIfError(error);
@@ -359,7 +378,18 @@ export const updateAdminProductDate = async (
 };
 
 export const deleteAdminProductDate = async (id: string): Promise<void> => {
-  const { error } = await supabase().from("product_dates").delete().eq("id", id);
+  const { error } = await supabase()
+    .from("product_dates")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", id);
+  throwIfError(error);
+};
+
+export const restoreAdminProductDate = async (id: string): Promise<void> => {
+  const { error } = await supabase()
+    .from("product_dates")
+    .update({ deleted_at: null })
+    .eq("id", id);
   throwIfError(error);
 };
 
@@ -367,6 +397,7 @@ export const listAdminCategories = async (): Promise<Category[]> => {
   const { data, error } = await supabase()
     .from("categories")
     .select("*")
+    .is("deleted_at", null)
     .order("name", { ascending: true });
 
   throwIfError(error);
@@ -402,7 +433,18 @@ export const updateAdminCategory = async (
 };
 
 export const deleteAdminCategory = async (id: string): Promise<void> => {
-  const { error } = await supabase().from("categories").delete().eq("id", id);
+  const { error } = await supabase()
+    .from("categories")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", id);
+  throwIfError(error);
+};
+
+export const restoreAdminCategory = async (id: string): Promise<void> => {
+  const { error } = await supabase()
+    .from("categories")
+    .update({ deleted_at: null })
+    .eq("id", id);
   throwIfError(error);
 };
 
@@ -516,7 +558,9 @@ export const listAdminDepartures = async (
 ): Promise<AdminDeparture[]> => {
   let query = supabase()
     .from("product_dates")
-    .select("*, products(title, destination, origin)")
+    .select("*, products!inner(title, destination, origin)")
+    .is("deleted_at", null)
+    .is("products.deleted_at", null)
     .order("start_date", { ascending: !includePast });
 
   if (!includePast) {
@@ -863,6 +907,7 @@ export const listAdminSuppliers = async (): Promise<Supplier[]> => {
   const { data, error } = await supabase()
     .from("suppliers")
     .select("*")
+    .is("deleted_at", null)
     .order("name", { ascending: true });
 
   throwIfError(error);
@@ -879,6 +924,7 @@ export const searchAdminSuppliers = async (
   const { data, error, count } = await supabase()
     .from("suppliers")
     .select("*", { count: "exact" })
+    .is("deleted_at", null)
     .order("name", { ascending: true })
     .range((page - 1) * limit, page * limit - 1);
   throwIfError(error);
@@ -914,7 +960,18 @@ export const updateAdminSupplier = async (
 };
 
 export const deleteAdminSupplier = async (id: string): Promise<void> => {
-  const { error } = await supabase().from("suppliers").delete().eq("id", id);
+  const { error } = await supabase()
+    .from("suppliers")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", id);
+  throwIfError(error);
+};
+
+export const restoreAdminSupplier = async (id: string): Promise<void> => {
+  const { error } = await supabase()
+    .from("suppliers")
+    .update({ deleted_at: null })
+    .eq("id", id);
   throwIfError(error);
 };
 
@@ -1314,4 +1371,53 @@ export const listAdminSystemLogs = async (
     })),
     count: count ?? 0,
   };
+};
+
+// ---------------------------------------------------------------------------
+// Fase 5.4 — Lixeira: itens com deleted_at preenchido, por tipo, para restaurar.
+// (Os restoreAdminXxx ficam junto de cada entidade, acima.)
+// ---------------------------------------------------------------------------
+
+export type Deleted<T> = T & { deleted_at: string };
+
+export const listDeletedProducts = async (): Promise<Deleted<Product>[]> => {
+  const { data, error } = await supabase()
+    .from("products")
+    .select("*")
+    .not("deleted_at", "is", null)
+    .order("deleted_at", { ascending: false });
+  throwIfError(error);
+  return (data ?? []) as Deleted<Product>[];
+};
+
+export const listDeletedCategories = async (): Promise<Deleted<Category>[]> => {
+  const { data, error } = await supabase()
+    .from("categories")
+    .select("*")
+    .not("deleted_at", "is", null)
+    .order("deleted_at", { ascending: false });
+  throwIfError(error);
+  return (data ?? []) as Deleted<Category>[];
+};
+
+export const listDeletedProductDates = async (): Promise<
+  Deleted<ProductDateWithProduct>[]
+> => {
+  const { data, error } = await supabase()
+    .from("product_dates")
+    .select("*, products(title)")
+    .not("deleted_at", "is", null)
+    .order("deleted_at", { ascending: false });
+  throwIfError(error);
+  return (data ?? []) as Deleted<ProductDateWithProduct>[];
+};
+
+export const listDeletedSuppliers = async (): Promise<Deleted<Supplier>[]> => {
+  const { data, error } = await supabase()
+    .from("suppliers")
+    .select("*")
+    .not("deleted_at", "is", null)
+    .order("deleted_at", { ascending: false });
+  throwIfError(error);
+  return (data ?? []) as Deleted<Supplier>[];
 };

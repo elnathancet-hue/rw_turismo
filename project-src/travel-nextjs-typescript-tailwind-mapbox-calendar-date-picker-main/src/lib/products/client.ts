@@ -29,6 +29,7 @@ export const getActiveProducts = async (): Promise<Product[]> => {
   const { data, error } = await productsTable()
     .select("*, product_categories(category_id)")
     .eq("active", true)
+    .is("deleted_at", null)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -45,6 +46,7 @@ export const getProductBySlug = async (
     .select("*")
     .eq("slug", slug)
     .eq("active", true)
+    .is("deleted_at", null)
     .maybeSingle();
 
   if (error) {
@@ -61,6 +63,7 @@ export const getActiveProductDates = async (
     .select("*")
     .eq("product_id", productId)
     .eq("active", true)
+    .is("deleted_at", null)
     .order("start_date", { ascending: true });
 
   if (error) {
@@ -76,6 +79,7 @@ export const getProductsByCategory = async (
   const { data, error } = await productsTable()
     .select("*, product_categories!inner(categories!inner(slug))")
     .eq("active", true)
+    .is("deleted_at", null)
     .eq("product_categories.categories.slug", categorySlug)
     .order("created_at", { ascending: false });
 
@@ -102,6 +106,7 @@ export const getProductOrigins = async (): Promise<string[]> => {
   const { data, error } = await productsTable()
     .select("origin")
     .eq("active", true)
+    .is("deleted_at", null)
     .not("origin", "is", null);
 
   if (error) {
@@ -127,6 +132,7 @@ export const searchPackages = async (
   let query = productsTable()
     .select("*, product_dates(start_date, active)")
     .eq("active", true)
+    .is("deleted_at", null)
     .order("created_at", { ascending: false });
 
   if (origem) {
@@ -207,6 +213,7 @@ export const getActiveCategories = async (): Promise<Category[]> => {
   const { data, error } = await categoriesTable()
     .select("*")
     .eq("active", true)
+    .is("deleted_at", null)
     .order("name", { ascending: true });
 
   if (error) {

@@ -278,7 +278,7 @@ const AdminSuppliers = () => {
                         <ConfirmButton
                           className="ml-4 font-semibold text-red-600 hover:text-red-700"
                           confirmLabel="Excluir fornecedor"
-                          message={`Excluir o fornecedor "${supplier.name}"? Esta ação não pode ser desfeita.`}
+                          message={`Excluir o fornecedor "${supplier.name}"? Ele vai para a Lixeira e pode ser restaurado depois.`}
                           onConfirm={() => deleteAdminSupplier(supplier.id)}
                           onDone={load}
                         >

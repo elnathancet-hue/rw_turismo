@@ -46,6 +46,7 @@ create table if not exists public.products (
   active boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
+  deleted_at timestamptz,
   constraint products_type_check check (type in ('package', 'hotel', 'flight', 'stay', 'experience')),
   constraint products_price_non_negative_check check (price >= 0),
   constraint products_promotional_price_non_negative_check check (promotional_price is null or promotional_price >= 0),
@@ -65,6 +66,7 @@ create table if not exists public.product_dates (
   active boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
+  deleted_at timestamptz,
   constraint product_dates_product_id_start_date_end_date_key unique (product_id, start_date, end_date),
   constraint product_dates_valid_range_check check (end_date >= start_date),
   constraint product_dates_available_slots_non_negative_check check (available_slots >= 0),
@@ -137,7 +139,8 @@ create table if not exists public.categories (
   slug text not null unique,
   active boolean not null default true,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz
 );
 
 create table if not exists public.product_categories (
@@ -184,10 +187,12 @@ create index if not exists products_active_idx on public.products(active);
 create index if not exists products_type_idx on public.products(type);
 create index if not exists products_destination_idx on public.products(destination);
 create index if not exists products_origin_idx on public.products(origin);
+create index if not exists products_deleted_at_idx on public.products(deleted_at);
 
 create index if not exists product_dates_product_id_idx on public.product_dates(product_id);
 create index if not exists product_dates_active_idx on public.product_dates(active);
 create index if not exists product_dates_start_date_idx on public.product_dates(start_date);
+create index if not exists product_dates_deleted_at_idx on public.product_dates(deleted_at);
 
 create index if not exists bookings_user_id_idx on public.bookings(user_id);
 create index if not exists bookings_product_id_idx on public.bookings(product_id);
@@ -219,6 +224,7 @@ create unique index if not exists payments_stripe_payment_intent_id_key
 
 create index if not exists passengers_booking_id_idx on public.passengers(booking_id);
 create index if not exists categories_slug_idx on public.categories(slug);
+create index if not exists categories_deleted_at_idx on public.categories(deleted_at);
 create index if not exists product_categories_product_id_idx on public.product_categories(product_id);
 create index if not exists product_categories_category_id_idx on public.product_categories(category_id);
 create index if not exists favorites_user_id_idx on public.favorites(user_id);
@@ -397,6 +403,7 @@ begin
   from public.products
   where id = p_product_id
     and active = true
+    and deleted_at is null
   for update;
 
   if not found then
@@ -408,6 +415,7 @@ begin
   from public.product_dates
   where id = p_product_date_id
     and active = true
+    and deleted_at is null
   for update;
 
   if not found then
@@ -698,7 +706,7 @@ begin
 
   select * into v_product
   from public.products
-  where id = p_product_id and active = true
+  where id = p_product_id and active = true and deleted_at is null
   for update;
 
   if not found then
@@ -707,7 +715,7 @@ begin
 
   select * into v_product_date
   from public.product_dates
-  where id = p_product_date_id and active = true
+  where id = p_product_date_id and active = true and deleted_at is null
   for update;
 
   if not found then
@@ -1229,6 +1237,7 @@ create table if not exists public.suppliers (
   active boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
+  deleted_at timestamptz,
   constraint suppliers_category_check check (
     category in ('hotel', 'transporte', 'guia', 'restaurante', 'passeio', 'outro')
   )
@@ -1236,6 +1245,7 @@ create table if not exists public.suppliers (
 
 create index if not exists suppliers_active_idx on public.suppliers(active);
 create index if not exists suppliers_category_idx on public.suppliers(category);
+create index if not exists suppliers_deleted_at_idx on public.suppliers(deleted_at);
 
 drop trigger if exists set_suppliers_updated_at on public.suppliers;
 create trigger set_suppliers_updated_at
@@ -1325,11 +1335,13 @@ create table if not exists public.leads (
   user_id uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
+  deleted_at timestamptz,
   constraint leads_utm_object_check check (jsonb_typeof(utm) = 'object')
 );
 
 create index if not exists leads_stage_idx on public.leads(stage_id, position);
 create index if not exists leads_created_idx on public.leads(created_at desc);
+create index if not exists leads_deleted_at_idx on public.leads(deleted_at);
 create index if not exists leads_waitlist_idx on public.leads(waitlist_id);
 
 drop trigger if exists set_leads_updated_at on public.leads;

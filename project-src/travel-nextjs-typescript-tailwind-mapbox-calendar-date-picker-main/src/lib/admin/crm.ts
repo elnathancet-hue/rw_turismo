@@ -106,6 +106,7 @@ export const listLeads = async (): Promise<Lead[]> => {
   const { data, error } = await db()
     .from("leads")
     .select("*")
+    .is("deleted_at", null)
     .order("position", { ascending: true })
     .order("created_at", { ascending: false });
   throwIfError(error);
@@ -155,9 +156,33 @@ export const updateLead = async (
   return data as Lead;
 };
 
+// Soft delete (Fase 5.4): some do kanban mas continua restaurável na lixeira.
 export const deleteLead = async (id: string): Promise<void> => {
-  const { error } = await db().from("leads").delete().eq("id", id);
+  const { error } = await db()
+    .from("leads")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", id);
   throwIfError(error);
+};
+
+export const restoreLead = async (id: string): Promise<void> => {
+  const { error } = await db()
+    .from("leads")
+    .update({ deleted_at: null })
+    .eq("id", id);
+  throwIfError(error);
+};
+
+export type DeletedLead = Lead & { deleted_at: string };
+
+export const listDeletedLeads = async (): Promise<DeletedLead[]> => {
+  const { data, error } = await db()
+    .from("leads")
+    .select("*")
+    .not("deleted_at", "is", null)
+    .order("deleted_at", { ascending: false });
+  throwIfError(error);
+  return (data ?? []) as DeletedLead[];
 };
 
 // ---------------------------------------------------------------------------

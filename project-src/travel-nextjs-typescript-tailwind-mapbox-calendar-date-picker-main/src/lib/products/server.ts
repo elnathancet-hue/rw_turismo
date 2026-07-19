@@ -28,6 +28,7 @@ export const getActiveProductsServer = async (
     .from("products")
     .select("*, product_categories(category_id)")
     .eq("active", true)
+    .is("deleted_at", null)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -46,6 +47,7 @@ export const getProductBySlugServer = async (
     .select("*")
     .eq("slug", slug)
     .eq("active", true)
+    .is("deleted_at", null)
     .maybeSingle();
 
   if (error) {
@@ -65,6 +67,7 @@ export const getFutureDateProductIdsServer = async (
     .from("product_dates")
     .select("product_id")
     .eq("active", true)
+    .is("deleted_at", null)
     .gte("start_date", today);
 
   if (error) {
@@ -88,6 +91,7 @@ export const getActiveProductDatesServer = async (
     .select("*")
     .eq("product_id", productId)
     .eq("active", true)
+    .is("deleted_at", null)
     .gte("start_date", today)
     .order("start_date", { ascending: true });
 

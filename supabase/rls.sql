@@ -96,13 +96,13 @@ to authenticated
 using (public.is_admin())
 with check (public.is_admin());
 
--- Products: public users can see only active products.
+-- Products: public users can see only active, non-deleted products.
 drop policy if exists "products_select_active" on public.products;
 create policy "products_select_active"
 on public.products
 for select
 to anon, authenticated
-using (active = true);
+using (active = true and deleted_at is null);
 
 -- Products: admins can create, edit and delete products.
 drop policy if exists "products_admin_all" on public.products;
@@ -113,7 +113,8 @@ to authenticated
 using (public.is_admin())
 with check (public.is_admin());
 
--- Product dates: public users can see only active dates for active products.
+-- Product dates: public users can see only active, non-deleted dates for
+-- active, non-deleted products.
 drop policy if exists "product_dates_select_active_products" on public.product_dates;
 create policy "product_dates_select_active_products"
 on public.product_dates
@@ -121,11 +122,13 @@ for select
 to anon, authenticated
 using (
   active = true
+  and deleted_at is null
   and exists (
     select 1
     from public.products
     where products.id = product_dates.product_id
       and products.active = true
+      and products.deleted_at is null
   )
 );
 
@@ -248,13 +251,13 @@ to authenticated
 using (public.is_admin())
 with check (public.is_admin());
 
--- Categories: public users can see active categories.
+-- Categories: public users can see active, non-deleted categories.
 drop policy if exists "categories_select_active" on public.categories;
 create policy "categories_select_active"
 on public.categories
 for select
 to anon, authenticated
-using (active = true);
+using (active = true and deleted_at is null);
 
 -- Categories: admins can manage all categories.
 drop policy if exists "categories_admin_all" on public.categories;
@@ -277,12 +280,14 @@ using (
     from public.products
     where products.id = product_categories.product_id
       and products.active = true
+      and products.deleted_at is null
   )
   and exists (
     select 1
     from public.categories
     where categories.id = product_categories.category_id
       and categories.active = true
+      and categories.deleted_at is null
   )
 );
 
