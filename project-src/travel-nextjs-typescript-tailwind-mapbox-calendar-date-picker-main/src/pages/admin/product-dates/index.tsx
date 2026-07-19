@@ -5,12 +5,16 @@ import AdminLayout from "../../../components/admin/AdminLayout";
 import AdminListState from "../../../components/admin/AdminListState";
 import {
   deleteAdminProductDate,
-  listAdminProductDates,
+  searchAdminProductDates,
   type ProductDateWithProduct,
 } from "../../../lib/admin/client";
 
+const PAGE_SIZE = 25;
+
 const AdminProductDates = () => {
   const [dates, setDates] = useState<ProductDateWithProduct[]>([]);
+  const [count, setCount] = useState(0);
+  const [page, setPage] = useState(1);
   const [loadStatus, setLoadStatus] = useState<"loading" | "ready" | "error">(
     "loading"
   );
@@ -20,7 +24,9 @@ const AdminProductDates = () => {
     setLoadStatus("loading");
     setError(null);
     try {
-      setDates(await listAdminProductDates());
+      const result = await searchAdminProductDates({ page, limit: PAGE_SIZE });
+      setDates(result.items);
+      setCount(result.count);
       setLoadStatus("ready");
     } catch (loadError) {
       setError(
@@ -34,13 +40,16 @@ const AdminProductDates = () => {
 
   useEffect(() => {
     loadDates();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
+
+  const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
 
   const handleDelete = async (id: string) => {
     if (!window.confirm("Remover esta data?")) return;
 
     await deleteAdminProductDate(id);
-    setDates((current) => current.filter((item) => item.id !== id));
+    await loadDates();
   };
 
   return (
@@ -108,6 +117,31 @@ const AdminProductDates = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-gray-500">
+              Página {page} de {totalPages} · {count}{" "}
+              {count === 1 ? "data" : "datas"}
+            </p>
+            <div className="flex gap-2">
+              <button
+                className="rounded border px-4 py-1.5 text-sm font-semibold disabled:opacity-50"
+                disabled={page <= 1}
+                onClick={() => setPage((current) => current - 1)}
+                type="button"
+              >
+                ‹ Anterior
+              </button>
+              <button
+                className="rounded border px-4 py-1.5 text-sm font-semibold disabled:opacity-50"
+                disabled={page >= totalPages}
+                onClick={() => setPage((current) => current + 1)}
+                type="button"
+              >
+                Próxima ›
+              </button>
+            </div>
           </div>
         </AdminListState>
       </AdminLayout>

@@ -160,6 +160,22 @@ export const listAdminProducts = async (): Promise<Product[]> => {
   return (data ?? []) as Product[];
 };
 
+// Versão paginada para a listagem do admin (Fase 5.1). A list acima continua
+// existindo para os dropdowns (ProductForm, cupons, categorias).
+export const searchAdminProducts = async (
+  q: { page?: number; limit?: number } = {}
+): Promise<{ items: Product[]; count: number }> => {
+  const limit = q.limit ?? 25;
+  const page = Math.max(q.page ?? 1, 1);
+  const { data, error, count } = await supabase()
+    .from("products")
+    .select("*", { count: "exact" })
+    .order("created_at", { ascending: false })
+    .range((page - 1) * limit, page * limit - 1);
+  throwIfError(error);
+  return { items: (data ?? []) as Product[], count: count ?? 0 };
+};
+
 export const getAdminProduct = async (id: string): Promise<Product | null> => {
   const { data, error } = await supabase()
     .from("products")
@@ -270,6 +286,25 @@ export const setCategoryProducts = async (
     .from("product_categories")
     .insert(unique.map((product_id) => ({ product_id, category_id: categoryId })));
   throwIfError(insertError);
+};
+
+// Versão paginada para a listagem do admin (Fase 5.1). A list abaixo continua
+// existindo para os dropdowns (nova reserva, remarcação).
+export const searchAdminProductDates = async (
+  q: { page?: number; limit?: number } = {}
+): Promise<{ items: ProductDateWithProduct[]; count: number }> => {
+  const limit = q.limit ?? 25;
+  const page = Math.max(q.page ?? 1, 1);
+  const { data, error, count } = await supabase()
+    .from("product_dates")
+    .select("*, products(title)", { count: "exact" })
+    .order("start_date", { ascending: true })
+    .range((page - 1) * limit, page * limit - 1);
+  throwIfError(error);
+  return {
+    items: (data ?? []) as ProductDateWithProduct[],
+    count: count ?? 0,
+  };
 };
 
 export const listAdminProductDates = async (): Promise<ProductDateWithProduct[]> => {
