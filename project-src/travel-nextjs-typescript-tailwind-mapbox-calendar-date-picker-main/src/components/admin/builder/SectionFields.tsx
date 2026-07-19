@@ -10,7 +10,11 @@ import {
   normalizeCollectionContent,
   sectionTypeOf,
 } from "../../../lib/content/home-registry";
-import type { Product, ProductType } from "../../../lib/products/types";
+import type {
+  Category,
+  Product,
+  ProductType,
+} from "../../../lib/products/types";
 import Button from "../../ui/Button";
 import { Field, Input, Select, Textarea } from "../../ui/form";
 import ImageUpload from "../ImageUpload";
@@ -25,6 +29,7 @@ type PatchFn = (patch: Partial<HomeSection>, coalesce?: boolean) => void;
 type Props = {
   section: HomeSection;
   products: Product[];
+  categories: Category[];
   onPatch: PatchFn;
 };
 
@@ -146,7 +151,12 @@ const ItemsEditor = <T extends Record<string, any>>({
 const itemsOf = (section: HomeSection): any[] =>
   Array.isArray(section.content?.items) ? section.content.items : [];
 
-const SectionFields = ({ section, products, onPatch }: Props) => {
+const SectionFields = ({
+  section,
+  products,
+  categories,
+  onPatch,
+}: Props) => {
   const patchContent = (patch: Record<string, any>, coalesce = false) =>
     onPatch({ content: { ...section.content, ...patch } }, coalesce);
 
@@ -173,23 +183,58 @@ const SectionFields = ({ section, products, onPatch }: Props) => {
     switch (type) {
       case "product_collection": {
         const content = normalizeCollectionContent(section.content);
+        // Dropdown values come from what the admin actually cadastrou nos
+        // produtos, so the filter can only point at destinos/origens que existem.
+        const destinations = Array.from(
+          new Set(products.map((p) => p.destination).filter(Boolean))
+        ).sort((a, b) => a.localeCompare(b, "pt-BR"));
+        const origins = Array.from(
+          new Set(
+            products
+              .map((p) => p.origin)
+              .filter((v): v is string => Boolean(v && v.trim()))
+          )
+        ).sort((a, b) => a.localeCompare(b, "pt-BR"));
+
+        // Switching mode pré-seleciona o 1º valor disponível, so the section
+        // never fica vazia por falta de escolha.
+        const changeMode = (mode: string) => {
+          const patch: Record<string, any> = { mode };
+          if (mode === "destination" && !content.destination && destinations[0]) {
+            patch.destination = destinations[0];
+          }
+          if (mode === "origin" && !content.origin && origins[0]) {
+            patch.origin = origins[0];
+          }
+          if (mode === "category" && !content.category_id && categories[0]) {
+            patch.category_id = categories[0].id;
+          }
+          patchContent(patch);
+        };
+
         return (
           <div className="space-y-3">
             <Field
-              hint="Define quais viagens entram automaticamente na vitrine."
-              label="Filtro da coleção"
+              hint="A vitrine se preenche sozinha com as viagens que batem com esta regra."
+              label="Quais viagens mostrar"
             >
               <Select
-                onChange={(event) => patchContent({ mode: event.target.value })}
+                onChange={(event) => changeMode(event.target.value)}
                 value={content.mode}
               >
-                <option value="promo">Somente promoções</option>
-                <option value="type">Por tipo de viagem</option>
-                <option value="all">Todas as viagens</option>
+                <option value="promo">Somente viagens em promoção</option>
+                <option value="type">Filtrar por tipo de viagem</option>
+                <option value="destination">Filtrar por destino</option>
+                <option value="origin">Filtrar por cidade de saída</option>
+                <option value="category">Filtrar por categoria</option>
+                <option value="all">Todas as viagens ativas</option>
               </Select>
             </Field>
             {content.mode === "type" && (
-              <Field label="Tipo de viagem">
+              <Field
+                hint="Mostra só as viagens deste tipo."
+                label="Tipo de viagem"
+              >
                 <Select
                   onChange={(event) =>
                     patchContent({ product_type: event.target.value })
@@ -206,7 +251,91 @@ const SectionFields = ({ section, products, onPatch }: Props) => {
                 </Select>
               </Field>
             )}
-            <Field label="Quantidade na home">
+            {content.mode === "destination" && (
+              <Field
+                hint="Mostra só as viagens para este destino."
+                label="Destino"
+              >
+                <Select
+                  onChange={(event) =>
+                    patchContent({ destination: event.target.value })
+                  }
+                  value={content.destination}
+                >
+                  {destinations.length === 0 && (
+                    <option value="">Cadastre destinos nos produtos</option>
+                  )}
+                  {content.destination &&
+                    !destinations.includes(content.destination) && (
+                      <option value={content.destination}>
+                        {content.destination}
+                      </option>
+                    )}
+                  {destinations.map((value) => (
+                    <option key={value} value={value}>
+                      {value}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            )}
+            {content.mode === "origin" && (
+              <Field
+                hint="Mostra só as viagens que saem desta cidade."
+                label="Cidade de saída"
+              >
+                <Select
+                  onChange={(event) =>
+                    patchContent({ origin: event.target.value })
+                  }
+                  value={content.origin}
+                >
+                  {origins.length === 0 && (
+                    <option value="">
+                      Preencha “Origem” no cadastro dos produtos
+                    </option>
+                  )}
+                  {content.origin && !origins.includes(content.origin) && (
+                    <option value={content.origin}>{content.origin}</option>
+                  )}
+                  {origins.map((value) => (
+                    <option key={value} value={value}>
+                      {value}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            )}
+            {content.mode === "category" && (
+              <Field
+                hint="Mostra as viagens marcadas com esta categoria (marque em Catálogo → Categorias ou no cadastro da viagem)."
+                label="Categoria"
+              >
+                <Select
+                  onChange={(event) =>
+                    patchContent({ category_id: event.target.value })
+                  }
+                  value={content.category_id}
+                >
+                  {categories.length === 0 && (
+                    <option value="">
+                      Crie categorias em Catálogo → Categorias
+                    </option>
+                  )}
+                  {[...categories]
+                    .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
+                    .map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                </Select>
+              </Field>
+            )}
+            <Field
+              hint="Quantos cards aparecem na home (1 a 12). O resto abre no botão abaixo."
+              label="Quantas viagens exibir"
+            >
               <Input
                 max={12}
                 min={1}

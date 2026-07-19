@@ -52,7 +52,7 @@ export const sectionRegistry: SectionTypeMeta[] = [
     type: "product_collection",
     label: "Coleção de viagens",
     description:
-      "Vitrine filtrada (promoções, por tipo…) com botão ver mais.",
+      "Fileira de viagens que se preenche sozinha: promoções, por tipo ou todas.",
     singleton: false,
     defaults: {
       title: "Ofertas e promoções",
@@ -137,11 +137,31 @@ export const sectionMetaOf = (sectionKey: string): SectionTypeMeta | null =>
 // URL contract and the home builder preview.
 // ---------------------------------------------------------------------------
 
-export type CollectionMode = "promo" | "type" | "all";
+export type CollectionMode =
+  | "promo"
+  | "type"
+  | "destination"
+  | "origin"
+  | "category"
+  | "all";
+
+export const COLLECTION_MODES: CollectionMode[] = [
+  "promo",
+  "type",
+  "destination",
+  "origin",
+  "category",
+  "all",
+];
 
 export type CollectionContent = {
   mode: CollectionMode;
   product_type?: Product["type"];
+  // Free-text values that must match the product's own field exactly.
+  destination?: string;
+  origin?: string;
+  // Id da categoria escolhida (a ligação produto↔categoria vem em category_ids).
+  category_id?: string;
   limit?: number;
   cta_label?: string;
 };
@@ -149,30 +169,51 @@ export type CollectionContent = {
 export const normalizeCollectionContent = (
   content: Record<string, any> | null | undefined
 ): Required<CollectionContent> => {
-  const mode: CollectionMode =
-    content?.mode === "type" || content?.mode === "all"
-      ? content.mode
-      : "promo";
+  const rawMode = content?.mode;
+  const mode: CollectionMode = COLLECTION_MODES.includes(rawMode)
+    ? rawMode
+    : "promo";
   const product_type: Product["type"] =
     content?.product_type && content.product_type in PRODUCT_TYPE_LABELS
       ? content.product_type
       : "package";
+  const destination =
+    typeof content?.destination === "string" ? content.destination : "";
+  const origin = typeof content?.origin === "string" ? content.origin : "";
+  const category_id =
+    typeof content?.category_id === "string" ? content.category_id : "";
   const limit = Math.min(Math.max(Number(content?.limit ?? 6), 1), 12);
   const cta_label =
     typeof content?.cta_label === "string" && content.cta_label.trim()
       ? content.cta_label
       : "Ver mais";
-  return { mode, product_type, limit, cta_label };
+  return {
+    mode,
+    product_type,
+    destination,
+    origin,
+    category_id,
+    limit,
+    cta_label,
+  };
 };
 
 // Where the section's "ver mais" button points — the search page understands
-// these query params (promo=1, tipo=<product type>).
+// these query params (promo=1, tipo=, destino=, origem=).
 export const collectionUrl = (
   content: Record<string, any> | null | undefined
 ): string => {
-  const { mode, product_type } = normalizeCollectionContent(content);
+  const { mode, product_type, destination, origin } =
+    normalizeCollectionContent(content);
   if (mode === "promo") return "/search?promo=1";
   if (mode === "type") return `/search?tipo=${product_type}`;
+  if (mode === "destination")
+    return destination
+      ? `/search?destino=${encodeURIComponent(destination)}`
+      : "/search";
+  if (mode === "origin")
+    return origin ? `/search?origem=${encodeURIComponent(origin)}` : "/search";
+  // A busca ainda não filtra por categoria, então o "ver mais" abre a busca geral.
   return "/search";
 };
 
@@ -181,10 +222,16 @@ export const filterCollectionProducts = (
   products: Product[],
   content: Record<string, any> | null | undefined
 ): Product[] => {
-  const { mode, product_type, limit } = normalizeCollectionContent(content);
+  const { mode, product_type, destination, origin, category_id, limit } =
+    normalizeCollectionContent(content);
   const matches = products.filter((product) => {
     if (mode === "promo") return product.promotional_price != null;
     if (mode === "type") return product.type === product_type;
+    if (mode === "destination")
+      return !!destination && product.destination === destination;
+    if (mode === "origin") return !!origin && product.origin === origin;
+    if (mode === "category")
+      return !!category_id && (product.category_ids ?? []).includes(category_id);
     return true;
   });
   return matches.slice(0, limit);

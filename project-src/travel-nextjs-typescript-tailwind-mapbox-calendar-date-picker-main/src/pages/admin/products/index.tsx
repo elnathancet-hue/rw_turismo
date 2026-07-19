@@ -50,15 +50,24 @@ const AdminProducts = () => {
     <AdminGuard>
       <AdminLayout
         action={
-          <Link
-            className="rounded bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600"
-            href="/admin/products/new"
-          >
-            Novo produto
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              className="rounded border border-orange-500 px-4 py-2 text-sm font-semibold text-orange-600 hover:bg-orange-50"
+              href="/admin/home"
+              title="Escolha quais viagens aparecem na página inicial"
+            >
+              Exibir viagens na Home
+            </Link>
+            <Link
+              className="rounded bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600"
+              href="/admin/products/new"
+            >
+              Novo produto
+            </Link>
+          </div>
         }
         title="Produtos"
-        description="Gerencie a vitrine interna do e-commerce de turismo."
+        description="Cadastre as viagens aqui. Para montar as vitrines da página inicial, use “Exibir viagens na Home”."
       >
         <AdminListState
           emptyHint="Cadastre o primeiro pacote para aparecer na vitrine."

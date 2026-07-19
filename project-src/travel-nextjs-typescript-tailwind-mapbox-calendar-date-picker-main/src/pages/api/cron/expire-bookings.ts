@@ -6,9 +6,11 @@ import { isServiceRoleConfigured } from "../../../lib/server/secrets";
 // expires_at vencido, expira e devolve as vagas. Idempotente — pode rodar em
 // paralelo com a expiração disparada pela página da reserva ou pelo webhook.
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
-  // Vercel envia Authorization: Bearer ${CRON_SECRET} quando a env existe.
+  // Fail closed: sem CRON_SECRET configurado o endpoint recusa qualquer chamada.
+  // A Vercel só envia Authorization: Bearer ${CRON_SECRET} quando a env existe,
+  // então o secret precisa estar definido em produção para o cron funcionar.
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && req.headers.authorization !== `Bearer ${cronSecret}`) {
+  if (!cronSecret || req.headers.authorization !== `Bearer ${cronSecret}`) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
@@ -21,18 +23,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 
   try {
     const expired = await expireOverdueBookings();
-    if (!cronSecret) {
-      console.warn(
-        "expire-bookings: CRON_SECRET não configurado — endpoint aberto. Defina na Vercel."
-      );
-    }
-    return res.status(200).json({
-      ok: true,
-      expired,
-      ...(cronSecret
-        ? {}
-        : { warning: "CRON_SECRET não configurado — defina nas envs da Vercel." }),
-    });
+    return res.status(200).json({ ok: true, expired });
   } catch (error) {
     console.error("expire-bookings cron failed", error);
     return res.status(500).json({ error: "Cron failed" });

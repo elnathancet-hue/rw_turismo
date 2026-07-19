@@ -10,6 +10,7 @@ import {
   DevicePhoneMobileIcon,
   EyeIcon,
   EyeSlashIcon,
+  InformationCircleIcon,
   ListBulletIcon,
   PencilSquareIcon,
   PhotoIcon,
@@ -37,8 +38,11 @@ import {
   type SectionTypeMeta,
 } from "../../../lib/content/home-registry";
 import type { HomeBanner, HomeSection } from "../../../lib/content/types";
-import { getActiveProducts } from "../../../lib/products/client";
-import type { Product } from "../../../lib/products/types";
+import {
+  getActiveCategories,
+  getActiveProducts,
+} from "../../../lib/products/client";
+import type { Category, Product } from "../../../lib/products/types";
 import HeroBanner from "../../home/HeroBanner";
 import HomeSectionRenderer from "../../home/HomeSectionRenderer";
 import Button from "../../ui/Button";
@@ -104,6 +108,7 @@ const HomeBuilder = () => {
   const [data, setData] = useState<{
     draft: HomeDraft;
     products: Product[];
+    categories: Category[];
   } | null>(null);
   const [error, setError] = useState(false);
 
@@ -113,8 +118,9 @@ const HomeBuilder = () => {
       listAdminHomeSections(),
       listAdminBanners(),
       getActiveProducts().catch(() => [] as Product[]),
+      getActiveCategories().catch(() => [] as Category[]),
     ])
-      .then(([sections, banners, products]) => {
+      .then(([sections, banners, products, categories]) => {
         if (cancelled) return;
         setData({
           draft: {
@@ -124,6 +130,7 @@ const HomeBuilder = () => {
             deletedSectionIds: [],
           },
           products,
+          categories,
         });
       })
       .catch(() => {
@@ -158,7 +165,13 @@ const HomeBuilder = () => {
     );
   }
 
-  return <HomeBuilderInner initialDraft={data.draft} products={data.products} />;
+  return (
+    <HomeBuilderInner
+      categories={data.categories}
+      initialDraft={data.draft}
+      products={data.products}
+    />
+  );
 };
 
 // ---------------------------------------------------------------------------
@@ -168,9 +181,11 @@ const HomeBuilder = () => {
 const HomeBuilderInner = ({
   initialDraft,
   products,
+  categories,
 }: {
   initialDraft: HomeDraft;
   products: Product[];
+  categories: Category[];
 }) => {
   const router = useRouter();
   const {
@@ -192,6 +207,20 @@ const HomeBuilderInner = ({
   const [panelOpen, setPanelOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<Message | null>(null);
+  // Quick-start guide strip; dismissed state persists per browser.
+  const [showGuide, setShowGuide] = useState(false);
+  useEffect(() => {
+    setShowGuide(
+      typeof window !== "undefined" &&
+        window.localStorage.getItem("home-builder-guide-dismissed") !== "1"
+    );
+  }, []);
+  const dismissGuide = () => {
+    setShowGuide(false);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("home-builder-guide-dismissed", "1");
+    }
+  };
 
   const stateRef = useRef({ draft, isSaving });
   stateRef.current = { draft, isSaving };
@@ -279,6 +308,11 @@ const HomeBuilderInner = ({
     (id: string, options?: { scroll?: boolean }) => {
       setSelectedId(id);
       setTab("secao");
+      // On mobile the inspector is a slide-over; opening it here means tapping a
+      // section (or adding one) takes you straight to its fields instead of
+      // looking like "nothing happened". On desktop the panel is always visible,
+      // so this is a no-op there.
+      setPanelOpen(true);
       if (options?.scroll) scrollToSection(id);
     },
     [scrollToSection]
@@ -553,6 +587,32 @@ const HomeBuilderInner = ({
           className="min-w-0 flex-1 overflow-y-auto"
           onClick={() => setSelectedId(null)}
         >
+          {showGuide && (
+            <div
+              className="mx-auto mt-6 flex max-w-5xl items-start gap-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <InformationCircleIcon className="mt-0.5 h-5 w-5 shrink-0 text-orange-500" />
+              <div className="min-w-0 flex-1 text-orange-900">
+                <p className="font-semibold">Como montar sua página inicial</p>
+                <p className="mt-0.5 text-orange-800">
+                  <b>1.</b> Clique em <b>Adicionar seção</b> &middot; <b>2.</b>{" "}
+                  Escolha o tipo (ex.: <b>Coleção de viagens</b> para uma vitrine
+                  automática) &middot; <b>3.</b> Preencha os campos no painel{" "}
+                  <b>Seção</b> &middot; <b>4.</b> Clique em <b>Salvar</b>.
+                </p>
+              </div>
+              <button
+                aria-label="Dispensar guia"
+                className="shrink-0 rounded-lg p-1 text-orange-500 hover:bg-orange-100"
+                onClick={dismissGuide}
+                title="Dispensar"
+                type="button"
+              >
+                <XMarkIcon className="h-4 w-4" />
+              </button>
+            </div>
+          )}
           <div
             className={`mx-auto my-8 overflow-hidden bg-white shadow-sm ring-1 ring-gray-200 transition-all ${
               viewport === "mobile"
@@ -681,8 +741,8 @@ const HomeBuilderInner = ({
                       {empty ? (
                         <div className="my-4 flex flex-col items-center gap-2 rounded-lg border-2 border-dashed bg-gray-50 px-6 py-10 text-center">
                           <p className="text-sm font-medium text-gray-500">
-                            Seção {label.toLowerCase()} sem conteúdo — preencha no
-                            painel ao lado.
+                            Seção {label.toLowerCase()} ainda sem conteúdo —
+                            clique para preencher os campos.
                           </p>
                         </div>
                       ) : (
@@ -889,6 +949,7 @@ const HomeBuilderInner = ({
                     </label>
                   </div>
                   <SectionFields
+                    categories={categories}
                     onPatch={(patch, coalesce) =>
                       patchSection(selectedSection.id, patch, coalesce)
                     }

@@ -50,6 +50,7 @@ const AdminBookings = () => {
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus | "all">(
     "all"
   );
+  const [source, setSource] = useState<"site" | "manual" | "all">("all");
   const [searchInput, setSearchInput] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -64,6 +65,7 @@ const AdminBookings = () => {
     searchAdminBookings({
       status,
       paymentStatus,
+      source,
       search: appliedSearch,
       page,
       limit: PAGE_SIZE,
@@ -86,7 +88,7 @@ const AdminBookings = () => {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, paymentStatus, appliedSearch, page]);
+  }, [status, paymentStatus, source, appliedSearch, page]);
 
   const submitSearch = (event: FormEvent) => {
     event.preventDefault();
@@ -101,6 +103,14 @@ const AdminBookings = () => {
       <AdminLayout
         title="Reservas"
         description="Acompanhe reservas internas, status de pagamento e prazos."
+        action={
+          <Link
+            className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600"
+            href="/admin/bookings/new"
+          >
+            + Nova reserva
+          </Link>
+        }
       >
         <form
           className="mb-4 flex flex-wrap items-end gap-3 rounded-lg border bg-white p-4 shadow-sm"
@@ -142,6 +152,23 @@ const AdminBookings = () => {
                   {item === "all" ? "Todos" : paymentStatusBadge(item).label}
                 </option>
               ))}
+            </Select>
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block font-medium text-gray-600">
+              Origem
+            </span>
+            <Select
+              className="mt-0 w-36"
+              onChange={(event) => {
+                setPage(1);
+                setSource(event.target.value as "site" | "manual" | "all");
+              }}
+              value={source}
+            >
+              <option value="all">Todas</option>
+              <option value="site">Site</option>
+              <option value="manual">Manual</option>
             </Select>
           </label>
           <label className="min-w-[220px] flex-1 text-sm">
@@ -200,7 +227,14 @@ const AdminBookings = () => {
                         </Link>
                       </td>
                       <td className="px-4 py-3">
-                        <p className="font-medium">{booking.customer_name}</p>
+                        <p className="font-medium">
+                          {booking.customer_name}
+                          {booking.source === "manual" && (
+                            <span className="ml-2 rounded bg-purple-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-purple-700">
+                              Manual
+                            </span>
+                          )}
+                        </p>
                         <p className="text-xs text-gray-500">
                           {booking.customer_email}
                         </p>

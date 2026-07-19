@@ -10,12 +10,23 @@ type ProductServerContext = {
 const serverClient = (context: ProductServerContext = {}) =>
   createSupabaseServerClient(context) as any;
 
+// Turns the embedded product_categories rows into a flat category_ids array.
+export const withCategoryIds = (row: any): Product => {
+  const { product_categories, ...rest } = row ?? {};
+  return {
+    ...rest,
+    category_ids: Array.isArray(product_categories)
+      ? product_categories.map((pc: any) => pc?.category_id).filter(Boolean)
+      : [],
+  } as Product;
+};
+
 export const getActiveProductsServer = async (
   context: ProductServerContext = {}
 ): Promise<Product[]> => {
   const { data, error } = await serverClient(context)
     .from("products")
-    .select("*")
+    .select("*, product_categories(category_id)")
     .eq("active", true)
     .order("created_at", { ascending: false });
 
@@ -23,7 +34,7 @@ export const getActiveProductsServer = async (
     throw error;
   }
 
-  return (data ?? []) as Product[];
+  return ((data ?? []) as any[]).map(withCategoryIds);
 };
 
 export const getProductBySlugServer = async (

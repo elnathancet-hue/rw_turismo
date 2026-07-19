@@ -15,6 +15,9 @@ export type Product = {
   cover_image: string | null;
   gallery: Json;
   active: boolean;
+  // Ids das categorias (temas comerciais) às quais o produto pertence. Anexado
+  // ao carregar via product_categories; usado no filtro "por categoria" da home.
+  category_ids?: string[];
   // Anotado na vitrine: o produto tem alguma saída futura ativa? (undefined =
   // não calculado; false = mostrar "novas datas em breve" e despriorizar)
   has_future_date?: boolean;

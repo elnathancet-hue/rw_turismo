@@ -14,6 +14,9 @@ export type ProductFormValues = {
   cover_image: string;
   gallery: string[];
   active: boolean;
+  // Categorias marcadas para o produto. Não é coluna de `products` — é salva
+  // separadamente na tabela de ligação product_categories.
+  category_ids: string[];
 };
 
 export type ProductDateFormValues = {
@@ -55,6 +58,7 @@ export type AdminBooking = {
   cancelled_at: string | null;
   expires_at: string | null;
   slots_released: boolean;
+  source: "site" | "manual";
   created_at: string;
   updated_at: string;
   products?: {
@@ -77,6 +81,9 @@ export type AdminPayment = {
   currency: string;
   status: PaymentStatus;
   provider: string;
+  method?: string | null;
+  confirmed_by?: string | null;
+  notes?: string | null;
   stripe_checkout_session_id: string | null;
   stripe_payment_intent_id: string | null;
   paid_at: string | null;
@@ -147,45 +154,113 @@ export const listAdminProducts = async (): Promise<Product[]> => {
 export const getAdminProduct = async (id: string): Promise<Product | null> => {
   const { data, error } = await supabase()
     .from("products")
-    .select("*")
+    .select("*, product_categories(category_id)")
     .eq("id", id)
     .maybeSingle();
 
   throwIfError(error);
-  return data as Product | null;
+  if (!data) return null;
+  const { product_categories, ...rest } = data as any;
+  return {
+    ...rest,
+    category_ids: Array.isArray(product_categories)
+      ? product_categories.map((pc: any) => pc?.category_id).filter(Boolean)
+      : [],
+  } as Product;
+};
+
+// Replaces the product's category links with exactly `categoryIds`. Delete-then-
+// insert keeps it simple and idempotent (the unique constraint blocks dupes).
+const syncProductCategories = async (
+  productId: string,
+  categoryIds: string[]
+): Promise<void> => {
+  const { error: deleteError } = await supabase()
+    .from("product_categories")
+    .delete()
+    .eq("product_id", productId);
+  throwIfError(deleteError);
+
+  const unique = Array.from(new Set(categoryIds.filter(Boolean)));
+  if (unique.length === 0) return;
+
+  const { error: insertError } = await supabase()
+    .from("product_categories")
+    .insert(unique.map((category_id) => ({ product_id: productId, category_id })));
+  throwIfError(insertError);
 };
 
 export const createAdminProduct = async (
   values: ProductFormValues
 ): Promise<Product> => {
+  const { category_ids, ...productValues } = values;
   const { data, error } = await supabase()
     .from("products")
-    .insert(values)
+    .insert(productValues)
     .select("*")
     .single();
 
   throwIfError(error);
-  return data as Product;
+  const product = data as Product;
+  await syncProductCategories(product.id, category_ids ?? []);
+  return { ...product, category_ids: category_ids ?? [] };
 };
 
 export const updateAdminProduct = async (
   id: string,
   values: ProductFormValues
 ): Promise<Product> => {
+  const { category_ids, ...productValues } = values;
   const { data, error } = await supabase()
     .from("products")
-    .update(values)
+    .update(productValues)
     .eq("id", id)
     .select("*")
     .single();
 
   throwIfError(error);
-  return data as Product;
+  await syncProductCategories(id, category_ids ?? []);
+  return { ...(data as Product), category_ids: category_ids ?? [] };
 };
 
 export const deleteAdminProduct = async (id: string): Promise<void> => {
   const { error } = await supabase().from("products").delete().eq("id", id);
   throwIfError(error);
+};
+
+// ----- Product <-> Category links (managed from the Categories screen too) ----
+
+export const getCategoryProductIds = async (
+  categoryId: string
+): Promise<string[]> => {
+  const { data, error } = await supabase()
+    .from("product_categories")
+    .select("product_id")
+    .eq("category_id", categoryId);
+
+  throwIfError(error);
+  return ((data ?? []) as { product_id: string }[]).map((row) => row.product_id);
+};
+
+// Sets exactly which products belong to a category (mirror of syncProductCategories,
+// but pivoting on the category side).
+export const setCategoryProducts = async (
+  categoryId: string,
+  productIds: string[]
+): Promise<void> => {
+  const { error: deleteError } = await supabase()
+    .from("product_categories")
+    .delete()
+    .eq("category_id", categoryId);
+  throwIfError(deleteError);
+
+  const unique = Array.from(new Set(productIds.filter(Boolean)));
+  if (unique.length === 0) return;
+
+  const { error: insertError } = await supabase()
+    .from("product_categories")
+    .insert(unique.map((product_id) => ({ product_id, category_id: categoryId })));
+  throwIfError(insertError);
 };
 
 export const listAdminProductDates = async (): Promise<ProductDateWithProduct[]> => {
@@ -540,6 +615,7 @@ export const listBirthdayPeople = async (): Promise<BirthdayPerson[]> => {
 export type AdminBookingSearch = {
   status?: BookingStatus | "all";
   paymentStatus?: PaymentStatus | "all";
+  source?: "site" | "manual" | "all";
   search?: string;
   page?: number;
   limit?: number;
@@ -565,6 +641,9 @@ export const searchAdminBookings = async (
   }
   if (q.paymentStatus && q.paymentStatus !== "all") {
     query = query.eq("payment_status", q.paymentStatus);
+  }
+  if (q.source && q.source !== "all") {
+    query = query.eq("source", q.source);
   }
   const term = (q.search ?? "").replace(/[(),%]/g, " ").trim();
   if (term) {

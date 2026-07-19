@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ProductFormValues } from "../../lib/admin/client";
-import type { Product } from "../../lib/products/types";
+import { getActiveCategories } from "../../lib/products/client";
+import type { Category, Product } from "../../lib/products/types";
 import Button from "../ui/Button";
 import Card from "../ui/Card";
 import { Field, Input, Select, Textarea } from "../ui/form";
@@ -34,15 +35,32 @@ const ProductForm = ({ initialProduct, onSubmit, submitLabel }: Props) => {
       ? (initialProduct?.gallery as string[])
       : [],
     active: initialProduct?.active ?? true,
+    category_ids: initialProduct?.category_ids ?? [],
   });
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
+
+  useEffect(() => {
+    getActiveCategories()
+      .then(setCategories)
+      .catch(() => setCategories([]));
+  }, []);
 
   const updateValue = <K extends keyof ProductFormValues>(
     key: K,
     value: ProductFormValues[K]
   ) => {
     setValues((current) => ({ ...current, [key]: value }));
+  };
+
+  const toggleCategory = (id: string) => {
+    setValues((current) => ({
+      ...current,
+      category_ids: current.category_ids.includes(id)
+        ? current.category_ids.filter((value) => value !== id)
+        : [...current.category_ids, id],
+    }));
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -164,6 +182,41 @@ const ProductForm = ({ initialProduct, onSubmit, submitLabel }: Props) => {
             onChange={(event) => updateValue("cover_image", event.target.value)}
             value={values.cover_image}
           />
+        </Field>
+
+        <Field
+          hint="Usado para montar vitrines por categoria na página inicial."
+          label="Categorias"
+        >
+          {categories.length === 0 ? (
+            <p className="text-sm text-gray-500">
+              Nenhuma categoria criada ainda — crie em Catálogo → Categorias.
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {categories.map((category) => {
+                const checked = values.category_ids.includes(category.id);
+                return (
+                  <label
+                    className={`flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition ${
+                      checked
+                        ? "border-orange-500 bg-orange-50 text-orange-700"
+                        : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                    }`}
+                    key={category.id}
+                  >
+                    <input
+                      checked={checked}
+                      className="sr-only"
+                      onChange={() => toggleCategory(category.id)}
+                      type="checkbox"
+                    />
+                    {category.name}
+                  </label>
+                );
+              })}
+            </div>
+          )}
         </Field>
 
         <label className="flex items-center gap-2 text-sm font-medium text-gray-700">

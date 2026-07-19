@@ -6,15 +6,11 @@ import { isServiceRoleConfigured } from "../../../lib/server/secrets";
 // Cron diário (Vercel Cron — vercel.json). Dispara aniversários, lembrete de
 // viagem (3 dias), embarque (véspera) e pós-viagem.
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
-  // Vercel envia Authorization: Bearer ${CRON_SECRET} quando a env existe.
+  // Fail closed: sem CRON_SECRET configurado o endpoint recusa qualquer chamada.
+  // A Vercel só envia Authorization: Bearer ${CRON_SECRET} quando a env existe.
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && req.headers.authorization !== `Bearer ${cronSecret}`) {
+  if (!cronSecret || req.headers.authorization !== `Bearer ${cronSecret}`) {
     return res.status(401).json({ error: "Unauthorized" });
-  }
-  if (!cronSecret) {
-    console.warn(
-      "daily cron: CRON_SECRET não configurado — endpoint aberto. Defina na Vercel."
-    );
   }
 
   if (!isServiceRoleConfigured()) {

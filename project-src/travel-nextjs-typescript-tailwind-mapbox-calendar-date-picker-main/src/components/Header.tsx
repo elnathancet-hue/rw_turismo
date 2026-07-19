@@ -49,8 +49,13 @@ const Header = ({
   return (
     <header className="sticky top-0 z-50 flex items-center justify-between gap-3 bg-white p-3 shadow-md md:px-10">
       {/* Logo */}
-      <Link className="text-xl font-bold text-orange-600" href="/">
-        RW Turismo
+      <Link aria-label="RW Turismo — Início" className="shrink-0" href="/">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          alt="RW Turismo"
+          className="h-11 w-auto md:h-12"
+          src="/rw-turismo-logo.png"
+        />
       </Link>
 
       {/* Site navigation (managed in /admin/menu) */}
