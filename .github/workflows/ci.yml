@@ -33,7 +33,10 @@ jobs:
           cache: npm
           cache-dependency-path: ${{ env.APP_DIR }}/package-lock.json
 
-      - run: npm ci
+      # npm install (não npm ci): o lockfile é gerado no Windows e o npm ci no
+      # Linux exige deps opcionais de plataforma (@emnapi/* do fallback wasm) que
+      # não entram no lock gerado noutra plataforma. npm install reconcilia.
+      - run: npm install --no-audit --no-fund
 
       - run: npm run lint
 
