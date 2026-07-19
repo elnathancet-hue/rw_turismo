@@ -189,6 +189,19 @@ export const getPublishedPageBySlug = async (slug: string) => {
   return (data ?? null) as Page | null;
 };
 
+// Slugs das páginas publicadas (para o sitemap).
+export const getPublishedPageSlugs = async (): Promise<
+  { slug: string; updated_at: string }[]
+> => {
+  const { data, error } = await client()
+    .from("pages")
+    .select("slug, updated_at")
+    .eq("status", "published")
+    .order("updated_at", { ascending: false });
+  throwIfError(error);
+  return (data ?? []) as { slug: string; updated_at: string }[];
+};
+
 export const getPublicBlogTaxonomy = async () => {
   const [categoriesResult, tagsResult] = await Promise.all([
     client().from("blog_categories").select("*").eq("active", true).order("name"),

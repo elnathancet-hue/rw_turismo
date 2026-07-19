@@ -240,6 +240,17 @@ const BookingDetails = () => {
                   Atualizar status
                 </button>
               ) : null}
+
+              {booking.payment_status === "paid" && (
+                <a
+                  className="mt-4 inline-flex rounded border border-orange-600 px-6 py-2.5 font-semibold text-orange-700 hover:bg-orange-50"
+                  href={`/api/bookings/${booking.id}/voucher`}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  Baixar voucher (PDF)
+                </a>
+              )}
             </BookingSummaryCard>
           </div>
         )}

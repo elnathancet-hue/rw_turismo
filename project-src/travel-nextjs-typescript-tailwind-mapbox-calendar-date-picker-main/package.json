@@ -9,6 +9,7 @@
   "dependencies": {
     "@badrap/bar-of-progress": "^0.2.2",
     "@heroicons/react": "^2.0.13",
+    "@react-pdf/renderer": "^4.5.1",
     "@stripe/stripe-js": "^1.44.1",
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.108.2",

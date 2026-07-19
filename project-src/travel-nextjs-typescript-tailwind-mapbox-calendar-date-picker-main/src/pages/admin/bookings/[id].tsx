@@ -254,6 +254,14 @@ const AdminBookingDetailPage = () => {
                 >
                   Cancelar reserva
                 </Button>
+                <a
+                  className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-800 hover:bg-gray-50"
+                  href={`/api/bookings/${booking.id}/voucher`}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  Baixar voucher
+                </a>
               </div>
               {isClosed && (
                 <p className="mt-3 text-sm text-gray-500">

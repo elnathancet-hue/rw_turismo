@@ -142,18 +142,18 @@
 ## FASE 4 — Pós-venda e comunicação
 
 ### 4.1 Voucher/itinerário em PDF
-- [ ] Endpoint `APP/src/pages/api/bookings/[id]/voucher.ts`: gera PDF (sugestão: `@react-pdf/renderer`) com logo, dados da reserva, passageiros, data, itinerário, contato — autorizado para o dono da reserva ou admin.
-- [ ] Botão "Baixar voucher" em `/account/bookings/[id]` (só quando `paid`) e no admin.
+- [x] Endpoint `APP/src/pages/api/bookings/[id]/voucher.ts`: gera PDF (sugestão: `@react-pdf/renderer`) com logo, dados da reserva, passageiros, data, itinerário, contato — autorizado para o dono da reserva ou admin.
+- [x] Botão "Baixar voucher" em `/account/bookings/[id]` (só quando `paid`) e no admin.
 - [ ] Anexar/linkar no WhatsApp de confirmação.
 - **Aceite:** PDF abre com dados corretos; usuário não-dono recebe 403.
 
 ### 4.2 Blog: share + newsletter
-- [ ] Botões de compartilhar (WhatsApp, Facebook, X, copiar link) em `APP/src/pages/blog/[slug].tsx`.
-- [ ] Bloco de captura de e-mail no fim do post → grava como lead no CRM (tag `newsletter`), reusando o fluxo de leads existente.
+- [x] Botões de compartilhar (WhatsApp, Facebook, X, copiar link) em `APP/src/pages/blog/[slug].tsx`.
+- [x] Bloco de captura de e-mail no fim do post → grava como lead no CRM (tag `newsletter`), reusando o fluxo de leads existente.
 - **Aceite:** lead de newsletter aparece no kanban do CRM.
 
 ### 4.3 Sitemap: incluir tags e páginas publicadas
-- [ ] Em `APP/src/pages/sitemap.xml.tsx`: adicionar `/blog/tag/[slug]` e `/paginas/[slug]` publicadas.
+- [x] Em `APP/src/pages/sitemap.xml.tsx`: adicionar `/blog/tag/[slug]` e `/paginas/[slug]` publicadas.
 - **Aceite:** sitemap lista as novas URLs.
 
 ---
