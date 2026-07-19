@@ -20,7 +20,9 @@ const assertPositiveInteger = (value: number, field: string) => {
   }
 };
 
-const mapRpcError = (message: string) => {
+// Exportada para teste unitário (Fase 5.5) — mapeia códigos da RPC para erro
+// amigável. Retorna null quando a mensagem não casa com nenhum código conhecido.
+export const mapRpcError = (message: string) => {
   if (message.includes("AUTH_REQUIRED")) {
     return new PendingBookingError("Authentication required.", 401);
   }

@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Caminho do app Next dentro do repo.
+env:
+  APP_DIR: project-src/travel-nextjs-typescript-tailwind-mapbox-calendar-date-picker-main
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Web: lint + type-check (via build) + testes unitários (Vitest).
+  # ---------------------------------------------------------------------------
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.APP_DIR }}
+    env:
+      # O build precisa das públicas para o bundle do client; valores dummy
+      # bastam (o CI não fala com o Supabase real).
+      NEXT_PUBLIC_SUPABASE_URL: https://dummy.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-anon-key
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ${{ env.APP_DIR }}/package-lock.json
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - run: npm run build
+
+      - run: npm test
+
+  # ---------------------------------------------------------------------------
+  # DB: pgTAP das RPCs de reserva/cupom contra um Postgres 16 real.
+  # Aplica bootstrap (stub auth/storage) + schema.sql + rls.sql e roda pg_prove.
+  # ---------------------------------------------------------------------------
+  db:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar Postgres 16 + pgTAP + pg_prove
+        run: |
+          sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
+          sudo apt-get update
+          sudo apt-get install -y postgresql-16 postgresql-16-pgtap libtap-parser-sourcehandler-pgtap-perl
+          echo "/usr/lib/postgresql/16/bin" >> "$GITHUB_PATH"
+
+      - name: Subir cluster e criar banco de teste
+        run: |
+          sudo pg_ctlcluster 16 main start
+          sudo -u postgres psql -c "create role runner superuser login password 'runner';"
+          sudo -u postgres createdb -O runner rwtest
+
+      - name: Aplicar bootstrap + schema + rls
+        env:
+          PGPASSWORD: runner
+        run: |
+          psql -h localhost -U runner -d rwtest -v ON_ERROR_STOP=1 -f supabase/tests/_bootstrap.sql
+          psql -h localhost -U runner -d rwtest -v ON_ERROR_STOP=1 -f supabase/schema.sql
+          psql -h localhost -U runner -d rwtest -v ON_ERROR_STOP=1 -f supabase/rls.sql
+
+      - name: Rodar pgTAP
+        env:
+          PGPASSWORD: runner
+        run: pg_prove -h localhost -U runner -d rwtest --verbose supabase/tests/*_test.sql

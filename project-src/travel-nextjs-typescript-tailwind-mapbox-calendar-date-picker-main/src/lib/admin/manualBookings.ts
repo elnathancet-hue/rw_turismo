@@ -61,7 +61,8 @@ const RPC_ERRORS: Record<string, { message: string; status: number }> = {
   SAME_DATE: { message: "Escolha uma data diferente da atual.", status: 400 },
 };
 
-const mapRpcError = (message: string): AdminBookingError => {
+// Exportada para teste unitário (Fase 5.5).
+export const mapRpcError = (message: string): AdminBookingError => {
   for (const code of Object.keys(RPC_ERRORS)) {
     if (message.includes(code)) {
       return new AdminBookingError(RPC_ERRORS[code].message, RPC_ERRORS[code].status);

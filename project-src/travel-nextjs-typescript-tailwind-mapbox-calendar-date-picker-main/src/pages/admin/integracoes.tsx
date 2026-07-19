@@ -358,7 +358,7 @@ const AdminIntegracoes = () => {
               <h2 className="font-semibold">Botão de WhatsApp no site</h2>
               <p className="mt-1 text-xs text-gray-500">
                 Botão flutuante no canto direito de todas as páginas + botão
-                "Tirar dúvida" acima do botão de compra no pacote.
+                &ldquo;Tirar dúvida&rdquo; acima do botão de compra no pacote.
               </p>
             </div>
             <StatusPill
