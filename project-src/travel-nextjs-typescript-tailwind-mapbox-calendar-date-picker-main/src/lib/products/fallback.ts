@@ -14,6 +14,8 @@ export const fallbackProducts: Product[] = [
     promotional_price: 1690,
     cover_image: "/get-inspired1200x600.jpg",
     gallery: [],
+    itinerary: [],
+    faq: [],
     active: true,
     created_at: new Date(0).toISOString(),
     updated_at: new Date(0).toISOString(),

@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import Drawer from "../../components/Drawer";
 import Footer from "../../components/Footer";
 import Header from "../../components/Header";
+import ProductGallery from "../../components/ProductGallery";
 import useSupabaseSession from "../../hooks/useSupabaseSession";
 import useWhatsAppWidget from "../../hooks/useWhatsAppWidget";
 import { WhatsAppIcon } from "../../components/WhatsAppFloat";
@@ -20,7 +21,12 @@ import {
   getActiveProductDatesServer,
   getProductBySlugServer,
 } from "../../lib/products/server";
-import type { Product, ProductDate } from "../../lib/products/types";
+import type {
+  FaqItem,
+  ItineraryDay,
+  Product,
+  ProductDate,
+} from "../../lib/products/types";
 import {
   fallbackProductDates,
   getFallbackProductBySlug,
@@ -141,6 +147,26 @@ const ProductDetails = ({ product, productDates }: Props) => {
   };
 
   const displayPrice = product.promotional_price ?? product.price;
+  const galleryImages = (
+    Array.isArray(product.gallery) ? product.gallery : []
+  ).filter(
+    (item): item is string => typeof item === "string" && item.length > 0
+  );
+  const itinerary = (
+    Array.isArray(product.itinerary) ? product.itinerary : []
+  ).filter(
+    (item): item is ItineraryDay =>
+      !!item &&
+      typeof item === "object" &&
+      typeof (item as { title?: unknown }).title === "string"
+  );
+  const faq = (Array.isArray(product.faq) ? product.faq : []).filter(
+    (item): item is FaqItem =>
+      !!item &&
+      typeof item === "object" &&
+      typeof (item as { question?: unknown }).question === "string" &&
+      typeof (item as { answer?: unknown }).answer === "string"
+  );
   const selectedDate = productDates.find((date) => date.id === selectedDateId);
   const selectedUnitPrice = selectedDate?.price_override ?? displayPrice;
   const estimatedTotal = selectedUnitPrice * travelersCount;
@@ -151,8 +177,20 @@ const ProductDetails = ({ product, productDates }: Props) => {
     "@type": product.type === "package" || product.type === "experience" ? "TouristTrip" : "Product",
     name: product.title,
     description: product.description,
-    image: product.cover_image || undefined,
+    image: [product.cover_image, ...galleryImages].filter(Boolean),
     touristType: product.type,
+    ...(itinerary.length
+      ? {
+          itinerary: {
+            "@type": "ItemList",
+            itemListElement: itinerary.map((day, index) => ({
+              "@type": "ListItem",
+              position: day.day || index + 1,
+              name: day.title,
+            })),
+          },
+        }
+      : {}),
     offers: {
       "@type": "Offer",
       priceCurrency: "BRL",
@@ -169,6 +207,17 @@ const ProductDetails = ({ product, productDates }: Props) => {
       { "@type": "ListItem", position: 2, name: product.title, item: canonicalUrl },
     ],
   };
+  const faqJsonLd = faq.length
+    ? {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: faq.map((item) => ({
+          "@type": "Question",
+          name: item.question,
+          acceptedAnswer: { "@type": "Answer", text: item.answer },
+        })),
+      }
+    : null;
 
   useEffect(() => {
     if (!customerName && profile?.name) {
@@ -302,6 +351,9 @@ const ProductDetails = ({ product, productDates }: Props) => {
         {product.cover_image && <meta property="og:image" content={product.cover_image} />}
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd).replace(/</g, "\\u003c") }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd).replace(/</g, "\\u003c") }} />
+        {faqJsonLd && (
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd).replace(/</g, "\\u003c") }} />
+        )}
       </Head>
       <Header
         searchInput={searchInput}
@@ -319,15 +371,11 @@ const ProductDetails = ({ product, productDates }: Props) => {
             <h1 className="mt-2 text-4xl font-semibold">{product.title}</h1>
             <p className="mt-4 text-gray-700">{product.description}</p>
 
-            {product.cover_image && (
-              <div className="mt-8 overflow-hidden rounded-lg bg-gray-100">
-                <img
-                  alt={product.title}
-                  className="h-[420px] w-full object-cover"
-                  src={product.cover_image}
-                />
-              </div>
-            )}
+            <ProductGallery
+              cover={product.cover_image}
+              gallery={galleryImages}
+              title={product.title}
+            />
           </section>
 
           <aside className="h-fit rounded-lg border bg-white p-6 shadow-sm">
@@ -517,6 +565,48 @@ const ProductDetails = ({ product, productDates }: Props) => {
             ))}
           </div>
         </section>
+
+        {itinerary.length > 0 && (
+          <section className="mt-10">
+            <h2 className="text-2xl font-semibold">Roteiro dia a dia</h2>
+            <ol className="mt-6 space-y-6 border-l-2 border-orange-200 pl-6">
+              {itinerary.map((day, index) => (
+                <li className="relative" key={index}>
+                  <span className="absolute -left-[31px] flex h-6 w-6 items-center justify-center rounded-full bg-orange-500 text-xs font-bold text-white">
+                    {day.day || index + 1}
+                  </span>
+                  <h3 className="font-semibold">{day.title}</h3>
+                  {day.description && (
+                    <p className="mt-1 whitespace-pre-line text-gray-700">
+                      {day.description}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ol>
+          </section>
+        )}
+
+        {faq.length > 0 && (
+          <section className="mt-10">
+            <h2 className="text-2xl font-semibold">Perguntas frequentes</h2>
+            <div className="mt-4 divide-y rounded-lg border bg-white">
+              {faq.map((item, index) => (
+                <details className="group p-4" key={index}>
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 font-semibold marker:hidden">
+                    {item.question}
+                    <span className="text-xl text-orange-500 transition group-open:rotate-45">
+                      +
+                    </span>
+                  </summary>
+                  <p className="mt-2 whitespace-pre-line text-gray-700">
+                    {item.answer}
+                  </p>
+                </details>
+              ))}
+            </div>
+          </section>
+        )}
       </main>
 
       <Footer />

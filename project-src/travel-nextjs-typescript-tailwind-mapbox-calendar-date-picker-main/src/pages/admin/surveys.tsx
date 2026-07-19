@@ -6,6 +6,7 @@ import AdminListState from "../../components/admin/AdminListState";
 import Card from "../../components/ui/Card";
 import {
   listSurveyResponses,
+  updateSurveyResponse,
   type SurveyResponse,
 } from "../../lib/admin/client";
 import { formatDateTimeBR } from "../../lib/format";
@@ -29,6 +30,8 @@ const AdminSurveys = () => {
     "loading"
   );
   const [error, setError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [nameDrafts, setNameDrafts] = useState<Record<string, string>>({});
 
   const load = async () => {
     setLoadStatus("loading");
@@ -43,6 +46,27 @@ const AdminSurveys = () => {
           : "Não foi possível carregar as avaliações. A migration da Semana 3 já rodou?"
       );
       setLoadStatus("error");
+    }
+  };
+
+  const approve = async (response: SurveyResponse, approved: boolean) => {
+    setBusyId(response.id);
+    setError(null);
+    try {
+      const display_name = approved
+        ? nameDrafts[response.id] ??
+          response.display_name ??
+          response.bookings?.customer_name?.split(" ")[0] ??
+          null
+        : response.display_name;
+      await updateSurveyResponse(response.id, { approved, display_name });
+      await load();
+    } catch (caught) {
+      setError(
+        caught instanceof Error ? caught.message : "Não foi possível atualizar."
+      );
+    } finally {
+      setBusyId(null);
     }
   };
 
@@ -165,6 +189,58 @@ const AdminSurveys = () => {
                     </Link>
                   </div>
                 </div>
+                {classify(response.rating) === "promoter" &&
+                  response.comment && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2 border-t pt-3">
+                      {response.approved ? (
+                        <>
+                          <span className="rounded bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700">
+                            No site ✓
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            exibido como “{response.display_name ?? "—"}”
+                          </span>
+                          <button
+                            className="text-xs font-semibold text-gray-600 underline disabled:opacity-50"
+                            disabled={busyId === response.id}
+                            onClick={() => approve(response, false)}
+                            type="button"
+                          >
+                            Remover do site
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <input
+                            className="rounded border px-2 py-1 text-sm"
+                            onChange={(event) =>
+                              setNameDrafts((drafts) => ({
+                                ...drafts,
+                                [response.id]: event.target.value,
+                              }))
+                            }
+                            placeholder={
+                              response.bookings?.customer_name?.split(" ")[0] ??
+                              "Nome público"
+                            }
+                            value={
+                              nameDrafts[response.id] ??
+                              response.display_name ??
+                              ""
+                            }
+                          />
+                          <button
+                            className="rounded bg-orange-500 px-3 py-1 text-xs font-semibold text-white hover:bg-orange-600 disabled:opacity-60"
+                            disabled={busyId === response.id}
+                            onClick={() => approve(response, true)}
+                            type="button"
+                          >
+                            Aprovar para o site
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
               </Card>
             ))}
           </div>

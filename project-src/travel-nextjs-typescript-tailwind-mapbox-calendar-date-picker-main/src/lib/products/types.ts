@@ -2,6 +2,10 @@ import type { Json } from "../supabase/types";
 
 export type ProductType = "package" | "hotel" | "flight" | "stay" | "experience";
 
+export type ItineraryDay = { day: number; title: string; description: string };
+
+export type FaqItem = { question: string; answer: string };
+
 export type Product = {
   id: string;
   title: string;
@@ -14,6 +18,8 @@ export type Product = {
   promotional_price: number | null;
   cover_image: string | null;
   gallery: Json;
+  itinerary: Json;
+  faq: Json;
   active: boolean;
   // Ids das categorias (temas comerciais) às quais o produto pertence. Anexado
   // ao carregar via product_categories; usado no filtro "por categoria" da home.

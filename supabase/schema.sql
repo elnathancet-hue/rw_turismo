@@ -41,6 +41,8 @@ create table if not exists public.products (
   promotional_price numeric(12,2),
   cover_image text,
   gallery jsonb not null default '[]'::jsonb,
+  itinerary jsonb not null default '[]'::jsonb,
+  faq jsonb not null default '[]'::jsonb,
   active boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -48,7 +50,9 @@ create table if not exists public.products (
   constraint products_price_non_negative_check check (price >= 0),
   constraint products_promotional_price_non_negative_check check (promotional_price is null or promotional_price >= 0),
   constraint products_promotional_price_max_price_check check (promotional_price is null or promotional_price <= price),
-  constraint products_gallery_array_check check (jsonb_typeof(gallery) = 'array')
+  constraint products_gallery_array_check check (jsonb_typeof(gallery) = 'array'),
+  constraint products_itinerary_array_check check (jsonb_typeof(itinerary) = 'array'),
+  constraint products_faq_array_check check (jsonb_typeof(faq) = 'array')
 );
 
 create table if not exists public.product_dates (
@@ -1365,12 +1369,15 @@ create table if not exists public.survey_responses (
   booking_id uuid not null references public.bookings(id) on delete cascade,
   rating integer not null,
   comment text,
+  approved boolean not null default false,
+  display_name text,
   created_at timestamptz not null default now(),
   constraint survey_responses_rating_check check (rating >= 0 and rating <= 10),
   constraint survey_responses_booking_key unique (booking_id)
 );
 
 create index if not exists survey_responses_created_idx on public.survey_responses(created_at desc);
+create index if not exists survey_responses_approved_idx on public.survey_responses(approved);
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values

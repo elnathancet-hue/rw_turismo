@@ -7,7 +7,7 @@ import Header from "../components/Header";
 import PackageSearchBar from "../components/PackageSearchBar";
 import { signOutFromSupabase } from "../lib/auth/client";
 import { PRODUCT_TYPE_LABELS } from "../lib/content/home-registry";
-import { searchPackages } from "../lib/products/client";
+import { searchPackages, type PackageSort } from "../lib/products/client";
 import type { Product } from "../lib/products/types";
 
 const money = (value: number) =>
@@ -21,6 +21,15 @@ const formatDate = (iso: string) => {
   if (!y || !m || !d) return iso;
   return new Date(y, m - 1, d).toLocaleDateString("pt-BR");
 };
+
+const PAGE_SIZE = 12;
+
+const SORT_OPTIONS: { value: string; label: string }[] = [
+  { value: "relevancia", label: "Mais relevantes" },
+  { value: "preco_asc", label: "Menor preço" },
+  { value: "preco_desc", label: "Maior preço" },
+  { value: "data", label: "Data mais próxima" },
+];
 
 const Search = () => {
   const router = useRouter();
@@ -43,12 +52,16 @@ const Search = () => {
     tipo in PRODUCT_TYPE_LABELS
       ? PRODUCT_TYPE_LABELS[tipo as keyof typeof PRODUCT_TYPE_LABELS]
       : "";
+  const sort = (
+    typeof router.query.sort === "string" ? router.query.sort : "relevancia"
+  ) as PackageSort;
+  const page = Math.max(1, Number(router.query.page) || 1);
 
   useEffect(() => {
     if (!router.isReady) return;
     let active = true;
     setStatus("loading");
-    searchPackages({ origem, destino, ida, promo, tipo })
+    searchPackages({ origem, destino, ida, promo, tipo, sort })
       .then((data) => {
         if (!active) return;
         setProducts(data);
@@ -60,7 +73,7 @@ const Search = () => {
     return () => {
       active = false;
     };
-  }, [router.isReady, origem, destino, ida, promo, tipo]);
+  }, [router.isReady, origem, destino, ida, promo, tipo, sort]);
 
   // Drops one filter param (promo/tipo chips) keeping the rest of the search.
   const removeFilter = (param: "promo" | "tipo") => {
@@ -83,6 +96,25 @@ const Search = () => {
   ]
     .filter(Boolean)
     .join(" · ");
+
+  const totalPages = Math.max(1, Math.ceil(products.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageItems = products.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
+
+  const setQueryParam = (patch: Record<string, string | undefined>) => {
+    const query: Record<string, string> = {};
+    for (const [key, value] of Object.entries(router.query)) {
+      if (typeof value === "string") query[key] = value;
+    }
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === undefined || value === "") delete query[key];
+      else query[key] = value;
+    }
+    void router.push({ pathname: router.pathname, query });
+  };
 
   return (
     <div>
@@ -127,6 +159,31 @@ const Search = () => {
             </div>
           )}
         </div>
+
+        {status === "ready" && products.length > 0 && (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-gray-500">
+              {products.length}{" "}
+              {products.length === 1 ? "resultado" : "resultados"}
+            </p>
+            <label className="flex items-center gap-2 text-sm">
+              <span className="text-gray-500">Ordenar:</span>
+              <select
+                className="rounded border px-2 py-1"
+                onChange={(event) =>
+                  setQueryParam({ sort: event.target.value, page: undefined })
+                }
+                value={sort}
+              >
+                {SORT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        )}
 
         {status === "loading" && (
           <div className="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
@@ -176,7 +233,7 @@ const Search = () => {
 
         {status === "ready" && products.length > 0 && (
           <div className="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-            {products.map((product) => (
+            {pageItems.map((product) => (
               <Link
                 className="group overflow-hidden rounded-xl border bg-white shadow-sm hover:shadow-lg"
                 href={`/products/${product.slug}`}
@@ -210,6 +267,30 @@ const Search = () => {
                 </div>
               </Link>
             ))}
+          </div>
+        )}
+
+        {status === "ready" && totalPages > 1 && (
+          <div className="mt-8 flex items-center justify-center gap-3">
+            <button
+              className="rounded border px-4 py-2 text-sm font-semibold disabled:opacity-50"
+              disabled={currentPage <= 1}
+              onClick={() => setQueryParam({ page: String(currentPage - 1) })}
+              type="button"
+            >
+              ‹ Anterior
+            </button>
+            <span className="text-sm text-gray-500">
+              Página {currentPage} de {totalPages}
+            </span>
+            <button
+              className="rounded border px-4 py-2 text-sm font-semibold disabled:opacity-50"
+              disabled={currentPage >= totalPages}
+              onClick={() => setQueryParam({ page: String(currentPage + 1) })}
+              type="button"
+            >
+              Próxima ›
+            </button>
           </div>
         )}
       </main>

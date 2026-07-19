@@ -533,6 +533,12 @@ create policy "survey_responses_admin_read" on public.survey_responses
 for select to authenticated
 using (public.is_admin());
 
+drop policy if exists "survey_responses_admin_update" on public.survey_responses;
+create policy "survey_responses_admin_update" on public.survey_responses
+for update to authenticated
+using (public.is_admin())
+with check (public.is_admin());
+
 drop policy if exists "public_read_site_assets" on storage.objects;
 create policy "public_read_site_assets" on storage.objects
 for select to public using (bucket_id in ('site-assets', 'product-images', 'blog-images'));

@@ -1,4 +1,6 @@
+import { createSupabaseAdminClient } from "../supabase/admin";
 import { createSupabaseServerClient } from "../supabase/server";
+import { sectionTypeOf } from "./home-registry";
 import type {
   BlogCategory,
   BlogPost,
@@ -12,6 +14,54 @@ import type {
 const client = () => createSupabaseServerClient() as any;
 const throwIfError = (error: any) => {
   if (error) throw error;
+};
+
+type PublicTestimonial = {
+  name: string;
+  city?: string;
+  text: string;
+  active: boolean;
+  order: number;
+};
+
+// Depoimentos aprovados (Fase 2.4): puxa avaliações NPS aprovadas (nota >= 9 com
+// comentário) para exibir na seção de depoimentos da home. Roda no servidor com
+// service role (a página é ISR/anon) e nunca quebra a home se falhar.
+const getApprovedTestimonials = async (): Promise<PublicTestimonial[]> => {
+  try {
+    const admin = createSupabaseAdminClient() as any;
+    const { data, error } = await admin
+      .from("survey_responses")
+      .select(
+        "comment, display_name, rating, created_at, bookings(customer_name, products(title))"
+      )
+      .eq("approved", true)
+      .gte("rating", 9)
+      .not("comment", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(12);
+    if (error) throw error;
+    return ((data ?? []) as any[])
+      .map((row) => {
+        const text = (row.comment ?? "").trim();
+        if (!text) return null;
+        const name =
+          (row.display_name ?? "").trim() ||
+          (row.bookings?.customer_name ?? "").split(" ")[0] ||
+          "Viajante";
+        return {
+          name,
+          city: row.bookings?.products?.title ?? undefined,
+          text,
+          active: true,
+          order: 100,
+        } as PublicTestimonial;
+      })
+      .filter(Boolean) as PublicTestimonial[];
+  } catch (error) {
+    console.error("Failed to load approved testimonials", error);
+    return [];
+  }
 };
 
 export const getPublicHomeContent = async () => {
@@ -30,8 +80,30 @@ export const getPublicHomeContent = async () => {
   throwIfError(sectionsResult.error);
   throwIfError(bannersResult.error);
   throwIfError(settingsResult.error);
+
+  const sections = (sectionsResult.data ?? []) as HomeSection[];
+  const surveyTestimonials = await getApprovedTestimonials();
+  const sectionsWithTestimonials = surveyTestimonials.length
+    ? sections.map((section) =>
+        sectionTypeOf(section.section_key) === "testimonials"
+          ? {
+              ...section,
+              content: {
+                ...section.content,
+                items: [
+                  ...(Array.isArray(section.content?.items)
+                    ? section.content.items
+                    : []),
+                  ...surveyTestimonials,
+                ],
+              },
+            }
+          : section
+      )
+    : sections;
+
   return {
-    sections: (sectionsResult.data ?? []) as HomeSection[],
+    sections: sectionsWithTestimonials,
     banners: (bannersResult.data ?? []) as HomeBanner[],
     settings: (settingsResult.data ?? []) as SiteSetting[],
   };

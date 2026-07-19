@@ -86,12 +86,15 @@ export const getProductsByCategory = async (
   return (data ?? []) as Product[];
 };
 
+export type PackageSort = "relevancia" | "preco_asc" | "preco_desc" | "data";
+
 export type PackageSearchFilters = {
   origem?: string | null;
   destino?: string | null;
   ida?: string | null;
   promo?: boolean;
   tipo?: string | null;
+  sort?: PackageSort;
 };
 
 // Distinct departure cities from active products, for the search "Origem" dropdown.
@@ -168,14 +171,34 @@ export const searchPackages = async (
   // Rotula quem está sem saída futura e joga para o fim da lista (continua
   // visível para capturar lista de espera).
   const today = new Date().toISOString().slice(0, 10);
-  const annotated = rows
-    .map((product) => ({
-      ...product,
-      has_future_date: (product.product_dates ?? []).some(
-        (date) => date.active && date.start_date >= today
-      ),
-    }))
-    .sort((a, b) => Number(b.has_future_date) - Number(a.has_future_date));
+  const priceOf = (product: ProductWithDates) =>
+    product.promotional_price ?? product.price;
+  const nearestFutureDate = (product: ProductWithDates) => {
+    const upcoming = (product.product_dates ?? [])
+      .filter((date) => date.active && date.start_date >= today)
+      .map((date) => date.start_date)
+      .sort();
+    return upcoming[0] ?? "9999-12-31";
+  };
+
+  const annotated = rows.map((product) => ({
+    ...product,
+    has_future_date: (product.product_dates ?? []).some(
+      (date) => date.active && date.start_date >= today
+    ),
+  }));
+
+  const sort = filters.sort ?? "relevancia";
+  annotated.sort((a, b) => {
+    // Saídas futuras sempre antes das que estão sem data.
+    const byFuture = Number(b.has_future_date) - Number(a.has_future_date);
+    if (byFuture !== 0) return byFuture;
+    if (sort === "preco_asc") return priceOf(a) - priceOf(b);
+    if (sort === "preco_desc") return priceOf(b) - priceOf(a);
+    if (sort === "data")
+      return nearestFutureDate(a).localeCompare(nearestFutureDate(b));
+    return 0; // relevancia: mantém a ordem do banco (created_at desc)
+  });
 
   return annotated as Product[];
 };

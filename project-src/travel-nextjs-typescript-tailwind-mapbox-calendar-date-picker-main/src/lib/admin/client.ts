@@ -1,6 +1,13 @@
 import { createSupabaseBrowserClient } from "../supabase/browser";
 import type { BookingStatus, PaymentStatus } from "../bookings/types";
-import type { Category, Product, ProductDate, ProductType } from "../products/types";
+import type {
+  Category,
+  FaqItem,
+  ItineraryDay,
+  Product,
+  ProductDate,
+  ProductType,
+} from "../products/types";
 
 export type ProductFormValues = {
   title: string;
@@ -13,6 +20,8 @@ export type ProductFormValues = {
   promotional_price: number | null;
   cover_image: string;
   gallery: string[];
+  itinerary: ItineraryDay[];
+  faq: FaqItem[];
   active: boolean;
   // Categorias marcadas para o produto. Não é coluna de `products` — é salva
   // separadamente na tabela de ligação product_categories.
@@ -1056,6 +1065,8 @@ export type SurveyResponse = {
   booking_id: string;
   rating: number;
   comment: string | null;
+  approved: boolean;
+  display_name: string | null;
   created_at: string;
   bookings?: {
     customer_name: string;
@@ -1071,4 +1082,17 @@ export const listSurveyResponses = async (): Promise<SurveyResponse[]> => {
 
   throwIfError(error);
   return (data ?? []) as SurveyResponse[];
+};
+
+// Aprova/edita uma avaliação para o site (só notas altas com comentário devem
+// ser aprovadas — a regra é aplicada na UI). Requer policy admin de update.
+export const updateSurveyResponse = async (
+  id: string,
+  values: { approved?: boolean; display_name?: string | null }
+): Promise<void> => {
+  const { error } = await supabase()
+    .from("survey_responses")
+    .update(values)
+    .eq("id", id);
+  throwIfError(error);
 };
