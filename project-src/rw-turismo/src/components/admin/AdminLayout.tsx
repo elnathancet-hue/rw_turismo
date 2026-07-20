@@ -30,6 +30,7 @@ import {
   TrashIcon,
   ChevronUpDownIcon,
   CheckIcon,
+  PaintBrushIcon,
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -126,6 +127,7 @@ const navigation: NavGroup[] = [
       { href: "/admin/blog", label: "Blog", icon: NewspaperIcon },
       { href: "/admin/menu", label: "Menu", icon: Bars3Icon },
       { href: "/admin/footer", label: "Rodapé", icon: QueueListIcon },
+      { href: "/admin/aparencia", label: "Aparência", icon: PaintBrushIcon },
     ],
   },
   {

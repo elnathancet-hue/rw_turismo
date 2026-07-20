@@ -354,13 +354,19 @@ const ProductDetails = ({ product, productDates }: Props) => {
     }
   };
 
-  // Botão de WhatsApp acima do botão de compra (configurado em Integrações).
-  const whatsAppLink = whatsApp.enabled
-    ? buildWaLink(
-        whatsApp.phone,
-        `Olá! Tenho interesse em "${product.title}". Pode me ajudar?`
-      )
-    : null;
+  // Botões da área de compra: WhatsApp e/ou Reserva, conforme o modo global
+  // (Aparência do site). O link do WhatsApp depende só de ter telefone.
+  const whatsAppLink = buildWaLink(
+    whatsApp.phone,
+    `Olá! Tenho interesse em "${product.title}". Pode me ajudar?`
+  );
+  const ctaMode = whatsApp.productCta;
+  const showWhatsButton =
+    (ctaMode === "both" || ctaMode === "whatsapp") && !!whatsAppLink;
+  // Reserva aparece nos modos "both"/"reserva" — e como fallback se o modo for
+  // "whatsapp" mas não houver telefone (senão a área ficaria sem botão nenhum).
+  const showBooking =
+    ctaMode === "reserva" || ctaMode === "both" || !showWhatsButton;
 
   return (
     <div>
@@ -395,7 +401,9 @@ const ProductDetails = ({ product, productDates }: Props) => {
           <section>
             <p className="text-sm text-gray-500">{product.destination}</p>
             <h1 className="mt-2 text-4xl font-semibold">{product.title}</h1>
-            <p className="mt-4 text-gray-700">{product.description}</p>
+            <p className="mt-4 whitespace-pre-line leading-relaxed text-gray-700">
+              {product.description}
+            </p>
 
             <ProductGallery
               cover={product.cover_image}
@@ -503,10 +511,10 @@ const ProductDetails = ({ product, productDates }: Props) => {
                   {formatCurrency(estimatedTotal)}
                 </span>
               </p>
-              {whatsAppLink && (
+              {showWhatsButton && (
                 <a
                   className="mt-4 flex w-full items-center justify-center gap-2 rounded border border-green-600 px-4 py-2 font-semibold text-green-700 transition hover:bg-green-50"
-                  href={whatsAppLink}
+                  href={whatsAppLink ?? undefined}
                   rel="noopener noreferrer"
                   target="_blank"
                 >
@@ -514,7 +522,8 @@ const ProductDetails = ({ product, productDates }: Props) => {
                   Tirar dúvida no WhatsApp
                 </a>
               )}
-              {soldOut ? (
+              {showBooking &&
+                (soldOut ? (
                 <div className="mt-4">
                   {waitlistDone ? (
                     <p
@@ -563,7 +572,7 @@ const ProductDetails = ({ product, productDates }: Props) => {
                 >
                   {isBooking ? "Iniciando..." : "Iniciar reserva"}
                 </button>
-              )}
+                ))}
               {bookingError && (
                 <p className="mt-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
                   {bookingError}

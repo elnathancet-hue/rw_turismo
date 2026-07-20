@@ -261,6 +261,11 @@ const Search = () => {
                       : product.destination}
                   </p>
                   <h3 className="mt-1 text-xl font-semibold">{product.title}</h3>
+                  {product.description && (
+                    <p className="mt-2 line-clamp-2 text-sm text-gray-500">
+                      {product.description}
+                    </p>
+                  )}
                   <p className="mt-4 font-semibold text-orange-600">
                     {money(product.promotional_price ?? product.price)}
                   </p>

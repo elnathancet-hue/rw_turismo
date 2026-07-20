@@ -24,6 +24,11 @@ const ProductCard = ({ product }: { product: Product }) => {
       <div className="p-5">
         <p className="text-sm text-gray-500">{product.destination}</p>
         <h3 className="mt-1 text-xl font-semibold">{product.title}</h3>
+        {product.description && (
+          <p className="mt-2 line-clamp-2 text-sm text-gray-500">
+            {product.description}
+          </p>
+        )}
         {promotionalPrice != null ? (
           <p className="mt-4 flex items-baseline gap-2">
             <span className="line-through text-gray-400 text-sm">{money(product.price)}</span>
