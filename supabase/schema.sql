@@ -43,6 +43,7 @@ create table if not exists public.products (
   gallery jsonb not null default '[]'::jsonb,
   itinerary jsonb not null default '[]'::jsonb,
   faq jsonb not null default '[]'::jsonb,
+  tiers jsonb not null default '[]'::jsonb,
   active boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -53,7 +54,8 @@ create table if not exists public.products (
   constraint products_promotional_price_max_price_check check (promotional_price is null or promotional_price <= price),
   constraint products_gallery_array_check check (jsonb_typeof(gallery) = 'array'),
   constraint products_itinerary_array_check check (jsonb_typeof(itinerary) = 'array'),
-  constraint products_faq_array_check check (jsonb_typeof(faq) = 'array')
+  constraint products_faq_array_check check (jsonb_typeof(faq) = 'array'),
+  constraint products_tiers_array_check check (jsonb_typeof(tiers) = 'array')
 );
 
 create table if not exists public.product_dates (
@@ -63,6 +65,8 @@ create table if not exists public.product_dates (
   end_date date not null,
   available_slots integer not null,
   price_override numeric(12,2),
+  departure_time time,
+  return_time time,
   active boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),

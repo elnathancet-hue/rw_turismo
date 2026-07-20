@@ -23,6 +23,12 @@ const ProductDateForm = ({ initialDate, onSubmit, submitLabel }: Props) => {
     end_date: initialDate?.end_date ?? "",
     available_slots: initialDate?.available_slots ?? 0,
     price_override: initialDate?.price_override ?? null,
+    departure_time: initialDate?.departure_time
+      ? initialDate.departure_time.slice(0, 5)
+      : null,
+    return_time: initialDate?.return_time
+      ? initialDate.return_time.slice(0, 5)
+      : null,
     active: initialDate?.active ?? true,
   });
   const [error, setError] = useState<string | null>(null);
@@ -139,6 +145,28 @@ const ProductDateForm = ({ initialDate, onSubmit, submitLabel }: Props) => {
             }
             type="number"
             value={values.price_override ?? ""}
+          />
+        </label>
+        <label className="text-sm font-medium">
+          Horário de saída
+          <input
+            className="mt-1 w-full rounded border px-3 py-2"
+            onChange={(event) =>
+              updateValue("departure_time", event.target.value || null)
+            }
+            type="time"
+            value={values.departure_time ?? ""}
+          />
+        </label>
+        <label className="text-sm font-medium">
+          Horário de retorno
+          <input
+            className="mt-1 w-full rounded border px-3 py-2"
+            onChange={(event) =>
+              updateValue("return_time", event.target.value || null)
+            }
+            type="time"
+            value={values.return_time ?? ""}
           />
         </label>
       </div>

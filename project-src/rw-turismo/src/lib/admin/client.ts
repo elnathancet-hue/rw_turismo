@@ -6,6 +6,7 @@ import type {
   ItineraryDay,
   Product,
   ProductDate,
+  ProductTier,
   ProductType,
 } from "../products/types";
 
@@ -22,6 +23,8 @@ export type ProductFormValues = {
   gallery: string[];
   itinerary: ItineraryDay[];
   faq: FaqItem[];
+  // Opções de suíte/quarto com preço próprio (informativo).
+  tiers: ProductTier[];
   active: boolean;
   // Categorias marcadas para o produto. Não é coluna de `products` — é salva
   // separadamente na tabela de ligação product_categories.
@@ -34,6 +37,8 @@ export type ProductDateFormValues = {
   end_date: string;
   available_slots: number;
   price_override: number | null;
+  departure_time: string | null;
+  return_time: string | null;
   active: boolean;
 };
 

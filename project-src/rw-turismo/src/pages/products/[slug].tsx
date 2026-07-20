@@ -425,6 +425,30 @@ const ProductDetails = ({ product, productDates }: Props) => {
               )}
             </div>
 
+            {product.tiers && product.tiers.length > 0 && (
+              <div className="mt-4 rounded-lg border bg-orange-50/60 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Opções de suíte
+                </p>
+                <ul className="mt-2 space-y-1 text-sm">
+                  {product.tiers.map((tier, index) => (
+                    <li
+                      className="flex items-center justify-between gap-3"
+                      key={index}
+                    >
+                      <span className="text-gray-700">{tier.name}</span>
+                      <span className="font-semibold text-gray-900">
+                        {formatCurrency(tier.price)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-2 text-xs text-gray-500">
+                  Valor da suíte confirmado no atendimento.
+                </p>
+              </div>
+            )}
+
             <button
               className="mt-5 w-full rounded border px-4 py-2 font-semibold text-orange-600 hover:bg-orange-50"
               onClick={toggleFavorite}
@@ -455,6 +479,18 @@ const ProductDetails = ({ product, productDates }: Props) => {
                   ))}
                 </select>
               </label>
+              {selectedDate &&
+                (selectedDate.departure_time || selectedDate.return_time) && (
+                  <p className="mt-2 text-xs text-gray-500">
+                    {selectedDate.departure_time &&
+                      `Saída ${selectedDate.departure_time.slice(0, 5)}`}
+                    {selectedDate.departure_time &&
+                      selectedDate.return_time &&
+                      " · "}
+                    {selectedDate.return_time &&
+                      `Retorno ${selectedDate.return_time.slice(0, 5)}`}
+                  </p>
+                )}
               <label className="mt-3 block text-sm font-medium">
                 Viajantes
                 <input
@@ -599,6 +635,17 @@ const ProductDetails = ({ product, productDates }: Props) => {
                   {formatDate(productDate.start_date)} até{" "}
                   {formatDate(productDate.end_date)}
                 </p>
+                {(productDate.departure_time || productDate.return_time) && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    {productDate.departure_time &&
+                      `Saída ${productDate.departure_time.slice(0, 5)}`}
+                    {productDate.departure_time &&
+                      productDate.return_time &&
+                      " · "}
+                    {productDate.return_time &&
+                      `Retorno ${productDate.return_time.slice(0, 5)}`}
+                  </p>
+                )}
                 <p className="mt-2 text-sm text-gray-500">
                   {productDate.available_slots} vagas disponíveis
                 </p>

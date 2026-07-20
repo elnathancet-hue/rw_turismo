@@ -6,6 +6,7 @@ import type {
   FaqItem,
   ItineraryDay,
   Product,
+  ProductTier,
 } from "../../lib/products/types";
 import Button from "../ui/Button";
 import Card from "../ui/Card";
@@ -47,6 +48,7 @@ const ProductForm = ({ initialProduct, onSubmit, submitLabel }: Props) => {
     faq: Array.isArray(initialProduct?.faq)
       ? (initialProduct?.faq as FaqItem[])
       : [],
+    tiers: Array.isArray(initialProduct?.tiers) ? initialProduct.tiers : [],
     active: initialProduct?.active ?? true,
     category_ids: initialProduct?.category_ids ?? [],
   });
@@ -133,6 +135,17 @@ const ProductForm = ({ initialProduct, onSubmit, submitLabel }: Props) => {
   const removeFaqItem = (index: number) =>
     setValues((c) => ({ ...c, faq: c.faq.filter((_, i) => i !== index) }));
 
+  // --- Opções de suíte (tiers, informativo) ---
+  const addTier = () =>
+    setValues((c) => ({ ...c, tiers: [...c.tiers, { name: "", price: 0 }] }));
+  const updateTier = (index: number, patch: Partial<ProductTier>) =>
+    setValues((c) => ({
+      ...c,
+      tiers: c.tiers.map((t, i) => (i === index ? { ...t, ...patch } : t)),
+    }));
+  const removeTier = (index: number) =>
+    setValues((c) => ({ ...c, tiers: c.tiers.filter((_, i) => i !== index) }));
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
@@ -152,6 +165,9 @@ const ProductForm = ({ initialProduct, onSubmit, submitLabel }: Props) => {
         faq: values.faq.filter(
           (item) => item.question.trim() || item.answer.trim()
         ),
+        tiers: values.tiers
+          .map((tier) => ({ name: tier.name.trim(), price: Number(tier.price) || 0 }))
+          .filter((tier) => tier.name),
       };
       await onSubmit(normalized);
     } catch (submitError) {
@@ -454,6 +470,53 @@ const ProductForm = ({ initialProduct, onSubmit, submitLabel }: Props) => {
               variant="secondary"
             >
               + Adicionar pergunta
+            </Button>
+          </div>
+        </Field>
+
+        <Field
+          hint="Opções de suíte/quarto com preços. Informativo: aparece na página do pacote, não altera a reserva."
+          label="Opções de suíte (tiers)"
+        >
+          <div className="space-y-2">
+            {values.tiers.map((tier, index) => (
+              <div className="flex gap-2" key={index}>
+                <Input
+                  onChange={(event) =>
+                    updateTier(index, { name: event.target.value })
+                  }
+                  placeholder="Nome (ex.: Master)"
+                  value={tier.name}
+                />
+                <Input
+                  className="w-36"
+                  min={0}
+                  onChange={(event) =>
+                    updateTier(index, {
+                      price: event.target.value ? Number(event.target.value) : 0,
+                    })
+                  }
+                  placeholder="Preço"
+                  type="number"
+                  value={tier.price || ""}
+                />
+                <button
+                  aria-label="Remover opção"
+                  className="rounded border px-3 text-red-600 hover:bg-red-50"
+                  onClick={() => removeTier(index)}
+                  type="button"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+            <Button
+              onClick={addTier}
+              size="sm"
+              type="button"
+              variant="secondary"
+            >
+              + Adicionar opção
             </Button>
           </div>
         </Field>

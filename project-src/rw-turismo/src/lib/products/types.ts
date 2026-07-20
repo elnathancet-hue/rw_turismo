@@ -6,6 +6,9 @@ export type ItineraryDay = { day: number; title: string; description: string };
 
 export type FaqItem = { question: string; answer: string };
 
+// Opção de suíte/quarto com preço próprio (informativo — não altera a reserva).
+export type ProductTier = { name: string; price: number };
+
 export type Product = {
   id: string;
   title: string;
@@ -20,6 +23,7 @@ export type Product = {
   gallery: Json;
   itinerary: Json;
   faq: Json;
+  tiers?: ProductTier[];
   active: boolean;
   // Ids das categorias (temas comerciais) às quais o produto pertence. Anexado
   // ao carregar via product_categories; usado no filtro "por categoria" da home.
@@ -38,6 +42,8 @@ export type ProductDate = {
   end_date: string;
   available_slots: number;
   price_override: number | null;
+  departure_time?: string | null;
+  return_time?: string | null;
   total_seats?: number | null;
   active: boolean;
   created_at: string;
