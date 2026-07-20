@@ -2,6 +2,7 @@ import type { GetServerSidePropsContext } from "next";
 import Head from "next/head";
 import Link from "next/link";
 import BlogCard from "../../components/blog/BlogCard";
+import Footer from "../../components/Footer";
 import { getPublicBlogTaxonomy, getPublishedPosts } from "../../lib/content/server";
 import type { BlogCategory, BlogPost } from "../../lib/content/types";
 
@@ -27,6 +28,7 @@ const BlogIndex = ({ posts, categories, page, pages }: Props) => {
         {!posts.length && <p className="mt-10 text-gray-500">Nenhum artigo publicado ainda.</p>}
         <nav className="mt-10 flex gap-4">{page > 1 && <Link href={`/blog?page=${page - 1}`}>← Página anterior</Link>}{page < pages && <Link href={`/blog?page=${page + 1}`}>Próxima página →</Link>}</nav>
       </main>
+      <Footer />
     </>
   );
 };

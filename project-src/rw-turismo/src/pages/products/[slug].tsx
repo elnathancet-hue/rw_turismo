@@ -7,6 +7,7 @@ import Drawer from "../../components/Drawer";
 import Footer from "../../components/Footer";
 import Header from "../../components/Header";
 import ProductGallery from "../../components/ProductGallery";
+import ProductCard from "../../components/home/ProductCard";
 import useSupabaseSession from "../../hooks/useSupabaseSession";
 import useWhatsAppWidget from "../../hooks/useWhatsAppWidget";
 import { WhatsAppIcon } from "../../components/WhatsAppFloat";
@@ -20,8 +21,10 @@ import { joinWaitlist } from "../../lib/waitlist/client";
 import { gaEvent } from "../../lib/analytics/gtag";
 import {
   getActiveProductDatesServer,
+  getActiveProductsServer,
   getProductBySlugServer,
 } from "../../lib/products/server";
+import { parseInstallment } from "../../lib/products/installment";
 import type {
   FaqItem,
   ItineraryDay,
@@ -37,6 +40,7 @@ import type { ISuggestionFormatted } from "../../types/typings";
 type Props = {
   product: Product;
   productDates: ProductDate[];
+  suggestions: Product[];
 };
 
 const formatCurrency = (value: number) =>
@@ -52,10 +56,14 @@ const formatDate = (value: string) =>
     year: "numeric",
   }).format(new Date(`${value}T00:00:00`));
 
-const ProductDetails = ({ product, productDates }: Props) => {
+const ProductDetails = ({ product, productDates, suggestions }: Props) => {
   const router = useRouter();
   const { user, profile, isAuthenticated } = useSupabaseSession();
   const whatsApp = useWhatsAppWidget();
+  const installment = parseInstallment(product.description);
+  const suggestionsToShow = whatsApp.suggestions
+    ? suggestions.slice(0, whatsApp.suggestionsCount)
+    : [];
   const [isOpen, setIsOpen] = useState(false);
   const [searchInput, setSearchInput] = useState("");
   const [selectedCity, setSelectedCity] = useState<ISuggestionFormatted | null>(
@@ -397,6 +405,13 @@ const ProductDetails = ({ product, productDates }: Props) => {
       />
 
       <main className="mx-auto max-w-6xl px-6 py-10">
+        <button
+          className="mb-6 inline-flex items-center gap-1 text-sm font-medium text-gray-600 transition hover:text-orange-600"
+          onClick={() => router.back()}
+          type="button"
+        >
+          ← Voltar
+        </button>
         <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
           <section>
             <p className="text-sm text-gray-500">{product.destination}</p>
@@ -424,6 +439,11 @@ const ProductDetails = ({ product, productDates }: Props) => {
                 </span>
               )}
             </div>
+            {installment && (
+              <p className="mt-1 text-sm text-gray-500">
+                ou {installment} no cartão
+              </p>
+            )}
 
             {product.tiers && product.tiers.length > 0 && (
               <div className="mt-4 rounded-lg border bg-orange-50/60 p-3">
@@ -698,6 +718,17 @@ const ProductDetails = ({ product, productDates }: Props) => {
             </div>
           </section>
         )}
+
+        {suggestionsToShow.length > 0 && (
+          <section className="mt-12">
+            <h2 className="text-2xl font-semibold">Sugestões de viagens</h2>
+            <div className="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {suggestionsToShow.map((item) => (
+                <ProductCard key={item.id} product={item} />
+              ))}
+            </div>
+          </section>
+        )}
       </main>
 
       <Footer />
@@ -738,6 +769,7 @@ export const getServerSideProps = async (
           props: {
             product: fallbackProduct,
             productDates: fallbackProductDates,
+            suggestions: [],
           },
         };
       }
@@ -748,10 +780,25 @@ export const getServerSideProps = async (
 
     const productDates = await getActiveProductDatesServer(product.id);
 
+    let suggestions: Product[] = [];
+    try {
+      const others = (await getActiveProductsServer()).filter(
+        (item) => item.id !== product.id
+      );
+      // Mesma "tipo" primeiro (pacote/experiência), depois o resto.
+      suggestions = [
+        ...others.filter((item) => item.type === product.type),
+        ...others.filter((item) => item.type !== product.type),
+      ].slice(0, 8);
+    } catch (suggestError) {
+      console.error("Failed to load suggestions", suggestError);
+    }
+
     return {
       props: {
         product,
         productDates,
+        suggestions,
       },
     };
   } catch (error) {

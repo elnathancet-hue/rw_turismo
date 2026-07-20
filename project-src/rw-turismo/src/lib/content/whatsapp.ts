@@ -17,6 +17,9 @@ export type WhatsAppWidget = {
   // do botão "Ver pacote". O botão de WhatsApp do card usa o mesmo número.
   cardButtons: boolean;
   cardButtonLabel: string;
+  // "Sugestões de viagens" no fim da página do pacote: liga/desliga + quantas.
+  suggestions: boolean;
+  suggestionsCount: number;
 };
 
 export const WHATSAPP_SETTING_KEY = "whatsapp_widget";
@@ -29,6 +32,8 @@ export const defaultWhatsAppWidget: WhatsAppWidget = {
   productCta: "both",
   cardButtons: false,
   cardButtonLabel: "Ver pacote",
+  suggestions: true,
+  suggestionsCount: 4,
 };
 
 export const normalizeWhatsAppWidget = (value: unknown): WhatsAppWidget => {
@@ -54,6 +59,13 @@ export const normalizeWhatsAppWidget = (value: unknown): WhatsAppWidget => {
       typeof raw.cardButtonLabel === "string" && raw.cardButtonLabel.trim()
         ? raw.cardButtonLabel
         : defaultWhatsAppWidget.cardButtonLabel,
+    suggestions: raw.suggestions !== false,
+    suggestionsCount:
+      typeof raw.suggestionsCount === "number" &&
+      raw.suggestionsCount >= 1 &&
+      raw.suggestionsCount <= 8
+        ? Math.floor(raw.suggestionsCount)
+        : defaultWhatsAppWidget.suggestionsCount,
   };
 };
 

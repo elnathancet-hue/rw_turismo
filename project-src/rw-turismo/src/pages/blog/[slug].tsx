@@ -4,6 +4,7 @@ import Link from "next/link";
 import MarkdownContent from "../../components/MarkdownContent";
 import BlogShareButtons from "../../components/BlogShareButtons";
 import NewsletterSignup from "../../components/NewsletterSignup";
+import Footer from "../../components/Footer";
 import { getPublishedPostBySlug, getPublishedPosts } from "../../lib/content/server";
 import type { BlogPost } from "../../lib/content/types";
 
@@ -41,6 +42,7 @@ const BlogPostPage = ({ post, related }: { post: BlogPost; related: BlogPost[] }
         <div className="mt-10"><NewsletterSignup /></div>
         {!!related.length && <section className="mt-12"><h2 className="text-2xl font-semibold">Leia também</h2><div className="mt-4 space-y-3">{related.map((item) => <Link className="block font-semibold text-orange-600" href={`/blog/${item.slug}`} key={item.id}>{item.title}</Link>)}</div></section>}
       </main>
+      <Footer />
     </>
   );
 };

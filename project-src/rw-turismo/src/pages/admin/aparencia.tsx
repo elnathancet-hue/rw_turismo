@@ -242,6 +242,44 @@ const AdminAppearance = () => {
               )}
             </Card>
 
+            <Card className="p-5">
+              <h2 className="font-semibold">Sugestões de viagens</h2>
+              <p className="mt-1 text-xs text-gray-500">
+                Vitrine com outros pacotes no fim da página de cada viagem.
+              </p>
+              <label className="mt-4 flex items-center gap-2 text-sm font-medium text-gray-700">
+                <input
+                  checked={widget.suggestions}
+                  onChange={(event) =>
+                    set("suggestions", event.target.checked)
+                  }
+                  type="checkbox"
+                />
+                Mostrar sugestões na página do pacote
+              </label>
+              {widget.suggestions && (
+                <div className="mt-4 max-w-[13rem]">
+                  <Field label="Quantas sugestões (1 a 8)">
+                    <Input
+                      max={8}
+                      min={1}
+                      onChange={(event) =>
+                        set(
+                          "suggestionsCount",
+                          Math.min(
+                            Math.max(Number(event.target.value) || 4, 1),
+                            8
+                          )
+                        )
+                      }
+                      type="number"
+                      value={widget.suggestionsCount}
+                    />
+                  </Field>
+                </div>
+              )}
+            </Card>
+
             <div className="flex items-center gap-3">
               <Button loading={isSaving} onClick={save} type="button">
                 {isSaving ? "Salvando…" : "Salvar"}

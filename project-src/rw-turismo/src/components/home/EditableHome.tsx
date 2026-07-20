@@ -47,7 +47,7 @@ const EditableHome = ({ banners, sections, settings, products }: EditableHomePro
         <meta property="og:description" content={seo.description ?? ""} />
         {seo.og_image && <meta property="og:image" content={seo.og_image} />}
         <meta name="twitter:card" content="summary_large_image" />
-        <link rel="icon" href={identity.favicon ?? "/favicon.ico"} />
+        <link rel="icon" href={identity.favicon ?? "/favicon-32.png"} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationLd).replace(/</g, "\\u003c") }} />
       </Head>
       <Header searchInput={searchInput} setSearchInput={setSearchInput} selectedCity={selectedCity} setSelectedCity={setSelectedCity} isOpen={isOpen} setIsOpen={setIsOpen} />
