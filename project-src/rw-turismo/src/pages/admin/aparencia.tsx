@@ -204,6 +204,44 @@ const AdminAppearance = () => {
               )}
             </Card>
 
+            <Card className="p-5">
+              <h2 className="font-semibold">Botões nos cards</h2>
+              <p className="mt-1 text-xs text-gray-500">
+                Mostra o botão &ldquo;{widget.cardButtonLabel || "Ver pacote"}
+                &rdquo; + WhatsApp em cada card das vitrines e da busca. O card
+                continua clicável mesmo com os botões desligados.
+              </p>
+              <label className="mt-4 flex items-center gap-2 text-sm font-medium text-gray-700">
+                <input
+                  checked={widget.cardButtons}
+                  onChange={(event) =>
+                    set("cardButtons", event.target.checked)
+                  }
+                  type="checkbox"
+                />
+                Mostrar botões nos cards
+              </label>
+              {widget.cardButtons && (
+                <div className="mt-4 max-w-xs">
+                  <Field label="Texto do botão de pacote">
+                    <Input
+                      onChange={(event) =>
+                        set("cardButtonLabel", event.target.value)
+                      }
+                      placeholder="Ver pacote"
+                      value={widget.cardButtonLabel}
+                    />
+                  </Field>
+                  {!widget.phone.trim() && (
+                    <p className="mt-3 rounded border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
+                      O botão de WhatsApp no card só aparece com o número
+                      preenchido acima.
+                    </p>
+                  )}
+                </div>
+              )}
+            </Card>
+
             <div className="flex items-center gap-3">
               <Button loading={isSaving} onClick={save} type="button">
                 {isSaving ? "Salvando…" : "Salvar"}

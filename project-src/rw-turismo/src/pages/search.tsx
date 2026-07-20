@@ -5,6 +5,7 @@ import Drawer from "../components/Drawer";
 import Footer from "../components/Footer";
 import Header from "../components/Header";
 import PackageSearchBar from "../components/PackageSearchBar";
+import CardActions from "../components/home/CardActions";
 import { signOutFromSupabase } from "../lib/auth/client";
 import { PRODUCT_TYPE_LABELS } from "../lib/content/home-registry";
 import { searchPackages, type PackageSort } from "../lib/products/client";
@@ -234,43 +235,52 @@ const Search = () => {
         {status === "ready" && products.length > 0 && (
           <div className="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             {pageItems.map((product) => (
-              <Link
-                className="group overflow-hidden rounded-xl border bg-white shadow-sm hover:shadow-lg"
-                href={`/products/${product.slug}`}
+              <article
+                className="group overflow-hidden rounded-xl border bg-white shadow-sm transition hover:shadow-lg"
                 key={product.id}
               >
-                <div className="relative h-52 bg-gray-100">
-                  {product.cover_image && (
-                    <img
-                      alt={product.title}
-                      className="h-full w-full object-cover transition group-hover:scale-105"
-                      loading="lazy"
-                      src={product.cover_image}
-                    />
-                  )}
-                  {product.has_future_date === false && (
-                    <span className="absolute right-3 top-3 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
-                      Novas datas em breve
-                    </span>
-                  )}
-                </div>
+                <Link className="block" href={`/products/${product.slug}`}>
+                  <div className="relative h-52 bg-gray-100">
+                    {product.cover_image && (
+                      <img
+                        alt={product.title}
+                        className="h-full w-full object-cover transition group-hover:scale-105"
+                        loading="lazy"
+                        src={product.cover_image}
+                      />
+                    )}
+                    {product.has_future_date === false && (
+                      <span className="absolute right-3 top-3 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                        Novas datas em breve
+                      </span>
+                    )}
+                  </div>
+                </Link>
                 <div className="p-5">
-                  <p className="text-sm text-gray-500">
-                    {product.origin
-                      ? `${product.origin} → ${product.destination}`
-                      : product.destination}
-                  </p>
-                  <h3 className="mt-1 text-xl font-semibold">{product.title}</h3>
-                  {product.description && (
-                    <p className="mt-2 line-clamp-2 text-sm text-gray-500">
-                      {product.description}
+                  <Link className="block" href={`/products/${product.slug}`}>
+                    <p className="text-sm text-gray-500">
+                      {product.origin
+                        ? `${product.origin} → ${product.destination}`
+                        : product.destination}
                     </p>
-                  )}
-                  <p className="mt-4 font-semibold text-orange-600">
-                    {money(product.promotional_price ?? product.price)}
-                  </p>
+                    <h3 className="mt-1 text-xl font-semibold">
+                      {product.title}
+                    </h3>
+                    {product.description && (
+                      <p className="mt-2 line-clamp-2 text-sm text-gray-500">
+                        {product.description}
+                      </p>
+                    )}
+                    <span className="mt-4 block font-semibold text-orange-600">
+                      {money(product.promotional_price ?? product.price)}
+                    </span>
+                  </Link>
+                  <CardActions
+                    href={`/products/${product.slug}`}
+                    title={product.title}
+                  />
                 </div>
-              </Link>
+              </article>
             ))}
           </div>
         )}

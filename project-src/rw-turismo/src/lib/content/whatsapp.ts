@@ -13,6 +13,10 @@ export type WhatsAppWidget = {
   cta: string;
   message: string;
   productCta: ProductCtaMode;
+  // Botões nos cards de produto (vitrines/busca): liga/desliga global + label
+  // do botão "Ver pacote". O botão de WhatsApp do card usa o mesmo número.
+  cardButtons: boolean;
+  cardButtonLabel: string;
 };
 
 export const WHATSAPP_SETTING_KEY = "whatsapp_widget";
@@ -23,6 +27,8 @@ export const defaultWhatsAppWidget: WhatsAppWidget = {
   cta: "Fale com a gente",
   message: "Olá! Vim pelo site da RW Turismo e quero saber mais.",
   productCta: "both",
+  cardButtons: false,
+  cardButtonLabel: "Ver pacote",
 };
 
 export const normalizeWhatsAppWidget = (value: unknown): WhatsAppWidget => {
@@ -43,6 +49,11 @@ export const normalizeWhatsAppWidget = (value: unknown): WhatsAppWidget => {
         ? raw.message
         : defaultWhatsAppWidget.message,
     productCta,
+    cardButtons: raw.cardButtons === true,
+    cardButtonLabel:
+      typeof raw.cardButtonLabel === "string" && raw.cardButtonLabel.trim()
+        ? raw.cardButtonLabel
+        : defaultWhatsAppWidget.cardButtonLabel,
   };
 };
 
