@@ -1,6 +1,8 @@
 -- Row Level Security policies for the tourism booking platform.
 -- Run this file after schema.sql.
 
+-- is_admin() exige conta ativa: desativar um admin tira o acesso na hora, sem
+-- precisar apagar o perfil.
 create or replace function public.is_admin()
 returns boolean
 language sql
@@ -13,12 +15,76 @@ as $$
     from public.users_profiles
     where user_id = auth.uid()
       and role = 'admin'
+      and active = true
   );
 $$;
 
 revoke all on function public.is_admin() from public;
 grant execute on function public.is_admin() to authenticated;
 grant execute on function public.is_admin() to service_role;
+
+-- Papéis de equipe (usuários do sistema). staff_role_of() recebe o id explícito
+-- porque as RPCs rodam como service_role e não têm auth.uid(); staff_role() usa
+-- o usuário logado e é o que as policies chamam.
+create or replace function public.staff_role_of(p_user_id uuid)
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select role
+  from public.users_profiles
+  where user_id = p_user_id
+    and active = true
+    and role <> 'customer'
+$$;
+
+create or replace function public.staff_role()
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.staff_role_of(auth.uid())
+$$;
+
+create or replace function public.is_staff()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.staff_role() is not null
+$$;
+
+create or replace function public.has_staff_role(p_roles text[])
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.staff_role() = any(p_roles)
+$$;
+
+revoke all on function public.staff_role_of(uuid) from public;
+grant execute on function public.staff_role_of(uuid) to authenticated;
+grant execute on function public.staff_role_of(uuid) to service_role;
+
+revoke all on function public.staff_role() from public;
+grant execute on function public.staff_role() to authenticated;
+grant execute on function public.staff_role() to service_role;
+
+revoke all on function public.is_staff() from public;
+grant execute on function public.is_staff() to authenticated;
+grant execute on function public.is_staff() to service_role;
+
+revoke all on function public.has_staff_role(text[]) from public;
+grant execute on function public.has_staff_role(text[]) to authenticated;
+grant execute on function public.has_staff_role(text[]) to service_role;
 
 create or replace function public.prevent_customer_profile_identity_changes()
 returns trigger
@@ -562,3 +628,303 @@ create policy "admin_manage_site_assets" on storage.objects
 for all to authenticated
 using (bucket_id in ('site-assets', 'product-images', 'blog-images') and public.is_admin())
 with check (bucket_id in ('site-assets', 'product-images', 'blog-images') and public.is_admin());
+
+-- =====================================================================
+-- Usuários do sistema — acesso por papel de equipe
+--
+-- As policies de admin acima ficam intactas: policies permissivas se somam
+-- (OR), então o admin continua com acesso total e cada papel ganha só a sua
+-- fatia. A sidebar em src/lib/auth/roles.ts espelha esta divisão.
+--
+--   operacoes  → reservas, passageiros/check-in, saídas, fornecedores,
+--                transfers, lista de espera, CRM, clientes. Lê pagamentos.
+--   financeiro → pagamentos (confirmar), despesas, recebíveis, cupons.
+--                Lê reservas. Não mexe no catálogo.
+--   conteudo   → catálogo, home, páginas, blog, aparência, avaliações, cupons.
+--                Não vê caixa nem reservas.
+-- =====================================================================
+
+-- Perfis: a equipe lê a base de clientes. Alterar papel continua só com admin —
+-- o trigger prevent_customer_profile_identity_changes bloqueia mudança de
+-- role/email por quem não é admin, então ninguém se autopromove.
+drop policy if exists "profiles_staff_select" on public.users_profiles;
+create policy "profiles_staff_select"
+on public.users_profiles
+for select
+to authenticated
+using (public.is_staff());
+
+-- Operações edita a ficha do CLIENTE. O filtro role = 'customer' nos dois lados
+-- impede que a equipe edite o cadastro de outro membro da equipe.
+drop policy if exists "profiles_operacoes_update_customers" on public.users_profiles;
+create policy "profiles_operacoes_update_customers"
+on public.users_profiles
+for update
+to authenticated
+using (public.has_staff_role(array['operacoes']) and role = 'customer')
+with check (public.has_staff_role(array['operacoes']) and role = 'customer');
+
+-- Catálogo: conteudo gerencia, o resto da equipe só lê (precisa ver itens
+-- inativos para montar reserva e conferir preço).
+drop policy if exists "products_staff_select" on public.products;
+create policy "products_staff_select"
+on public.products
+for select to authenticated
+using (public.is_staff());
+
+drop policy if exists "products_conteudo_all" on public.products;
+create policy "products_conteudo_all"
+on public.products
+for all to authenticated
+using (public.has_staff_role(array['conteudo']))
+with check (public.has_staff_role(array['conteudo']));
+
+drop policy if exists "product_dates_staff_select" on public.product_dates;
+create policy "product_dates_staff_select"
+on public.product_dates
+for select to authenticated
+using (public.is_staff());
+
+drop policy if exists "product_dates_conteudo_all" on public.product_dates;
+create policy "product_dates_conteudo_all"
+on public.product_dates
+for all to authenticated
+using (public.has_staff_role(array['conteudo']))
+with check (public.has_staff_role(array['conteudo']));
+
+-- Operações ajusta a logística da saída (total de assentos) sem poder criar,
+-- apagar ou reprecificar datas.
+drop policy if exists "product_dates_operacoes_update" on public.product_dates;
+create policy "product_dates_operacoes_update"
+on public.product_dates
+for update to authenticated
+using (public.has_staff_role(array['operacoes']))
+with check (public.has_staff_role(array['operacoes']));
+
+drop policy if exists "categories_staff_select" on public.categories;
+create policy "categories_staff_select"
+on public.categories
+for select to authenticated
+using (public.is_staff());
+
+drop policy if exists "categories_conteudo_all" on public.categories;
+create policy "categories_conteudo_all"
+on public.categories
+for all to authenticated
+using (public.has_staff_role(array['conteudo']))
+with check (public.has_staff_role(array['conteudo']));
+
+drop policy if exists "product_categories_conteudo_all" on public.product_categories;
+create policy "product_categories_conteudo_all"
+on public.product_categories
+for all to authenticated
+using (public.has_staff_role(array['conteudo']))
+with check (public.has_staff_role(array['conteudo']));
+
+-- Reservas e operação: operacoes gerencia, financeiro só lê.
+drop policy if exists "bookings_operacoes_all" on public.bookings;
+create policy "bookings_operacoes_all"
+on public.bookings
+for all to authenticated
+using (public.has_staff_role(array['operacoes']))
+with check (public.has_staff_role(array['operacoes']));
+
+drop policy if exists "bookings_financeiro_select" on public.bookings;
+create policy "bookings_financeiro_select"
+on public.bookings
+for select to authenticated
+using (public.has_staff_role(array['financeiro']));
+
+drop policy if exists "passengers_operacoes_all" on public.passengers;
+create policy "passengers_operacoes_all"
+on public.passengers
+for all to authenticated
+using (public.has_staff_role(array['operacoes']))
+with check (public.has_staff_role(array['operacoes']));
+
+drop policy if exists "passengers_financeiro_select" on public.passengers;
+create policy "passengers_financeiro_select"
+on public.passengers
+for select to authenticated
+using (public.has_staff_role(array['financeiro']));
+
+drop policy if exists "suppliers_operacoes_all" on public.suppliers;
+create policy "suppliers_operacoes_all"
+on public.suppliers
+for all to authenticated
+using (public.has_staff_role(array['operacoes']))
+with check (public.has_staff_role(array['operacoes']));
+
+drop policy if exists "suppliers_financeiro_select" on public.suppliers;
+create policy "suppliers_financeiro_select"
+on public.suppliers
+for select to authenticated
+using (public.has_staff_role(array['financeiro']));
+
+drop policy if exists "transfers_operacoes_all" on public.transfers;
+create policy "transfers_operacoes_all"
+on public.transfers
+for all to authenticated
+using (public.has_staff_role(array['operacoes']))
+with check (public.has_staff_role(array['operacoes']));
+
+drop policy if exists "waitlist_operacoes_all" on public.waitlist;
+create policy "waitlist_operacoes_all"
+on public.waitlist
+for all to authenticated
+using (public.has_staff_role(array['operacoes']))
+with check (public.has_staff_role(array['operacoes']));
+
+drop policy if exists "leads_operacoes_all" on public.leads;
+create policy "leads_operacoes_all"
+on public.leads
+for all to authenticated
+using (public.has_staff_role(array['operacoes']))
+with check (public.has_staff_role(array['operacoes']));
+
+drop policy if exists "lead_activities_operacoes_all" on public.lead_activities;
+create policy "lead_activities_operacoes_all"
+on public.lead_activities
+for all to authenticated
+using (public.has_staff_role(array['operacoes']))
+with check (public.has_staff_role(array['operacoes']));
+
+-- Caixa: financeiro gerencia, operacoes só consulta o pagamento.
+drop policy if exists "payments_financeiro_all" on public.payments;
+create policy "payments_financeiro_all"
+on public.payments
+for all to authenticated
+using (public.has_staff_role(array['financeiro']))
+with check (public.has_staff_role(array['financeiro']));
+
+drop policy if exists "payments_operacoes_select" on public.payments;
+create policy "payments_operacoes_select"
+on public.payments
+for select to authenticated
+using (public.has_staff_role(array['operacoes']));
+
+drop policy if exists "expenses_financeiro_all" on public.expenses;
+create policy "expenses_financeiro_all"
+on public.expenses
+for all to authenticated
+using (public.has_staff_role(array['financeiro']))
+with check (public.has_staff_role(array['financeiro']));
+
+drop policy if exists "receivables_financeiro_all" on public.receivables;
+create policy "receivables_financeiro_all"
+on public.receivables
+for all to authenticated
+using (public.has_staff_role(array['financeiro']))
+with check (public.has_staff_role(array['financeiro']));
+
+-- Cupons: financeiro (impacto no caixa) e conteudo (campanha/marketing).
+drop policy if exists "coupons_staff_all" on public.coupons;
+create policy "coupons_staff_all"
+on public.coupons
+for all to authenticated
+using (public.has_staff_role(array['financeiro', 'conteudo']))
+with check (public.has_staff_role(array['financeiro', 'conteudo']));
+
+drop policy if exists "coupons_operacoes_select" on public.coupons;
+create policy "coupons_operacoes_select"
+on public.coupons
+for select to authenticated
+using (public.has_staff_role(array['operacoes']));
+
+-- Site e conteúdo editorial: só conteudo (além do admin).
+drop policy if exists "home_sections_conteudo_all" on public.home_sections;
+create policy "home_sections_conteudo_all" on public.home_sections
+for all to authenticated
+using (public.has_staff_role(array['conteudo']))
+with check (public.has_staff_role(array['conteudo']));
+
+drop policy if exists "home_banners_conteudo_all" on public.home_banners;
+create policy "home_banners_conteudo_all" on public.home_banners
+for all to authenticated
+using (public.has_staff_role(array['conteudo']))
+with check (public.has_staff_role(array['conteudo']));
+
+drop policy if exists "site_settings_conteudo_all" on public.site_settings;
+create policy "site_settings_conteudo_all" on public.site_settings
+for all to authenticated
+using (public.has_staff_role(array['conteudo']))
+with check (public.has_staff_role(array['conteudo']));
+
+drop policy if exists "pages_conteudo_all" on public.pages;
+create policy "pages_conteudo_all" on public.pages
+for all to authenticated
+using (public.has_staff_role(array['conteudo']))
+with check (public.has_staff_role(array['conteudo']));
+
+drop policy if exists "blog_posts_conteudo_all" on public.blog_posts;
+create policy "blog_posts_conteudo_all" on public.blog_posts
+for all to authenticated
+using (public.has_staff_role(array['conteudo']))
+with check (public.has_staff_role(array['conteudo']));
+
+drop policy if exists "blog_categories_conteudo_all" on public.blog_categories;
+create policy "blog_categories_conteudo_all" on public.blog_categories
+for all to authenticated
+using (public.has_staff_role(array['conteudo']))
+with check (public.has_staff_role(array['conteudo']));
+
+drop policy if exists "blog_tags_conteudo_all" on public.blog_tags;
+create policy "blog_tags_conteudo_all" on public.blog_tags
+for all to authenticated
+using (public.has_staff_role(array['conteudo']))
+with check (public.has_staff_role(array['conteudo']));
+
+drop policy if exists "blog_post_tags_conteudo_all" on public.blog_post_tags;
+create policy "blog_post_tags_conteudo_all" on public.blog_post_tags
+for all to authenticated
+using (public.has_staff_role(array['conteudo']))
+with check (public.has_staff_role(array['conteudo']));
+
+drop policy if exists "newsletter_conteudo_read" on public.newsletter_subscribers;
+create policy "newsletter_conteudo_read" on public.newsletter_subscribers
+for select to authenticated
+using (public.has_staff_role(array['conteudo']));
+
+drop policy if exists "newsletter_conteudo_update" on public.newsletter_subscribers;
+create policy "newsletter_conteudo_update" on public.newsletter_subscribers
+for update to authenticated
+using (public.has_staff_role(array['conteudo']))
+with check (public.has_staff_role(array['conteudo']));
+
+-- Avaliações (NPS): conteudo aprova o que vai pro site; operacoes só consulta.
+drop policy if exists "survey_responses_conteudo_read" on public.survey_responses;
+create policy "survey_responses_conteudo_read" on public.survey_responses
+for select to authenticated
+using (public.has_staff_role(array['conteudo', 'operacoes']));
+
+drop policy if exists "survey_responses_conteudo_update" on public.survey_responses;
+create policy "survey_responses_conteudo_update" on public.survey_responses
+for update to authenticated
+using (public.has_staff_role(array['conteudo']))
+with check (public.has_staff_role(array['conteudo']));
+
+-- Auditoria: toda a equipe consulta. Escrita segue só admin + service_role.
+drop policy if exists "system_logs_staff_select" on public.system_logs;
+create policy "system_logs_staff_select"
+on public.system_logs
+for select to authenticated
+using (public.is_staff());
+
+drop policy if exists "notification_log_staff_read" on public.notification_log;
+create policy "notification_log_staff_read"
+on public.notification_log
+for select to authenticated
+using (public.has_staff_role(array['operacoes', 'financeiro']));
+
+-- Upload de imagens (banner, capa de produto, blog) é trabalho de conteúdo.
+drop policy if exists "conteudo_manage_site_assets" on storage.objects;
+create policy "conteudo_manage_site_assets" on storage.objects
+for all to authenticated
+using (
+  bucket_id in ('site-assets', 'product-images', 'blog-images')
+  and public.has_staff_role(array['conteudo'])
+)
+with check (
+  bucket_id in ('site-assets', 'product-images', 'blog-images')
+  and public.has_staff_role(array['conteudo'])
+);

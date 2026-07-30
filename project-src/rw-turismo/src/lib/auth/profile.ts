@@ -1,5 +1,6 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import type { Database } from "../supabase/types";
+import { isStaffRole, type StaffRole, type UserRole } from "./roles";
 
 export type UserProfile = {
   id: string;
@@ -7,7 +8,11 @@ export type UserProfile = {
   name: string | null;
   email: string | null;
   phone: string | null;
-  role: "customer" | "admin";
+  role: UserRole;
+  // Desativar tira o acesso sem apagar o perfil. Perfis criados antes da
+  // migration de usuários do sistema podem vir sem a coluna — nesse caso
+  // tratamos como ativo (era o comportamento anterior).
+  active?: boolean;
   avatar_url: string | null;
   created_at: string;
   updated_at: string;
@@ -34,8 +39,18 @@ export const getUserProfile = async (
   return data as UserProfile | null;
 };
 
+export const isProfileActive = (profile: UserProfile | null): boolean =>
+  profile !== null && profile.active !== false;
+
 export const isAdminProfile = (profile: UserProfile | null): boolean =>
-  profile?.role === "admin";
+  profile?.role === "admin" && isProfileActive(profile);
+
+// Papel de equipe do perfil, ou null se for cliente/conta desativada. É o que
+// decide quais telas do /admin aparecem — ver lib/auth/roles.ts.
+export const staffRoleOfProfile = (
+  profile: UserProfile | null
+): StaffRole | null =>
+  isProfileActive(profile) && isStaffRole(profile?.role) ? profile.role : null;
 
 export const ensureUserProfile = async (
   client: ProfileClient,

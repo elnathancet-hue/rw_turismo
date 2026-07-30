@@ -1,9 +1,16 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import {
+  canAccessAdminRoute,
+  DEFAULT_ROUTE_BY_ROLE,
+  isStaffRole,
+  type StaffRole,
+} from "./lib/auth/roles";
 
 // Camada server-side de proteção do painel (/admin/*), além do RLS e do
-// AdminGuard client-side. Valida a sessão Supabase pelos cookies e exige
-// users_profiles.role === 'admin'. Funciona mesmo com JavaScript desativado.
+// AdminGuard client-side. Valida a sessão Supabase pelos cookies e exige um
+// papel de equipe ativo, aplicando também o mapa rota→papel de lib/auth/roles.
+// Funciona mesmo com JavaScript desativado.
 export async function middleware(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -48,14 +55,29 @@ export async function middleware(request: NextRequest) {
       return redirectToSignin();
     }
 
+    // select("*") em vez de listar colunas: assim o painel não quebra se o app
+    // subir antes da migration que adiciona `active`.
     const { data: profile } = await supabase
       .from("users_profiles")
-      .select("role")
+      .select("*")
       .eq("user_id", user.id)
       .maybeSingle();
 
-    if (!profile || profile.role !== "admin") {
+    const row = profile as { role?: string; active?: boolean } | null;
+    const isActive = row?.active !== false;
+    const role: StaffRole | null =
+      isActive && isStaffRole(row?.role) ? row.role : null;
+
+    if (!role) {
       return redirectToSignin();
+    }
+
+    // Papel válido, mas área de outro papel: manda para a área dele em vez de
+    // jogar para o login (o cara ESTÁ logado — cair no /signin confundiria).
+    if (!canAccessAdminRoute(request.nextUrl.pathname, role)) {
+      return NextResponse.redirect(
+        new URL(DEFAULT_ROUTE_BY_ROLE[role], request.url)
+      );
     }
   } catch (error) {
     // Falha ao validar (rede/Supabase indisponível) → nega o acesso (fail closed).

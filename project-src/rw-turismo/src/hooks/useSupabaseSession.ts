@@ -4,8 +4,10 @@ import { createSupabaseBrowserClient } from "../lib/supabase/browser";
 import {
   getUserProfile,
   isAdminProfile,
+  staffRoleOfProfile,
   type UserProfile,
 } from "../lib/auth/profile";
+import type { StaffRole } from "../lib/auth/roles";
 
 type SupabaseSessionState = {
   user: User | null;
@@ -14,6 +16,9 @@ type SupabaseSessionState = {
   isLoading: boolean;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  // Papel de equipe (null para cliente ou conta desativada). Decide quais
+  // telas do /admin aparecem — ver lib/auth/roles.ts.
+  staffRole: StaffRole | null;
 };
 
 const initialState: SupabaseSessionState = {
@@ -23,6 +28,7 @@ const initialState: SupabaseSessionState = {
   isLoading: true,
   isAuthenticated: false,
   isAdmin: false,
+  staffRole: null,
 };
 
 export const useSupabaseSession = (): SupabaseSessionState => {
@@ -74,6 +80,7 @@ export const useSupabaseSession = (): SupabaseSessionState => {
             isLoading: false,
             isAuthenticated: true,
             isAdmin: isAdminProfile(profile),
+            staffRole: staffRoleOfProfile(profile),
           });
         }
       } catch (error) {

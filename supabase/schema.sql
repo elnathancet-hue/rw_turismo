@@ -20,12 +20,15 @@ create table if not exists public.users_profiles (
   email text,
   phone text,
   role text not null default 'customer',
+  active boolean not null default true,
   avatar_url text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint users_profiles_user_id_key unique (user_id),
   constraint users_profiles_email_key unique (email),
-  constraint users_profiles_role_check check (role in ('customer', 'admin')),
+  -- 'customer' é o cliente do site. Os demais são papéis de equipe (acesso ao
+  -- /admin) — ver src/lib/auth/roles.ts e a migration usuarios_do_sistema.
+  constraint users_profiles_role_check check (role in ('customer', 'admin', 'operacoes', 'financeiro', 'conteudo')),
   constraint users_profiles_email_lowercase_check check (email is null or email = lower(email))
 );
 
@@ -677,10 +680,9 @@ declare
   v_booking_id uuid;
   v_confirmed_at timestamptz;
 begin
-  if not exists (
-    select 1 from public.users_profiles
-    where user_id = p_admin_id and role = 'admin'
-  ) then
+  -- Defesa em profundidade: mesmo rodando como service_role, só quem tem papel
+  -- de reservas (admin ou operacoes) opera.
+  if coalesce(public.staff_role_of(p_admin_id), '') not in ('admin', 'operacoes') then
     raise exception 'ADMIN_REQUIRED' using errcode = 'P0001';
   end if;
 
@@ -822,10 +824,8 @@ declare
   v_amount numeric(12,2);
   v_payment_id uuid;
 begin
-  if not exists (
-    select 1 from public.users_profiles
-    where user_id = p_admin_id and role = 'admin'
-  ) then
+  -- Confirmar dinheiro é papel de caixa: admin ou financeiro.
+  if coalesce(public.staff_role_of(p_admin_id), '') not in ('admin', 'financeiro') then
     raise exception 'ADMIN_REQUIRED' using errcode = 'P0001';
   end if;
 
@@ -915,10 +915,7 @@ declare
   v_returned_slots boolean := false;
   v_new_payment_status text;
 begin
-  if not exists (
-    select 1 from public.users_profiles
-    where user_id = p_admin_id and role = 'admin'
-  ) then
+  if coalesce(public.staff_role_of(p_admin_id), '') not in ('admin', 'operacoes') then
     raise exception 'ADMIN_REQUIRED' using errcode = 'P0001';
   end if;
 
@@ -1003,10 +1000,7 @@ declare
   v_new_date public.product_dates%rowtype;
   v_old_date_id uuid;
 begin
-  if not exists (
-    select 1 from public.users_profiles
-    where user_id = p_admin_id and role = 'admin'
-  ) then
+  if coalesce(public.staff_role_of(p_admin_id), '') not in ('admin', 'operacoes') then
     raise exception 'ADMIN_REQUIRED' using errcode = 'P0001';
   end if;
 
@@ -1225,6 +1219,17 @@ for each row execute function public.set_updated_at();
 alter table public.users_profiles
   add column if not exists birth_date date,
   add column if not exists document text;
+
+-- Usuários do sistema: papéis de equipe + desativação de acesso. Repetido como
+-- alter para que rodar schema.sql num banco antigo também aplique.
+alter table public.users_profiles
+  add column if not exists active boolean not null default true;
+
+alter table public.users_profiles drop constraint if exists users_profiles_role_check;
+alter table public.users_profiles add constraint users_profiles_role_check
+  check (role in ('customer', 'admin', 'operacoes', 'financeiro', 'conteudo'));
+
+create index if not exists users_profiles_active_idx on public.users_profiles(active);
 
 alter table public.passengers
   add column if not exists checked_in_at timestamptz;

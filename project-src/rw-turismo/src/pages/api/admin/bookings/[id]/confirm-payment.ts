@@ -4,7 +4,7 @@ import {
   AdminBookingError,
 } from "../../../../../lib/admin/manualBookings";
 import { notifyBookingEvent } from "../../../../../lib/server/notifications";
-import { requireAdmin } from "../../../../../lib/server/adminAuth";
+import { requireStaff } from "../../../../../lib/server/adminAuth";
 
 const parseOptionalNumber = (value: unknown): number | null => {
   if (value === null || value === undefined || value === "") return null;
@@ -19,7 +19,8 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     return res.status(405).json({ error: "Method not allowed." });
   }
 
-  const admin = await requireAdmin(req, res);
+  // Confirmar dinheiro é papel de caixa — a RPC repete a mesma checagem.
+  const admin = await requireStaff(req, res, ["admin", "financeiro"]);
   if (!admin) return;
 
   const bookingId = typeof req.query.id === "string" ? req.query.id : "";

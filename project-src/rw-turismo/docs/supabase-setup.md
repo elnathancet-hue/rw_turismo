@@ -63,23 +63,59 @@ Supabase Auth.
 - O frontend nunca recebe nem envia `role`.
 - `ensureUserProfile()` cria perfis novos explicitamente com
   `role = 'customer'`.
-- Administradores continuam sendo promovidos apenas por uma operação segura no
-  backend ou no SQL Editor.
+- Papéis de equipe são atribuídos só pela tela `/admin/users` (rota de API
+  restrita a Administrador) ou pelo SQL Editor. O frontend nunca envia `role`
+  em nome do próprio usuário, e o trigger
+  `prevent_customer_profile_identity_changes` bloqueia quem não é admin de
+  alterar `role`/`email` — ou seja, ninguém se autopromove.
+- Desativar um usuário (`active = false`) tira o acesso na hora, sem apagar o
+  perfil nem o histórico.
 - `SUPABASE_SERVICE_ROLE_KEY` nunca pode ser exposta em variável
   `NEXT_PUBLIC_*`.
 - Parâmetros `next` aceitam somente caminhos internos iniciados por `/` e
   rejeitam URLs iniciadas por `//`.
 
-## Promover Admin
+## Usuários do sistema (equipe do painel)
 
-Depois que o usuario fizer login e tiver perfil em `users_profiles`, promova via
-SQL Editor:
+Rode a migration `supabase/migrations/20260730000000_usuarios_do_sistema.sql`
+no SQL Editor. Ela adiciona os papéis de equipe, a coluna `active` e as policies
+por papel. Depois disso, criar e gerenciar acesso é feito em `/admin/users` —
+sem SQL.
+
+### Papéis
+
+| Papel | `role` | Enxerga |
+|---|---|---|
+| Administrador | `admin` | Tudo, incluindo usuários, integrações e configurações |
+| Operações | `operacoes` | Reservas, passageiros/check-in, saídas, fornecedores, lista de espera, CRM, clientes. Lê pagamentos, não confirma |
+| Financeiro | `financeiro` | Pagamentos (confirmar), despesas, recebíveis, cupons. Lê reservas, não mexe no catálogo |
+| Conteúdo | `conteudo` | Catálogo, home, páginas, blog, aparência, avaliações, cupons. Não vê caixa nem reservas |
+
+A separação é aplicada em dois lugares, e os dois precisam concordar:
+
+- **Banco:** policies por papel em `supabase/rls.sql` (helpers `is_staff()`,
+  `has_staff_role()`, `staff_role_of()`). É o que realmente impede o acesso.
+- **Navegação:** `src/lib/auth/roles.ts` decide quais telas aparecem na sidebar
+  e o que o `AdminGuard` libera. Rota nova que ninguém mapeou nasce como
+  admin-only.
+
+Ao criar uma tela nova em `/admin`, adicione a rota em `ROUTE_ROLES` e a
+policy correspondente — senão ela fica visível só para o Administrador.
+
+### Primeiro admin
+
+O primeiro administrador ainda sai do SQL Editor (não existe ninguém para criar
+o primeiro acesso):
 
 ```sql
 update public.users_profiles
-set role = 'admin'
+set role = 'admin', active = true
 where email = 'admin@example.com';
 ```
+
+A partir dele, todos os outros são criados em `/admin/users` com senha
+provisória. O sistema recusa remover o último administrador ativo, e ninguém
+altera o próprio papel nem desativa a própria conta.
 
 Confirme que o usuario comum continua sem acesso a `/admin` e que o admin
 consegue acessar dashboard, produtos, datas, reservas, pagamentos e logs.

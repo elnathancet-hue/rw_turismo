@@ -31,6 +31,7 @@ import {
   ChevronUpDownIcon,
   CheckIcon,
   PaintBrushIcon,
+  ShieldCheckIcon,
 } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -44,6 +45,7 @@ import {
 } from "react";
 import useSupabaseSession from "../../hooks/useSupabaseSession";
 import { signOutFromSupabase } from "../../lib/auth/client";
+import { canAccessAdminRoute, type StaffRole } from "../../lib/auth/roles";
 
 type Props = {
   children: ReactNode;
@@ -112,6 +114,7 @@ const navigation: NavGroup[] = [
     section: "Sistema",
     panel: "operacoes",
     items: [
+      { href: "/admin/users", label: "Usuários", icon: ShieldCheckIcon },
       { href: "/admin/integracoes", label: "Integrações", icon: PuzzlePieceIcon },
       { href: "/admin/logs", label: "Logs", icon: DocumentMagnifyingGlassIcon },
       { href: "/admin/trash", label: "Lixeira", icon: TrashIcon },
@@ -164,17 +167,33 @@ const findActiveHref = (pathname: string): string | null => {
   return best;
 };
 
+// Menu do papel: cada item só aparece se o papel abre aquela rota (mesma regra
+// do AdminGuard, em lib/auth/roles.ts). Grupo que ficou sem item desaparece.
+const visibleGroupsForRole = (role: StaffRole | null): NavGroup[] =>
+  role === null
+    ? []
+    : navigation
+        .map((group) => ({
+          ...group,
+          items: group.items.filter((item) =>
+            canAccessAdminRoute(item.href, role)
+          ),
+        }))
+        .filter((group) => group.items.length > 0);
+
 const NavGroups = ({
   activeHref,
+  groups,
   panel,
   onNavigate,
 }: {
   activeHref: string | null;
+  groups: NavGroup[];
   panel: PanelId;
   onNavigate?: () => void;
 }) => (
   <div className="space-y-5">
-    {navigation
+    {groups
       .filter((group) => group.panel === panel)
       .map((group) => (
       <div key={group.section}>
@@ -245,14 +264,16 @@ const UserBlock = ({ email }: { email: string | null }) => {
 // Dropdown que troca entre "Painel de operações" e "Painel do site".
 const PanelSwitcher = ({
   panel,
+  panels,
   onChange,
 }: {
   panel: PanelId;
+  panels: { id: PanelId; label: string }[];
   onChange: (panel: PanelId) => void;
 }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const current = PANELS.find((option) => option.id === panel) ?? PANELS[0];
+  const current = panels.find((option) => option.id === panel) ?? panels[0];
 
   useEffect(() => {
     if (!open) return;
@@ -272,6 +293,8 @@ const PanelSwitcher = ({
     };
   }, [open]);
 
+  if (!current) return null;
+
   return (
     <div className="relative" ref={ref}>
       <button
@@ -289,7 +312,7 @@ const PanelSwitcher = ({
           className="absolute inset-x-0 z-40 mt-1 overflow-hidden rounded-lg border bg-white shadow-lg"
           role="listbox"
         >
-          {PANELS.map((option) => {
+          {panels.map((option) => {
             const selected = option.id === panel;
             return (
               <li key={option.id}>
@@ -323,9 +346,15 @@ const PanelSwitcher = ({
 
 const AdminLayout = ({ children, title, description, action }: Props) => {
   const router = useRouter();
-  const { user } = useSupabaseSession();
+  const { user, staffRole } = useSupabaseSession();
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const activeHref = findActiveHref(router.pathname);
+  const groups = visibleGroupsForRole(staffRole);
+  // Painel só aparece no seletor se o papel tem algo dentro dele. Papel com um
+  // painel só (Financeiro, por exemplo) nem vê o seletor.
+  const availablePanels = PANELS.filter((option) =>
+    groups.some((group) => group.panel === option.id)
+  );
   // Painel visível. Inicia pela rota (SSR-safe); no mount restaura a última
   // escolha (localStorage) e, ao navegar, acompanha o painel da rota.
   const [panel, setPanel] = useState<PanelId>(
@@ -376,6 +405,13 @@ const AdminLayout = ({ children, title, description, action }: Props) => {
     return () => window.removeEventListener("keydown", onKey);
   }, [isMobileNavOpen]);
 
+  // O painel salvo/da rota pode não existir para este papel — cai no primeiro
+  // que ele enxerga, para a sidebar nunca aparecer vazia.
+  const effectivePanel =
+    availablePanels.find((option) => option.id === panel)?.id ??
+    availablePanels[0]?.id ??
+    "operacoes";
+
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
       {/* Sidebar desktop */}
@@ -393,10 +429,20 @@ const AdminLayout = ({ children, title, description, action }: Props) => {
               src="/rw-turismo-logo.png"
             />
           </Link>
-          <PanelSwitcher onChange={selectPanel} panel={panel} />
+          {availablePanels.length > 1 && (
+            <PanelSwitcher
+              onChange={selectPanel}
+              panel={effectivePanel}
+              panels={availablePanels}
+            />
+          )}
         </div>
         <nav className="flex-1 overflow-y-auto px-4 pb-4 pt-4">
-          <NavGroups activeHref={activeHref} panel={panel} />
+          <NavGroups
+            activeHref={activeHref}
+            groups={groups}
+            panel={effectivePanel}
+          />
         </nav>
         <div className="px-4 pb-4">
           <UserBlock email={user?.email ?? null} />
@@ -429,14 +475,21 @@ const AdminLayout = ({ children, title, description, action }: Props) => {
                 <XMarkIcon className="h-6 w-6" />
               </button>
             </div>
-            <div className="px-4 pb-2">
-              <PanelSwitcher onChange={selectPanel} panel={panel} />
-            </div>
+            {availablePanels.length > 1 && (
+              <div className="px-4 pb-2">
+                <PanelSwitcher
+                  onChange={selectPanel}
+                  panel={effectivePanel}
+                  panels={availablePanels}
+                />
+              </div>
+            )}
             <nav className="flex-1 overflow-y-auto px-4 pb-4">
               <NavGroups
                 activeHref={activeHref}
+                groups={groups}
                 onNavigate={() => setIsMobileNavOpen(false)}
-                panel={panel}
+                panel={effectivePanel}
               />
             </nav>
             <div className="px-4 pb-4">

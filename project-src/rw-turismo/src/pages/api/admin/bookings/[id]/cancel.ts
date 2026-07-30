@@ -3,7 +3,7 @@ import {
   adminCancelBooking,
   AdminBookingError,
 } from "../../../../../lib/admin/manualBookings";
-import { requireAdmin } from "../../../../../lib/server/adminAuth";
+import { requireStaff } from "../../../../../lib/server/adminAuth";
 
 // POST /api/admin/bookings/:id/cancel — cancela a reserva e devolve vagas.
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
@@ -12,7 +12,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     return res.status(405).json({ error: "Method not allowed." });
   }
 
-  const admin = await requireAdmin(req, res);
+  const admin = await requireStaff(req, res, ["admin", "operacoes"]);
   if (!admin) return;
 
   const bookingId = typeof req.query.id === "string" ? req.query.id : "";

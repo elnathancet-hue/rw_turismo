@@ -4,7 +4,7 @@ import {
   AdminBookingError,
 } from "../../../../lib/admin/manualBookings";
 import { notifyBookingEvent } from "../../../../lib/server/notifications";
-import { requireAdmin } from "../../../../lib/server/adminAuth";
+import { requireStaff } from "../../../../lib/server/adminAuth";
 
 const getString = (value: unknown) => (typeof value === "string" ? value : "");
 
@@ -21,7 +21,8 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     return res.status(405).json({ error: "Method not allowed." });
   }
 
-  const admin = await requireAdmin(req, res);
+  // Reserva manual é trabalho de atendimento — a RPC repete a mesma checagem.
+  const admin = await requireStaff(req, res, ["admin", "operacoes"]);
   if (!admin) return;
 
   try {

@@ -34,15 +34,19 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     return res.status(404).json({ error: "Reserva não encontrada." });
   }
 
-  // Autorização: dono da reserva ou admin.
+  // Autorização: dono da reserva ou equipe (atendimento emite voucher no
+  // balcão). Papel de conteúdo não lida com reserva, então fica de fora.
   let allowed = booking.user_id === userData.user.id;
   if (!allowed) {
     const { data: profile } = await supabase
       .from("users_profiles")
-      .select("role")
+      .select("*")
       .eq("user_id", userData.user.id)
       .maybeSingle();
-    allowed = profile?.role === "admin";
+    const isActive = (profile as { active?: boolean } | null)?.active !== false;
+    allowed =
+      isActive &&
+      ["admin", "operacoes", "financeiro"].includes(String(profile?.role));
   }
   if (!allowed) {
     return res.status(403).json({ error: "Acesso restrito." });
