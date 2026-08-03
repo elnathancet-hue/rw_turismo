@@ -181,17 +181,31 @@ const visibleGroupsForRole = (role: StaffRole | null): NavGroup[] =>
         }))
         .filter((group) => group.items.length > 0);
 
+// Esqueleto enquanto o papel não chegou — evita a lateral piscar vazia.
+const NavSkeleton = () => (
+  <div className="space-y-2" aria-hidden="true">
+    {[...Array(6)].map((_, index) => (
+      <div className="h-8 animate-pulse rounded-lg bg-gray-100" key={index} />
+    ))}
+  </div>
+);
+
 const NavGroups = ({
   activeHref,
   groups,
+  isLoading,
   panel,
   onNavigate,
 }: {
   activeHref: string | null;
   groups: NavGroup[];
+  isLoading?: boolean;
   panel: PanelId;
   onNavigate?: () => void;
-}) => (
+}) => {
+  if (isLoading) return <NavSkeleton />;
+
+  return (
   <div className="space-y-5">
     {groups
       .filter((group) => group.panel === panel)
@@ -226,7 +240,8 @@ const NavGroups = ({
       </div>
     ))}
   </div>
-);
+  );
+};
 
 const UserBlock = ({ email }: { email: string | null }) => {
   const router = useRouter();
@@ -346,15 +361,22 @@ const PanelSwitcher = ({
 
 const AdminLayout = ({ children, title, description, action }: Props) => {
   const router = useRouter();
-  const { user, staffRole } = useSupabaseSession();
+  const { user, staffRole, isLoading } = useSupabaseSession();
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const activeHref = findActiveHref(router.pathname);
   const groups = visibleGroupsForRole(staffRole);
   // Painel só aparece no seletor se o papel tem algo dentro dele. Papel com um
   // painel só (Financeiro, por exemplo) nem vê o seletor.
-  const availablePanels = PANELS.filter((option) =>
-    groups.some((group) => group.panel === option.id)
-  );
+  //
+  // Enquanto o papel não chegou, mostramos os dois: o AdminGuard e o AdminLayout
+  // carregam a sessão em instâncias separadas, então existe um instante em que o
+  // Guard já liberou a página e o Layout ainda não sabe o papel. Filtrar nesse
+  // intervalo fazia o seletor sumir e a lateral ficar só com a logo.
+  const availablePanels = isLoading
+    ? PANELS
+    : PANELS.filter((option) =>
+        groups.some((group) => group.panel === option.id)
+      );
   // Painel visível. Inicia pela rota (SSR-safe); no mount restaura a última
   // escolha (localStorage) e, ao navegar, acompanha o painel da rota.
   const [panel, setPanel] = useState<PanelId>(
@@ -362,12 +384,32 @@ const AdminLayout = ({ children, title, description, action }: Props) => {
   );
   const prevPathRef = useRef(router.pathname);
 
-  const selectPanel = (next: PanelId) => {
+  // Só guarda a escolha. Usado quando quem manda é a ROTA (a pessoa clicou num
+  // link do outro painel e o seletor precisa acompanhar) — navegar aqui jogaria
+  // ela para fora da tela que acabou de abrir.
+  const rememberPanel = (next: PanelId) => {
     setPanel(next);
     try {
       window.localStorage.setItem("admin.panel", next);
     } catch {
       // localStorage indisponível — segue sem lembrar.
+    }
+  };
+
+  // Escolha feita no seletor: além de trocar o menu, leva para a primeira tela
+  // do painel. Trocar de painel e continuar na mesma página não dá sensação
+  // nenhuma de mudança — parece que o clique não pegou.
+  //
+  // O destino sai do próprio menu já filtrado por papel, então cai sempre numa
+  // tela que a pessoa pode abrir: Administrador vai para o Dashboard, e quem só
+  // tem Catálogo no painel de operações cai no Catálogo em vez de um dashboard
+  // que o RLS deixaria zerado.
+  const choosePanel = (next: PanelId) => {
+    rememberPanel(next);
+    const destination = groups.find((group) => group.panel === next)?.items[0]
+      ?.href;
+    if (destination && destination !== router.pathname) {
+      void router.push(destination);
     }
   };
 
@@ -387,7 +429,7 @@ const AdminLayout = ({ children, title, description, action }: Props) => {
     if (router.pathname === prevPathRef.current) return;
     prevPathRef.current = router.pathname;
     const routePanel = panelForHref(findActiveHref(router.pathname));
-    if (routePanel) selectPanel(routePanel);
+    if (routePanel) rememberPanel(routePanel);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.pathname]);
 
@@ -431,7 +473,7 @@ const AdminLayout = ({ children, title, description, action }: Props) => {
           </Link>
           {availablePanels.length > 1 && (
             <PanelSwitcher
-              onChange={selectPanel}
+              onChange={choosePanel}
               panel={effectivePanel}
               panels={availablePanels}
             />
@@ -441,6 +483,7 @@ const AdminLayout = ({ children, title, description, action }: Props) => {
           <NavGroups
             activeHref={activeHref}
             groups={groups}
+            isLoading={isLoading}
             panel={effectivePanel}
           />
         </nav>
@@ -478,7 +521,7 @@ const AdminLayout = ({ children, title, description, action }: Props) => {
             {availablePanels.length > 1 && (
               <div className="px-4 pb-2">
                 <PanelSwitcher
-                  onChange={selectPanel}
+                  onChange={choosePanel}
                   panel={effectivePanel}
                   panels={availablePanels}
                 />
@@ -488,6 +531,7 @@ const AdminLayout = ({ children, title, description, action }: Props) => {
               <NavGroups
                 activeHref={activeHref}
                 groups={groups}
+                isLoading={isLoading}
                 onNavigate={() => setIsMobileNavOpen(false)}
                 panel={effectivePanel}
               />
