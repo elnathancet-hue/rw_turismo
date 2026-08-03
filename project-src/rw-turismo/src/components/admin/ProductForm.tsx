@@ -11,6 +11,8 @@ import type {
 import Button from "../ui/Button";
 import Card from "../ui/Card";
 import { Field, Input, Select, Textarea } from "../ui/form";
+import ImageDropzone from "./ImageDropzone";
+import ImageField from "./ImageField";
 import { slugFieldProps, useSlugStatus } from "../../hooks/useSlugStatus";
 import { isUniqueViolation } from "../../lib/admin/slugs";
 
@@ -83,6 +85,9 @@ const ProductForm = ({ initialProduct, onSubmit, submitLabel }: Props) => {
   // --- Galeria de fotos ---
   const addGalleryImage = () =>
     setValues((c) => ({ ...c, gallery: [...c.gallery, ""] }));
+  // Uploads em lote entram no fim da galeria, na ordem em que foram enviados.
+  const addGalleryImages = (urls: string[]) =>
+    setValues((c) => ({ ...c, gallery: [...c.gallery, ...urls] }));
   const updateGalleryImage = (index: number, url: string) =>
     setValues((c) => ({
       ...c,
@@ -279,44 +284,46 @@ const ProductForm = ({ initialProduct, onSubmit, submitLabel }: Props) => {
             value={values.description}
           />
         </Field>
-        <Field label="Imagem de capa (URL)">
-          <Input
-            onChange={(event) => updateValue("cover_image", event.target.value)}
-            value={values.cover_image}
-          />
+        <Field
+          hint="Cole um link ou envie a foto do computador."
+          label="Imagem de capa"
+        >
+          <div className="mt-1">
+            <ImageField
+              bucket="product-images"
+              onChange={(url) => updateValue("cover_image", url)}
+              value={values.cover_image}
+            />
+          </div>
         </Field>
 
         <Field
           hint="Fotos extras exibidas no carrossel do produto (a capa entra automaticamente)."
-          label="Galeria de fotos (URLs)"
+          label="Galeria de fotos"
         >
-          <div className="space-y-2">
+          <div className="mt-1 space-y-3">
+            <ImageDropzone
+              bucket="product-images"
+              onUploaded={addGalleryImages}
+            />
+
             {values.gallery.map((url, index) => (
-              <div className="flex gap-2" key={index}>
-                <Input
-                  onChange={(event) =>
-                    updateGalleryImage(index, event.target.value)
-                  }
-                  placeholder="https://…"
-                  value={url}
-                />
-                <button
-                  aria-label="Remover foto"
-                  className="rounded border px-3 text-red-600 hover:bg-red-50"
-                  onClick={() => removeGalleryImage(index)}
-                  type="button"
-                >
-                  ✕
-                </button>
-              </div>
+              <ImageField
+                bucket="product-images"
+                key={index}
+                onChange={(next) => updateGalleryImage(index, next)}
+                onRemove={() => removeGalleryImage(index)}
+                value={url}
+              />
             ))}
+
             <Button
               onClick={addGalleryImage}
               size="sm"
               type="button"
               variant="secondary"
             >
-              + Adicionar foto
+              + Adicionar por link
             </Button>
           </div>
         </Field>
