@@ -4,6 +4,8 @@ import {
   type ProductDateFormValues,
 } from "../../lib/admin/client";
 import type { Product, ProductDate } from "../../lib/products/types";
+import SaveMessage from "./SaveMessage";
+import { useSaveMessage } from "../../hooks/useSaveMessage";
 
 type Props = {
   initialDate?: ProductDate | null;
@@ -16,6 +18,7 @@ const todayLocalISO = () =>
   new Intl.DateTimeFormat("en-CA").format(new Date());
 
 const ProductDateForm = ({ initialDate, onSubmit, submitLabel }: Props) => {
+  const { message, showOk, clearMessage } = useSaveMessage();
   const [products, setProducts] = useState<Product[]>([]);
   const [values, setValues] = useState<ProductDateFormValues>({
     product_id: initialDate?.product_id ?? "",
@@ -59,10 +62,12 @@ const ProductDateForm = ({ initialDate, onSubmit, submitLabel }: Props) => {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
+    clearMessage();
     setIsSaving(true);
 
     try {
       await onSubmit(values);
+      showOk("Data salva.");
     } catch (submitError) {
       setError(
         submitError instanceof Error
@@ -178,6 +183,8 @@ const ProductDateForm = ({ initialDate, onSubmit, submitLabel }: Props) => {
         />
         Data ativa
       </label>
+      <SaveMessage message={message} />
+
       <button
         className="w-fit rounded bg-orange-500 px-5 py-2 font-semibold text-white hover:bg-orange-600 disabled:opacity-60"
         disabled={isSaving}

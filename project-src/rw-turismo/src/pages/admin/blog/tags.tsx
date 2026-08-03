@@ -3,6 +3,7 @@ import AdminGuard from "../../../components/admin/AdminGuard";
 import AdminLayout from "../../../components/admin/AdminLayout";
 import AdminListState from "../../../components/admin/AdminListState";
 import ConfirmButton from "../../../components/admin/ConfirmButton";
+import SaveMessage from "../../../components/admin/SaveMessage";
 import Button from "../../../components/ui/Button";
 import {
   deleteAdminBlogTag,
@@ -11,6 +12,7 @@ import {
 } from "../../../lib/content/client";
 import type { BlogTag } from "../../../lib/content/types";
 import { useSlugStatus } from "../../../hooks/useSlugStatus";
+import { useSaveMessage } from "../../../hooks/useSaveMessage";
 import { isUniqueViolation } from "../../../lib/admin/slugs";
 
 const Tags = () => {
@@ -22,6 +24,8 @@ const Tags = () => {
   );
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const { message, showOk, clearMessage } = useSaveMessage();
   const slugStatus = useSlugStatus("blog_tags", slug);
 
   const load = async () => {
@@ -46,18 +50,25 @@ const Tags = () => {
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    if (isSaving) return;
     setSaveError(null);
+    clearMessage();
+    setIsSaving(true);
     try {
+      const savedName = name;
       await saveAdminBlogTag({ name, slug });
       setName("");
       setSlug("");
       await load();
+      showOk(`Tag "${savedName}" adicionada.`);
     } catch (caught) {
       setSaveError(
         isUniqueViolation(caught)
           ? "Este slug já está em uso. Escolha outro."
           : "Não foi possível salvar a tag."
       );
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -82,9 +93,16 @@ const Tags = () => {
               required
               value={slug}
             />
-            <Button disabled={slugStatus === "taken"} type="submit">
-              Adicionar
+            <Button
+              disabled={slugStatus === "taken"}
+              loading={isSaving}
+              type="submit"
+            >
+              {isSaving ? "Adicionando…" : "Adicionar"}
             </Button>
+          </div>
+          <div className="mt-2">
+            <SaveMessage message={message} />
           </div>
           {slugStatus === "taken" && (
             <p className="mt-2 text-xs text-red-600">

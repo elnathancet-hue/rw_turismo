@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import AdminGuard from "../../components/admin/AdminGuard";
 import AdminLayout from "../../components/admin/AdminLayout";
 import AdminListState from "../../components/admin/AdminListState";
+import SaveMessage from "../../components/admin/SaveMessage";
+import { useSaveMessage } from "../../hooks/useSaveMessage";
 import {
   createAdminCategory,
   deleteAdminCategory,
@@ -27,6 +29,8 @@ const AdminCategories = () => {
   const [values, setValues] = useState<CategoryFormValues>(emptyCategory);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const { message, showOk, clearMessage } = useSaveMessage();
   const [loadStatus, setLoadStatus] = useState<"loading" | "ready" | "error">(
     "loading"
   );
@@ -97,9 +101,13 @@ const AdminCategories = () => {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (isSaving) return;
     setError(null);
+    clearMessage();
+    setIsSaving(true);
 
     try {
+      const wasEditing = Boolean(editingId);
       if (editingId) {
         await updateAdminCategory(editingId, values);
       } else {
@@ -108,6 +116,7 @@ const AdminCategories = () => {
 
       resetForm();
       await loadCategories();
+      showOk(wasEditing ? "Categoria salva." : "Categoria criada.");
     } catch (submitError) {
       setError(
         isUniqueViolation(submitError)
@@ -116,6 +125,8 @@ const AdminCategories = () => {
             ? submitError.message
             : "Nao foi possivel salvar categoria."
       );
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -212,13 +223,16 @@ const AdminCategories = () => {
               />
               Categoria ativa
             </label>
-            <div className="mt-5 flex gap-3">
+            <div className="mt-5">
+              <SaveMessage message={message} />
+            </div>
+            <div className="mt-3 flex gap-3">
               <button
                 className="rounded bg-orange-500 px-4 py-2 font-semibold text-white hover:bg-orange-600 disabled:opacity-60"
-                disabled={slugStatus === "taken"}
+                disabled={slugStatus === "taken" || isSaving}
                 type="submit"
               >
-                {editingId ? "Salvar" : "Criar"}
+                {isSaving ? "Salvando…" : editingId ? "Salvar" : "Criar"}
               </button>
               {editingId && (
                 <button

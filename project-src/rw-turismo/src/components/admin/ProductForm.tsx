@@ -13,7 +13,9 @@ import Card from "../ui/Card";
 import { Field, Input, Select, Textarea } from "../ui/form";
 import ImageDropzone from "./ImageDropzone";
 import ImageField from "./ImageField";
+import SaveMessage from "./SaveMessage";
 import { slugFieldProps, useSlugStatus } from "../../hooks/useSlugStatus";
+import { useSaveMessage } from "../../hooks/useSaveMessage";
 import { isUniqueViolation } from "../../lib/admin/slugs";
 
 type Props = {
@@ -56,6 +58,7 @@ const ProductForm = ({ initialProduct, onSubmit, submitLabel }: Props) => {
   });
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const { message, showOk, clearMessage } = useSaveMessage();
   const [categories, setCategories] = useState<Category[]>([]);
 
   useEffect(() => {
@@ -154,6 +157,7 @@ const ProductForm = ({ initialProduct, onSubmit, submitLabel }: Props) => {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
+    clearMessage();
     setIsSaving(true);
 
     try {
@@ -175,6 +179,9 @@ const ProductForm = ({ initialProduct, onSubmit, submitLabel }: Props) => {
           .filter((tier) => tier.name),
       };
       await onSubmit(normalized);
+      // Na criação o onSubmit redireciona; na edição a pessoa fica na mesma
+      // tela, e sem isto não havia como saber que gravou.
+      showOk("Produto salvo.");
     } catch (submitError) {
       setError(
         isUniqueViolation(submitError)
@@ -536,6 +543,10 @@ const ProductForm = ({ initialProduct, onSubmit, submitLabel }: Props) => {
           />
           Produto ativo
         </label>
+
+        {/* A confirmação fica junto do botão, não no topo: o formulário é
+            longo e quem clica em Salvar está no fim da página. */}
+        <SaveMessage message={message} />
 
         <Button
           className="w-fit"
