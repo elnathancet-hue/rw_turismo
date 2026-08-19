@@ -1,13 +1,16 @@
 import {
+  ArrowRightOnRectangleIcon,
   Bars3Icon,
   MagnifyingGlassIcon,
   UserCircleIcon,
+  UserPlusIcon,
   XMarkIcon,
 } from "@heroicons/react/24/solid";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { Dispatch, FormEvent, SetStateAction } from "react";
 import useSiteMenu from "../hooks/useSiteMenu";
+import { menuIconComponent } from "../lib/content/menuIcons";
 import useSupabaseSession from "../hooks/useSupabaseSession";
 import { ISuggestionFormatted } from "../types/typings";
 
@@ -27,7 +30,7 @@ type Props = {
 const MAX_HEADER_MENU_ITEMS = 5;
 
 const menuLinkClass =
-  "max-w-[9rem] truncate whitespace-nowrap text-sm font-medium text-gray-600 transition hover:text-orange-600";
+  "flex items-center gap-1.5 max-w-[11rem] whitespace-nowrap text-sm font-medium text-gray-600 transition hover:text-orange-600";
 
 const Header = ({
   placeholder,
@@ -36,7 +39,7 @@ const Header = ({
   isOpen,
   setIsOpen,
 }: Props) => {
-  const { isAuthenticated } = useSupabaseSession();
+  const { isAuthenticated, isLoading } = useSupabaseSession();
   const { isLoading: isMenuLoading, items: menuItems } = useSiteMenu();
   const router = useRouter();
 
@@ -64,10 +67,19 @@ const Header = ({
           aria-label="Menu do site"
           className="hidden shrink-0 items-center gap-4 lg:flex"
         >
-          {menuItems.slice(0, MAX_HEADER_MENU_ITEMS).map((item) =>
-            item.url.startsWith("/") ? (
+          {menuItems.slice(0, MAX_HEADER_MENU_ITEMS).map((item) => {
+            const Icon = menuIconComponent(item.icon);
+            // O ícone é decorativo: o rótulo ao lado já nomeia o link, então
+            // repeti-lo para o leitor de tela só atrapalharia.
+            const content = (
+              <>
+                {Icon && <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />}
+                <span className="truncate">{item.label}</span>
+              </>
+            );
+            return item.url.startsWith("/") ? (
               <Link className={menuLinkClass} href={item.url} key={item.id}>
-                {item.label}
+                {content}
               </Link>
             ) : (
               <a
@@ -77,10 +89,10 @@ const Header = ({
                 rel="noopener noreferrer"
                 target="_blank"
               >
-                {item.label}
+                {content}
               </a>
-            )
-          )}
+            );
+          })}
         </nav>
       )}
 
@@ -109,6 +121,28 @@ const Header = ({
           <MagnifyingGlassIcon className="h-4 w-4" />
         </button>
       </form>
+
+      {/* Entrar / criar conta — só para quem ainda não está logado. Quem já
+          entrou tem a conta no menu lateral, e repetir aqui só ocuparia
+          espaço. Escondido abaixo de lg: no celular o caminho é o menu. */}
+      {!isLoading && !isAuthenticated && (
+        <div className="hidden shrink-0 items-center gap-2 lg:flex">
+          <Link
+            className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-orange-500 px-3 py-1.5 text-sm font-semibold text-orange-600 transition hover:bg-orange-50"
+            href="/signin?modo=cadastro"
+          >
+            <UserPlusIcon aria-hidden="true" className="h-4 w-4" />
+            Cadastre-se
+          </Link>
+          <Link
+            className="flex items-center gap-1.5 whitespace-nowrap rounded-full bg-orange-500 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-orange-600"
+            href="/signin"
+          >
+            <ArrowRightOnRectangleIcon aria-hidden="true" className="h-4 w-4" />
+            Login
+          </Link>
+        </div>
+      )}
 
       {/* User menu */}
       <div className="flex items-center gap-2 rounded-full border-2 p-1.5 text-gray-500">

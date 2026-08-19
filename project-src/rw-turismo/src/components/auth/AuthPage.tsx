@@ -2,7 +2,7 @@ import Head from "next/head";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import {
   getFriendlyAuthError,
   getSafeInternalPath,
@@ -32,6 +32,24 @@ const AuthPage = () => {
   const [success, setSuccess] = useState<string | null>(null);
   const nextPath = getSafeInternalPath(router.query.next);
   const isLoading = action !== null;
+
+  // "Cadastre-se" no cabeçalho aponta para /signin?modo=cadastro e precisa
+  // abrir já no formulário de cadastro — sem isto a pessoa cai no login e
+  // ainda tem que achar o "Criar conta".
+  //
+  // Aplica só quando o valor da URL MUDA: assim o botão que alterna entre
+  // entrar/criar conta continua mandando, em vez de a URL desfazer a escolha
+  // a cada renderização.
+  const appliedUrlMode = useRef<string | null>(null);
+  useEffect(() => {
+    if (!router.isReady) return;
+    const raw = router.query.modo;
+    const fromUrl = raw === "cadastro" ? "signup" : "signin";
+    if (appliedUrlMode.current !== fromUrl) {
+      appliedUrlMode.current = fromUrl;
+      setMode(fromUrl);
+    }
+  }, [router.isReady, router.query.modo]);
 
   const clearMessages = () => {
     setError(null);

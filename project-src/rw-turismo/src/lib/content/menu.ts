@@ -1,4 +1,5 @@
 import { createSupabaseBrowserClient } from "../supabase/browser";
+import { isMenuIconKey, type MenuIconKey } from "./menuIcons";
 
 // Site navigation menu ("abas" do site), stored in site_settings under the
 // key "menu". Readable by anon (RLS public read), writable by admins only.
@@ -9,6 +10,9 @@ export type MenuItem = {
   // Set when the item points to a CMS page — lets the builder keep the
   // menu entry in sync when the page is renamed or removed.
   page_id?: string | null;
+  // Ícone opcional exibido antes do rótulo, no cabeçalho e no menu lateral.
+  // Chave do catálogo em ./menuIcons — nunca o nome do componente.
+  icon?: MenuIconKey | null;
 };
 
 export type SiteMenu = { items: MenuItem[] };
@@ -35,6 +39,9 @@ export const normalizeMenu = (value: unknown): SiteMenu => {
         label: item.label as string,
         url: item.url as string,
         page_id: typeof item.page_id === "string" ? item.page_id : null,
+        // Chave fora do catálogo vira null: o menu é jsonb livre e um valor
+        // antigo/inválido não pode derrubar o cabeçalho do site.
+        icon: isMenuIconKey(item.icon) ? item.icon : null,
       })),
   };
 };

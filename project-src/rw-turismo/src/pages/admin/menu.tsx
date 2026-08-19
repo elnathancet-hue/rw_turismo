@@ -12,6 +12,12 @@ import {
   saveSiteMenu,
   type MenuItem,
 } from "../../lib/content/menu";
+import {
+  MENU_ICONS,
+  MENU_ICON_KEYS,
+  menuIconComponent,
+  type MenuIconKey,
+} from "../../lib/content/menuIcons";
 import type { Page } from "../../lib/content/types";
 
 const AdminMenu = () => {
@@ -64,7 +70,7 @@ const AdminMenu = () => {
   const addCustomLink = () =>
     setItems((prev) => [
       ...prev,
-      { id: menuItemId(), label: "", url: "", page_id: null },
+      { id: menuItemId(), label: "", url: "", page_id: null, icon: null },
     ]);
 
   const addPage = (pageId: string) => {
@@ -115,8 +121,42 @@ const AdminMenu = () => {
                   publicada.
                 </p>
               ) : (
-                items.map((item, index) => (
+                items.map((item, index) => {
+                  const Icon = menuIconComponent(item.icon);
+                  return (
                   <div className="flex flex-wrap items-end gap-2" key={item.id}>
+                    <div className="min-w-[11rem]">
+                      <Field label="Ícone">
+                        <div className="flex items-center gap-2">
+                          {/* Prévia ao lado do seletor: o nome sozinho não diz
+                              como o ícone vai aparecer no site. */}
+                          <span className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded border bg-gray-50">
+                            {Icon ? (
+                              <Icon className="h-5 w-5 text-gray-600" />
+                            ) : (
+                              <span className="text-xs text-gray-400">—</span>
+                            )}
+                          </span>
+                          <Select
+                            onChange={(e) =>
+                              setItem(index, {
+                                icon: (e.target.value || null) as
+                                  | MenuIconKey
+                                  | null,
+                              })
+                            }
+                            value={item.icon ?? ""}
+                          >
+                            <option value="">Sem ícone</option>
+                            {MENU_ICON_KEYS.map((key) => (
+                              <option key={key} value={key}>
+                                {MENU_ICONS[key].label}
+                              </option>
+                            ))}
+                          </Select>
+                        </div>
+                      </Field>
+                    </div>
                     <div className="min-w-[10rem] flex-1">
                       <Field label="Rótulo">
                         <Input
@@ -175,7 +215,8 @@ const AdminMenu = () => {
                       </Button>
                     </div>
                   </div>
-                ))
+                  );
+                })
               )}
             </Card>
 

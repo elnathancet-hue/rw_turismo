@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import { Dispatch, SetStateAction, useEffect } from "react";
 import { signOutFromSupabase } from "../lib/auth/client";
 import useSiteMenu from "../hooks/useSiteMenu";
+import { menuIconComponent } from "../lib/content/menuIcons";
 import useSupabaseSession from "../hooks/useSupabaseSession";
 
 type Props = {
@@ -59,29 +60,41 @@ const Drawer = ({ children, isOpen, setIsOpen }: Props) => {
                 Navegação
               </p>
               <div className="mt-2 flex flex-col space-y-1">
-                {menuItems.map((item) =>
-                  item.url.startsWith("/") ? (
+                {menuItems.map((item) => {
+                  const Icon = menuIconComponent(item.icon);
+                  const content = (
+                    <>
+                      {Icon && (
+                        <Icon
+                          aria-hidden="true"
+                          className="h-4 w-4 shrink-0 text-gray-400"
+                        />
+                      )}
+                      <span className="truncate">{item.label}</span>
+                    </>
+                  );
+                  return item.url.startsWith("/") ? (
                     <Link
-                      className="drawer-item"
+                      className="drawer-item flex items-center gap-2"
                       href={item.url}
                       key={item.id}
                       onClick={() => setIsOpen(false)}
                     >
-                      {item.label}
+                      {content}
                     </Link>
                   ) : (
                     <a
-                      className="drawer-item"
+                      className="drawer-item flex items-center gap-2"
                       href={item.url}
                       key={item.id}
                       onClick={() => setIsOpen(false)}
                       rel="noopener noreferrer"
                       target="_blank"
                     >
-                      {item.label}
+                      {content}
                     </a>
-                  )
-                )}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -92,15 +105,24 @@ const Drawer = ({ children, isOpen, setIsOpen }: Props) => {
                   Boas-vindas à RW Turismo!
                 </h2>
               </header>
-              <p>
+              <div className="flex flex-col gap-2">
                 <button
-                  className="font-bold text-orange-600 hover:text-orange-700"
+                  className="rounded-full bg-orange-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-600"
                   onClick={goToSignIn}
                   type="button"
                 >
-                  {isLoading ? "Verificando sessão" : "Entrar"}
-                </button>{" "}
-                para aproveitar uma experiência completa
+                  {isLoading ? "Verificando sessão…" : "Login"}
+                </button>
+                <Link
+                  className="rounded-full border border-orange-500 px-4 py-2 text-center text-sm font-semibold text-orange-600 transition hover:bg-orange-50"
+                  href="/signin?modo=cadastro"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Cadastre-se
+                </Link>
+              </div>
+              <p className="text-sm text-gray-500">
+                Crie sua conta para acompanhar reservas e favoritos.
               </p>
             </>
           ) : (
