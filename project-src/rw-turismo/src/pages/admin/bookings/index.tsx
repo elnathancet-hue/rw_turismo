@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
+import { useRouter } from "next/router";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import AdminGuard from "../../../components/admin/AdminGuard";
 import AdminLayout from "../../../components/admin/AdminLayout";
 import AdminListState from "../../../components/admin/AdminListState";
@@ -44,6 +45,7 @@ const paymentStatuses: Array<PaymentStatus | "all"> = [
 const shortId = (id: string) => id.slice(0, 8);
 
 const AdminBookings = () => {
+  const router = useRouter();
   const [bookings, setBookings] = useState<AdminBooking[]>([]);
   const [count, setCount] = useState(0);
   const [status, setStatus] = useState<BookingStatus | "all">("all");
@@ -58,6 +60,15 @@ const AdminBookings = () => {
   const [loadStatus, setLoadStatus] = useState<"loading" | "ready" | "error">(
     "loading"
   );
+  // Só busca depois de saber se a URL traz filtro: sem isto a lista carregava
+  // uma vez sem filtro e outra com, piscando o resultado errado no meio.
+  const [filtersReady, setFiltersReady] = useState(false);
+  // Último status que veio da URL e já foi aplicado. É um ref e não um booleano
+  // "já rodei" porque as duas coisas precisam continuar valendo: a URL manda
+  // quando MUDA, e a escolha feita no seletor da tela sobrevive quando ela não
+  // muda. Com um booleano, sair de ?status=expired para /admin/bookings deixava
+  // a tela travada no filtro antigo, discordando da URL.
+  const appliedUrlStatus = useRef<string | null>(null);
 
   const load = () => {
     setLoadStatus("loading");
@@ -85,10 +96,36 @@ const AdminBookings = () => {
       });
   };
 
+  // Permite chegar da dashboard já filtrado (/admin/bookings?status=expired).
+  // No Pages Router router.query só fica preenchido depois do isReady, por isso
+  // isto é um efeito e não um valor inicial do useState.
+  //
+  // Reage à MUDANÇA da URL, não à primeira execução: /admin/bookings e
+  // /admin/bookings?status=expired são a mesma página, e trocar entre elas não
+  // remonta o componente (o _app.tsx renderiza <Component /> sem key). Sem
+  // comparar com o último valor aplicado, clicar em "Reservas" na lateral
+  // deixava a lista presa no filtro anterior, sem nem refazer a busca.
   useEffect(() => {
+    if (!router.isReady) return;
+    const raw = router.query.status;
+    const fromUrl =
+      typeof raw === "string" && (bookingStatuses as string[]).includes(raw)
+        ? raw
+        : "all";
+
+    if (appliedUrlStatus.current !== fromUrl) {
+      appliedUrlStatus.current = fromUrl;
+      setStatus(fromUrl as BookingStatus | "all");
+      setPage(1);
+    }
+    setFiltersReady(true);
+  }, [router.isReady, router.query.status]);
+
+  useEffect(() => {
+    if (!filtersReady) return;
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, paymentStatus, source, appliedSearch, page]);
+  }, [filtersReady, status, paymentStatus, source, appliedSearch, page]);
 
   const submitSearch = (event: FormEvent) => {
     event.preventDefault();

@@ -14,7 +14,6 @@ import {
   type AdminDeparture,
   type BirthdayPerson,
 } from "../../lib/admin/client";
-import { getCrmStages, listLeads } from "../../lib/admin/crm";
 import { getFinanceSummary, type FinanceSummary } from "../../lib/admin/finance";
 import {
   bookingStatusBadge,
@@ -85,7 +84,7 @@ const AdminDashboard = () => {
   const [departures, setDepartures] = useState<AdminDeparture[]>([]);
   const [paxTotals, setPaxTotals] = useState<Record<string, number>>({});
   const [birthdaysToday, setBirthdaysToday] = useState<BirthdayPerson[]>([]);
-  const [leadsOpen, setLeadsOpen] = useState<number | null>(null);
+  const [expiredCount, setExpiredCount] = useState<number | null>(null);
   const [waitlistPending, setWaitlistPending] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -120,15 +119,14 @@ const AdminDashboard = () => {
           )
         )
         .catch(() => {}),
-      Promise.all([listLeads(), getCrmStages()])
-        .then(([leads, stages]) => {
-          const closed = new Set(
-            stages
-              .filter((s) => /ganhou|perdeu|won|lost/i.test(s.label + s.id))
-              .map((s) => s.id)
-          );
-          setLeadsOpen(leads.filter((l) => !closed.has(l.stage_id)).length);
-        })
+      // Recorte no mes: o contador do historico inteiro so sobe, e um card que
+      // fica ambar para sempre deixa de ser sinal e vira ruido.
+      searchAdminBookings({
+        status: "expired",
+        expiresFrom: `${currentMonth()}-01T00:00:00Z`,
+        limit: 1,
+      })
+        .then((result) => setExpiredCount(result.count))
         .catch(() => {}),
       listAdminWaitlist("pending")
         .then((entries) => setWaitlistPending(entries.length))
@@ -137,6 +135,14 @@ const AdminDashboard = () => {
 
     Promise.allSettled(jobs).then(() => setIsLoading(false));
   }, []);
+
+  // "A vencer" = pendente que ainda nao venceu. Em finance.ts o vencido e um
+  // SUBCONJUNTO do total em aberto, entao precisa sair da conta — senao o card
+  // diz "a vencer" exibindo dinheiro que ja venceu, e a propria dica embaixo
+  // contradiz o rotulo.
+  const upcomingReceivables = finance
+    ? finance.openReceivables - finance.overdueReceivables
+    : null;
 
   return (
     <AdminGuard>
@@ -171,38 +177,49 @@ const AdminDashboard = () => {
               href="/admin/finance"
               hint={
                 finance
-                  ? `manual: ${formatBRL(finance.manualReceived)}`
+                  ? `entrou no caixa · manual: ${formatBRL(finance.manualReceived)}`
                   : "rode as migrations para ativar"
               }
-              label="Recebido no mês"
+              label="Receita do mês"
               tone="good"
               value={finance ? formatBRL(finance.totalReceived) : "—"}
             />
             <Kpi
               href="/admin/finance/receivables"
               hint={
-                finance && finance.overdueReceivables > 0
-                  ? `${formatBRL(finance.overdueReceivables)} vencido!`
-                  : "nada vencido"
+                !finance
+                  ? "rode as migrations para ativar"
+                  : finance.overdueReceivables > 0
+                    ? `+ ${formatBRL(finance.overdueReceivables)} já vencido`
+                    : "nada vencido"
               }
-              label="A receber"
+              label="A vencer"
               tone={
                 finance && finance.overdueReceivables > 0 ? "bad" : "warn"
               }
-              value={finance ? formatBRL(finance.openReceivables) : "—"}
+              value={upcomingReceivables === null ? "—" : formatBRL(upcomingReceivables)}
             />
             <Kpi
-              href="/admin/crm"
-              hint="leads em negociação"
-              label="CRM — no funil"
-              value={leadsOpen === null ? "—" : String(leadsOpen)}
+              href="/admin/bookings?status=expired"
+              hint={
+                expiredCount === null
+                  ? "não foi possível carregar"
+                  : expiredCount > 0
+                    ? "perderam o prazo neste mês"
+                    : "nenhuma neste mês"
+              }
+              label="Reservas expiradas"
+              tone={expiredCount ? "warn" : "default"}
+              value={expiredCount === null ? "—" : String(expiredCount)}
             />
             <Kpi
               href="/admin/waitlist"
               hint={
-                waitlistPending
-                  ? "interessados aguardando vaga"
-                  : "ninguém aguardando"
+                waitlistPending === null
+                  ? "não foi possível carregar"
+                  : waitlistPending > 0
+                    ? "interessados aguardando vaga"
+                    : "ninguém aguardando"
               }
               label="Lista de espera"
               tone={waitlistPending ? "warn" : "default"}

@@ -710,6 +710,9 @@ export type AdminBookingSearch = {
   paymentStatus?: PaymentStatus | "all";
   source?: "site" | "manual" | "all";
   search?: string;
+  // Recorte por prazo de expiração (ISO). Usado pelo dashboard para contar as
+  // reservas que expiraram no mês corrente, em vez do histórico inteiro.
+  expiresFrom?: string;
   page?: number;
   limit?: number;
 };
@@ -737,6 +740,9 @@ export const searchAdminBookings = async (
   }
   if (q.source && q.source !== "all") {
     query = query.eq("source", q.source);
+  }
+  if (q.expiresFrom) {
+    query = query.gte("expires_at", q.expiresFrom);
   }
   const term = (q.search ?? "").replace(/[(),%]/g, " ").trim();
   if (term) {
