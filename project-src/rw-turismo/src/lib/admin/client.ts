@@ -1025,8 +1025,9 @@ export const listAdminWaitlist = async (
   return (data ?? []) as WaitlistEntry[];
 };
 
-// Versão paginada para a listagem do admin (Fase 5.1). A list acima continua
-// disponível caso algum caller precise de todos os registros.
+// Busca paginada por status. É o que o quadro Kanban usa para carregar cada
+// coluna com teto e contagem exata — sem isso o SELECT sem limite bate no
+// max_rows do PostgREST e trunca a tela em silêncio.
 export const searchAdminWaitlist = async (
   q: { status?: WaitlistStatus | "all"; page?: number; limit?: number } = {}
 ): Promise<{ items: WaitlistEntry[]; count: number }> => {
@@ -1053,11 +1054,20 @@ export const updateAdminWaitlistStatus = async (
   id: string,
   status: WaitlistStatus
 ): Promise<void> => {
-  const { error } = await supabase()
+  // O .select() no fim nao e enfeite: um UPDATE que o RLS recusa (ou que nao
+  // acha a linha) volta com 0 linhas e SEM erro. Sem conferir isso, a tela
+  // comemora um salvamento que nunca aconteceu.
+  const { data, error } = await supabase()
     .from("waitlist")
     .update({ status })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
   throwIfError(error);
+  if (!data || (data as unknown[]).length === 0) {
+    throw new Error(
+      "Nao foi possivel alterar este registro — ele pode ter sido removido ou seu perfil nao tem permissao."
+    );
+  }
 };
 
 export const deleteAdminWaitlist = async (id: string): Promise<void> => {
