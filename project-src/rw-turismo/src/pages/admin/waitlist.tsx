@@ -208,11 +208,22 @@ const AdminWaitlist = () => {
           </p>
         )}
 
+        {loadStatus === "ready" && total === 0 && (
+          <p className="mb-4 rounded-lg border bg-white p-4 text-sm text-gray-500">
+            <b className="font-semibold text-gray-700">
+              Ninguém na lista de espera ainda.
+            </b>{" "}
+            Quando uma saída lotar, quem entrar na fila pelo site cai na coluna
+            Aguardando — e você vai movendo o cartão daqui para a direita.
+          </p>
+        )}
+
         <AdminListState
-          emptyHint="Quando uma saída lotar, os interessados que entrarem na fila pelo site aparecem aqui."
-          emptyTitle="Ninguém na lista de espera"
           error={loadStatus === "error" ? error : null}
-          isEmpty={total === 0}
+          // O quadro aparece mesmo vazio: as colunas SÃO a explicação do fluxo
+          // e o alvo para soltar o cartão. Escondê-las atrás do aviso de lista
+          // vazia deixava a tela sem nenhum sinal de que ali existe um Kanban.
+          isEmpty={false}
           onRetry={loadAll}
           status={loadStatus}
         >
