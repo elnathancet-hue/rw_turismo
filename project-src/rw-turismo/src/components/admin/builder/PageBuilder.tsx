@@ -952,7 +952,7 @@ const PageBuilder = ({ page }: { page: Page | null }) => {
                     slugProps.hint ??
                     `A página fica em /paginas/${draft.slug || "endereco"}.`
                   }
-                  label="Endereço (slug)"
+                  label="Endereço no site"
                 >
                   <Input
                     onChange={(event) =>

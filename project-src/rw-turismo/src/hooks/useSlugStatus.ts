@@ -45,7 +45,7 @@ export const slugFieldProps = (
   status: SlugStatus
 ): { hint?: string; error?: string } => {
   if (status === "checking") return { hint: "Verificando disponibilidade…" };
-  if (status === "available") return { hint: "Slug disponível ✓" };
-  if (status === "taken") return { error: "Este slug já está em uso." };
+  if (status === "available") return { hint: "Endereço disponível ✓" };
+  if (status === "taken") return { error: "Este endereço já está em uso." };
   return {};
 };

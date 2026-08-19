@@ -134,7 +134,7 @@ const AdminDepartureTransfers = () => {
   return (
     <AdminGuard>
       <AdminLayout
-        title="Transfers"
+        title="Transfers (traslados)"
         description="Traslados da saída: motorista, horário e ponto de encontro."
       >
         <Link

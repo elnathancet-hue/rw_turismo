@@ -120,7 +120,7 @@ const AdminCategories = () => {
     } catch (submitError) {
       setError(
         isUniqueViolation(submitError)
-          ? "Este slug já está em uso. Escolha outro."
+          ? "Este endereço já está em uso. Escolha outro."
           : submitError instanceof Error
             ? submitError.message
             : "Nao foi possivel salvar categoria."
@@ -187,7 +187,11 @@ const AdminCategories = () => {
               />
             </label>
             <label className="mt-4 block text-sm font-medium">
-              Slug
+              Endereço no site
+              <span className="mt-0.5 block text-xs font-normal text-gray-500">
+                Usado no link: /search?categoria=
+                <b>{values.slug || "nome-da-categoria"}</b>
+              </span>
               <input
                 className="mt-1 w-full rounded border px-3 py-2"
                 onChange={(event) =>
@@ -201,12 +205,12 @@ const AdminCategories = () => {
               />
               {slugStatus === "taken" && (
                 <span className="mt-1 block text-xs font-normal text-red-600">
-                  Este slug já está em uso.
+                  Este endereço já está em uso.
                 </span>
               )}
               {slugStatus === "available" && (
                 <span className="mt-1 block text-xs font-normal text-gray-500">
-                  Slug disponível ✓
+                  Endereço disponível ✓
                 </span>
               )}
             </label>
@@ -317,7 +321,7 @@ const AdminCategories = () => {
               <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                 <tr>
                   <th className="px-4 py-3">Nome</th>
-                  <th className="px-4 py-3">Slug</th>
+                  <th className="px-4 py-3">Endereço</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3 text-right">Acoes</th>
                 </tr>

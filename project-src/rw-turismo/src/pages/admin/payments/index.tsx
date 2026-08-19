@@ -3,6 +3,11 @@ import { useEffect, useMemo, useState } from "react";
 import AdminGuard from "../../../components/admin/AdminGuard";
 import AdminLayout from "../../../components/admin/AdminLayout";
 import AdminListState from "../../../components/admin/AdminListState";
+import StatusPill from "../../../components/StatusPill";
+import {
+  paymentProviderLabel,
+  paymentStatusBadge,
+} from "../../../lib/bookings/status";
 import {
   getAdminPayments,
   type AdminPayment,
@@ -107,14 +112,14 @@ const AdminPayments = () => {
           <table className="w-full min-w-[1180px] text-left text-sm">
             <thead className="bg-gray-50 text-xs uppercase text-gray-500">
               <tr>
-                <th className="px-4 py-3">ID</th>
-                <th className="px-4 py-3">Booking</th>
+                <th className="px-4 py-3">Código</th>
+                <th className="px-4 py-3">Reserva</th>
                 <th className="px-4 py-3">Cliente</th>
                 <th className="px-4 py-3">Valor</th>
                 <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Provider</th>
-                <th className="px-4 py-3">Checkout</th>
-                <th className="px-4 py-3">Payment Intent</th>
+                <th className="px-4 py-3">Forma</th>
+                <th className="px-4 py-3">Sessão Stripe</th>
+                <th className="px-4 py-3">Cobrança Stripe</th>
                 <th className="px-4 py-3">Pago em</th>
                 <th className="px-4 py-3">Criado</th>
               </tr>
@@ -154,8 +159,12 @@ const AdminPayments = () => {
                   <td className="px-4 py-3">
                     {formatCurrency(payment.amount, payment.currency)}
                   </td>
-                  <td className="px-4 py-3">{payment.status}</td>
-                  <td className="px-4 py-3">{payment.provider}</td>
+                  <td className="px-4 py-3">
+                    <StatusPill {...paymentStatusBadge(payment.status)} />
+                  </td>
+                  <td className="px-4 py-3">
+                    {paymentProviderLabel(payment.provider)}
+                  </td>
                   <td className="px-4 py-3 font-mono text-xs">
                     {payment.stripe_checkout_session_id ?? "-"}
                   </td>

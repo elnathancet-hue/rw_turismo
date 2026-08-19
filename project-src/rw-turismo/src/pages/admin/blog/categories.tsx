@@ -64,7 +64,7 @@ const Categories = () => {
     } catch (caught) {
       setSaveError(
         isUniqueViolation(caught)
-          ? "Este slug já está em uso. Escolha outro."
+          ? "Este endereço já está em uso. Escolha outro."
           : "Não foi possível salvar a categoria."
       );
     } finally {
@@ -86,10 +86,10 @@ const Categories = () => {
               value={name}
             />
             <input
-              aria-label="Slug da categoria"
+              aria-label="Endereço da categoria no site"
               className="flex-1 rounded-lg border border-gray-300 px-3 py-2"
               onChange={(event) => setSlug(event.target.value)}
-              placeholder="slug"
+              placeholder="endereco-no-site"
               required
               value={slug}
             />
@@ -106,11 +106,11 @@ const Categories = () => {
           </div>
           {slugStatus === "taken" && (
             <p className="mt-2 text-xs text-red-600">
-              Este slug já está em uso.
+              Este endereço já está em uso.
             </p>
           )}
           {slugStatus === "available" && (
-            <p className="mt-2 text-xs text-gray-500">Slug disponível ✓</p>
+            <p className="mt-2 text-xs text-gray-500">Endereço disponível ✓</p>
           )}
           {saveError && (
             <p className="mt-2 text-xs text-red-600">{saveError}</p>

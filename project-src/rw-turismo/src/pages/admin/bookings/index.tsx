@@ -236,7 +236,7 @@ const AdminBookings = () => {
             <table className="w-full min-w-[1100px] text-left text-sm">
               <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                 <tr>
-                  <th className="px-4 py-3">ID</th>
+                  <th className="px-4 py-3">Código</th>
                   <th className="px-4 py-3">Cliente</th>
                   <th className="px-4 py-3">Produto</th>
                   <th className="px-4 py-3">Data</th>

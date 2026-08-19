@@ -12,6 +12,12 @@ import {
   type ProductDateWithProduct,
 } from "../../../lib/admin/client";
 import { formatDateRangeBR } from "../../../lib/format";
+import {
+  bookingStatusBadge,
+  passengerTypeLabel,
+  paymentProviderLabel,
+  paymentStatusBadge,
+} from "../../../lib/bookings/status";
 
 const PAYMENT_METHODS: Array<{ value: string; label: string }> = [
   { value: "pix", label: "PIX" },
@@ -21,6 +27,10 @@ const PAYMENT_METHODS: Array<{ value: string; label: string }> = [
   { value: "stripe", label: "Cartão (Stripe)" },
   { value: "outro", label: "Outro" },
 ];
+
+// Reaproveita a lista acima em vez de manter um segundo mapa de rótulos.
+const methodLabel = (value: string): string =>
+  PAYMENT_METHODS.find((method) => method.value === value)?.label ?? value;
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat("pt-BR", {
@@ -285,15 +295,21 @@ const AdminBookingDetailPage = () => {
                   value={booking.source === "manual" ? "Manual" : "Site"}
                 />
                 <Field2 label="Cliente" value={booking.customer_name} />
-                <Field2 label="Email" value={booking.customer_email} />
+                <Field2 label="E-mail" value={booking.customer_email} />
                 <Field2 label="Telefone" value={booking.customer_phone ?? "-"} />
                 <Field2 label="Viajantes" value={booking.travelers_count} />
                 <Field2
                   label="Total"
                   value={formatCurrency(booking.total_amount)}
                 />
-                <Field2 label="Status" value={booking.status} />
-                <Field2 label="Pagamento" value={booking.payment_status} />
+                <Field2
+                  label="Situação"
+                  value={bookingStatusBadge(booking.status).label}
+                />
+                <Field2
+                  label="Pagamento"
+                  value={paymentStatusBadge(booking.payment_status).label}
+                />
                 <Field2
                   label="Vagas liberadas"
                   value={booking.slots_released ? "Sim" : "Nao"}
@@ -339,7 +355,7 @@ const AdminBookingDetailPage = () => {
                 <table className="w-full min-w-[760px] text-left text-sm">
                   <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                     <tr>
-                      <th className="px-3 py-2">ID</th>
+                      <th className="px-3 py-2">Código</th>
                       <th className="px-3 py-2">Valor</th>
                       <th className="px-3 py-2">Status</th>
                       <th className="px-3 py-2">Método</th>
@@ -360,9 +376,13 @@ const AdminBookingDetailPage = () => {
                         <td className="px-3 py-2">
                           {formatCurrency(payment.amount)}
                         </td>
-                        <td className="px-3 py-2">{payment.status}</td>
                         <td className="px-3 py-2">
-                          {payment.method ?? payment.provider}
+                          {paymentStatusBadge(payment.status).label}
+                        </td>
+                        <td className="px-3 py-2">
+                          {payment.method
+                            ? methodLabel(payment.method)
+                            : paymentProviderLabel(payment.provider)}
                         </td>
                         <td className="px-3 py-2">
                           {formatDateTime(payment.paid_at)}
@@ -387,7 +407,9 @@ const AdminBookingDetailPage = () => {
                 {booking.passengers.map((passenger) => (
                   <div className="rounded border p-3" key={passenger.id}>
                     <p className="font-medium">{passenger.full_name}</p>
-                    <p className="text-sm text-gray-500">{passenger.type}</p>
+                    <p className="text-sm text-gray-500">
+                      {passengerTypeLabel(passenger.type)}
+                    </p>
                     <p className="text-sm text-gray-500">
                       Documento: {passenger.document ?? "-"}
                     </p>
@@ -402,7 +424,7 @@ const AdminBookingDetailPage = () => {
             </section>
 
             <section className="rounded-lg border bg-white p-5 shadow-sm">
-              <h2 className="font-semibold">Timeline operacional</h2>
+              <h2 className="font-semibold">Histórico da reserva</h2>
               <div className="mt-4 space-y-3">
                 {booking.logs.map((log) => (
                   <div className="rounded border p-3 text-sm" key={log.id}>

@@ -33,6 +33,26 @@ const bookingLabels: Record<BookingStatus, StatusBadge> = {
   expired: { label: "Expirada", tone: "neutral" },
 };
 
+// Rótulos para os demais valores que vinham do banco em inglês e chegavam
+// crus na tela (pagamento, passageiro). Ficam aqui junto dos status para o
+// painel ter um lugar só de onde tirar texto de enum.
+const providerLabels: Record<string, string> = {
+  stripe: "Cartão (Stripe)",
+  manual: "Manual",
+};
+
+export const paymentProviderLabel = (provider: string | null): string =>
+  provider ? providerLabels[provider] ?? provider : "—";
+
+const passengerTypeLabels: Record<string, string> = {
+  adult: "Adulto",
+  child: "Criança",
+  infant: "Bebê de colo",
+};
+
+export const passengerTypeLabel = (type: string | null): string =>
+  type ? passengerTypeLabels[type] ?? type : "—";
+
 export const paymentStatusBadge = (status: PaymentStatus): StatusBadge =>
   paymentLabels[status] ?? { label: status, tone: "neutral" };
 

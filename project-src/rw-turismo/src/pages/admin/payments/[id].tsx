@@ -4,6 +4,11 @@ import { useEffect, useState } from "react";
 import AdminGuard from "../../../components/admin/AdminGuard";
 import AdminLayout from "../../../components/admin/AdminLayout";
 import {
+  bookingStatusBadge,
+  paymentProviderLabel,
+  paymentStatusBadge,
+} from "../../../lib/bookings/status";
+import {
   getAdminPaymentById,
   type AdminPaymentDetail,
 } from "../../../lib/admin/client";
@@ -85,21 +90,27 @@ const AdminPaymentDetailPage = () => {
             <section className="rounded-lg border bg-white p-5 shadow-sm">
               <h2 className="font-semibold">Pagamento</h2>
               <div className="mt-4 grid gap-4 md:grid-cols-3">
-                <Field label="ID" value={payment.id} />
+                <Field label="Código" value={payment.id} />
                 <Field
                   label="Valor"
                   value={formatCurrency(payment.amount, payment.currency)}
                 />
-                <Field label="Status" value={payment.status} />
-                <Field label="Provider" value={payment.provider} />
-                <Field label="Currency" value={payment.currency} />
+                <Field
+                  label="Status"
+                  value={paymentStatusBadge(payment.status).label}
+                />
+                <Field
+                  label="Forma"
+                  value={paymentProviderLabel(payment.provider)}
+                />
+                <Field label="Moeda" value={payment.currency} />
                 <Field label="Pago em" value={formatDateTime(payment.paid_at)} />
                 <Field
-                  label="Checkout Session"
+                  label="Sessão Stripe"
                   value={payment.stripe_checkout_session_id ?? "-"}
                 />
                 <Field
-                  label="Payment Intent"
+                  label="Cobrança Stripe"
                   value={payment.stripe_payment_intent_id ?? "-"}
                 />
                 <Field label="Criado em" value={formatDateTime(payment.created_at)} />
@@ -109,13 +120,13 @@ const AdminPaymentDetailPage = () => {
             <section className="rounded-lg border bg-white p-5 shadow-sm">
               <h2 className="font-semibold">Reserva relacionada</h2>
               <div className="mt-4 grid gap-4 md:grid-cols-3">
-                <Field label="Booking ID" value={payment.booking_id} />
+                <Field label="Código da reserva" value={payment.booking_id} />
                 <Field
                   label="Cliente"
                   value={payment.bookings?.customer_name ?? "-"}
                 />
                 <Field
-                  label="Email"
+                  label="E-mail"
                   value={payment.bookings?.customer_email ?? "-"}
                 />
                 <Field
@@ -123,12 +134,21 @@ const AdminPaymentDetailPage = () => {
                   value={payment.bookings?.products?.title ?? "-"}
                 />
                 <Field
-                  label="Status reserva"
-                  value={payment.bookings?.status ?? "-"}
+                  label="Situação da reserva"
+                  value={
+                    payment.bookings
+                      ? bookingStatusBadge(payment.bookings.status).label
+                      : "-"
+                  }
                 />
                 <Field
-                  label="Status pagamento"
-                  value={payment.bookings?.payment_status ?? "-"}
+                  label="Situação do pagamento"
+                  value={
+                    payment.bookings
+                      ? paymentStatusBadge(payment.bookings.payment_status)
+                          .label
+                      : "-"
+                  }
                 />
               </div>
               <Link

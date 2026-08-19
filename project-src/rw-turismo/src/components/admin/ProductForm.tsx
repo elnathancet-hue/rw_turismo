@@ -185,7 +185,7 @@ const ProductForm = ({ initialProduct, onSubmit, submitLabel }: Props) => {
     } catch (submitError) {
       setError(
         isUniqueViolation(submitError)
-          ? "Este slug já está em uso. Escolha outro."
+          ? "Este endereço já está em uso. Escolha outro."
           : submitError instanceof Error
             ? submitError.message
             : "Não foi possível salvar o produto."
@@ -215,7 +215,11 @@ const ProductForm = ({ initialProduct, onSubmit, submitLabel }: Props) => {
               value={values.title}
             />
           </Field>
-          <Field label="Slug" {...slugFieldProps(slugStatus)}>
+          <Field
+          hint="Como a viagem aparece no link do site: /products/nome-da-viagem"
+          label="Endereço no site"
+          {...slugFieldProps(slugStatus)}
+        >
             <Input
               onChange={(event) => updateValue("slug", event.target.value)}
               required
