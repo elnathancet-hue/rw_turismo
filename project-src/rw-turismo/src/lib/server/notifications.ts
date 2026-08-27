@@ -117,6 +117,7 @@ type BookingRow = {
   travelers_count: number;
   total_amount: number | string;
   expires_at: string | null;
+  access_token?: string | null;
   products?: { title: string | null } | null;
   product_dates?: { start_date: string; end_date: string } | null;
 };
@@ -125,7 +126,7 @@ const fetchBooking = async (bookingId: string): Promise<BookingRow | null> => {
   const { data } = await db()
     .from("bookings")
     .select(
-      "id, customer_name, customer_email, customer_phone, travelers_count, total_amount, expires_at, products(title), product_dates(start_date, end_date)"
+      "id, customer_name, customer_email, customer_phone, travelers_count, total_amount, expires_at, access_token, products(title), product_dates(start_date, end_date)"
     )
     .eq("id", bookingId)
     .maybeSingle();
@@ -154,7 +155,15 @@ export const notifyBookingEvent = async (
         )
       : "";
     const total = formatBRL(Number(booking.total_amount));
-    const link = `${siteUrl()}/account/bookings/${booking.id}`;
+    // O token vai no link porque quem comprou sem cadastro não tem sessão: sem
+    // ele, a mensagem "conclua o pagamento" leva a pessoa para uma tela de
+    // login que ela não tem como passar. O link é pessoal e chega no WhatsApp
+    // e no e-mail do próprio comprador.
+    const link = booking.access_token
+      ? `${siteUrl()}/account/bookings/${booking.id}?t=${encodeURIComponent(
+          booking.access_token
+        )}`
+      : `${siteUrl()}/account/bookings/${booking.id}`;
 
     let text = "";
     let subject = "";

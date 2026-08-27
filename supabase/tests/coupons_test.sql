@@ -27,7 +27,8 @@ values
 select is(
   (select total_amount from public.create_pending_booking_transaction(
      '33333333-3333-3333-3333-333333333333', 'ddddddd1-0000-0000-0000-000000000001',
-     'eeeeeee1-0000-0000-0000-000000000001', 'C', 'cupom@tap.test', null, 1, 'PERC10')),
+     'eeeeeee1-0000-0000-0000-000000000001', 'C', 'cupom@tap.test', null, 1, 'PERC10',
+     null, '[{"full_name":"TAP 1","birth_date":"1990-01-01"}]'::jsonb)),
   900::numeric(12,2),
   'cupom percentual (10%) aplica 900'
 );
@@ -36,7 +37,8 @@ select is(
 select is(
   (select total_amount from public.create_pending_booking_transaction(
      '33333333-3333-3333-3333-333333333333', 'ddddddd1-0000-0000-0000-000000000001',
-     'eeeeeee1-0000-0000-0000-000000000001', 'C', 'cupom@tap.test', null, 1, 'FIXA100')),
+     'eeeeeee1-0000-0000-0000-000000000001', 'C', 'cupom@tap.test', null, 1, 'FIXA100',
+     null, '[{"full_name":"TAP 1","birth_date":"1990-01-01"}]'::jsonb)),
   900::numeric(12,2),
   'cupom fixo (R$100) aplica 900'
 );
@@ -45,7 +47,8 @@ select is(
 select throws_ok(
   $$ select public.create_pending_booking_transaction(
        '33333333-3333-3333-3333-333333333333', 'ddddddd1-0000-0000-0000-000000000001',
-       'eeeeeee1-0000-0000-0000-000000000001', 'C', 'cupom@tap.test', null, 1, 'VENCIDO') $$,
+       'eeeeeee1-0000-0000-0000-000000000001', 'C', 'cupom@tap.test', null, 1, 'VENCIDO',
+       null, '[{"full_name":"TAP 1","birth_date":"1990-01-01"}]'::jsonb) $$,
   'P0001', 'COUPON_EXPIRED', 'cupom vencido é recusado'
 );
 
@@ -53,7 +56,8 @@ select throws_ok(
 select throws_ok(
   $$ select public.create_pending_booking_transaction(
        '33333333-3333-3333-3333-333333333333', 'ddddddd1-0000-0000-0000-000000000001',
-       'eeeeeee1-0000-0000-0000-000000000001', 'C', 'cupom@tap.test', null, 1, 'ESGOTADO') $$,
+       'eeeeeee1-0000-0000-0000-000000000001', 'C', 'cupom@tap.test', null, 1, 'ESGOTADO',
+       null, '[{"full_name":"TAP 1","birth_date":"1990-01-01"}]'::jsonb) $$,
   'P0001', 'COUPON_EXHAUSTED', 'cupom esgotado é recusado'
 );
 
@@ -61,7 +65,8 @@ select throws_ok(
 select throws_ok(
   $$ select public.create_pending_booking_transaction(
        '33333333-3333-3333-3333-333333333333', 'ddddddd1-0000-0000-0000-000000000001',
-       'eeeeeee1-0000-0000-0000-000000000001', 'C', 'cupom@tap.test', null, 1, 'SOOUTRO') $$,
+       'eeeeeee1-0000-0000-0000-000000000001', 'C', 'cupom@tap.test', null, 1, 'SOOUTRO',
+       null, '[{"full_name":"TAP 1","birth_date":"1990-01-01"}]'::jsonb) $$,
   'P0001', 'COUPON_WRONG_PRODUCT', 'cupom de outro produto é recusado'
 );
 

@@ -67,6 +67,13 @@ export const mapRpcError = (message: string) => {
     return new PendingBookingError("Not enough available slots.", 409);
   }
 
+  if (message.includes("PASSENGERS_REQUIRED")) {
+    return new PendingBookingError(
+      "Informe o nome de cada viajante para concluir a reserva.",
+      400
+    );
+  }
+
   if (message.includes("PASSENGERS_COUNT_MISMATCH")) {
     return new PendingBookingError(
       "A lista de viajantes não bate com a quantidade informada.",

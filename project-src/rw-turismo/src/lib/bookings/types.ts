@@ -2,6 +2,8 @@ export type BookingStatus = "pending" | "confirmed" | "cancelled" | "expired";
 
 export type PaymentStatus =
   | "pending"
+  // Pix emitido, aguardando a transferência cair.
+  | "processing"
   | "paid"
   | "failed"
   | "refunded"

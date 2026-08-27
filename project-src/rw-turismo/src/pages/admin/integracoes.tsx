@@ -65,6 +65,12 @@ const groups: GroupDef[] = [
         secret: true,
         hint: "Crie o webhook no Stripe apontando para a URL mostrada abaixo.",
       },
+      {
+        key: "stripe_pix_enabled",
+        label: "Aceitar Pix no checkout",
+        secret: false,
+        hint: 'Escreva "true" para oferecer Pix. Só funciona depois que o Pix estiver liberado para a conta no painel do Stripe; sem isso o checkout deixa de abrir. Teste em ambiente de testes antes.',
+      },
     ],
   },
 ];
@@ -251,7 +257,9 @@ const AdminIntegracoes = () => {
               <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs">
                 {status.siteUrl}/api/payments/webhook
               </code>{" "}
-              (eventos: checkout.session.completed, checkout.session.expired,
+              (eventos: checkout.session.completed,
+              checkout.session.async_payment_succeeded,
+              checkout.session.async_payment_failed, checkout.session.expired,
               payment_intent.payment_failed)
             </p>
           )}

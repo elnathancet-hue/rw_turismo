@@ -5,7 +5,12 @@ import type {
   InternalStripeMetadata,
 } from "./types";
 
-type NegativeEventKind = "checkout_expired" | "payment_failed";
+type NegativeEventKind =
+  | "checkout_expired"
+  | "payment_failed"
+  // Pix emitido e nunca pago. Não vem como checkout_expired porque a sessão já
+  // estava concluída quando o QR foi gerado, e sessão concluída não expira.
+  | "async_payment_failed";
 
 type BookingRecord = {
   id: string;
@@ -86,7 +91,10 @@ export const handleInternalPaymentNegativeEvent = async (
   const stripeCheckoutSessionId =
     eventObject.object === "checkout.session" ? eventObject.id : null;
   const stripePaymentIntentId = getPaymentIntentId(eventObject);
-  const targetPaymentStatus = kind === "payment_failed" ? "failed" : "cancelled";
+  const targetPaymentStatus =
+    kind === "payment_failed" || kind === "async_payment_failed"
+      ? "failed"
+      : "cancelled";
 
   if (!metadata) {
     await logEvent("payment_invalid_metadata", "payment", null, {
@@ -198,7 +206,10 @@ export const handleInternalPaymentNegativeEvent = async (
 
   if (
     bookingRecord.status === "pending" &&
-    bookingRecord.payment_status === "pending"
+    // 'processing' entra junto: é o Pix que foi emitido e nunca pago. Sem isto
+    // o async_payment_failed não devolveria a vaga, e a sessão não vai gerar
+    // checkout.session.expired para consertar depois — ela já está `complete`.
+    ["pending", "processing"].includes(bookingRecord.payment_status)
   ) {
     const { data: expireResult, error: expireError } = await supabase.rpc(
       "expire_pending_booking",
@@ -224,7 +235,10 @@ export const handleInternalPaymentNegativeEvent = async (
     }
   }
 
-  if (paymentRecord.status === "pending") {
+  // 'processing' entra junto de 'pending': é onde o pagamento do Pix fica
+  // parado esperando a transferência. Sem isto, um Pix que falhou deixaria o
+  // registro em 'processing' para sempre.
+  if (["pending", "processing"].includes(paymentRecord.status)) {
     const { error: updatePaymentError } = await supabase
       .from("payments")
       .update({
@@ -233,11 +247,41 @@ export const handleInternalPaymentNegativeEvent = async (
         stripe_payment_intent_id: stripePaymentIntentId,
       })
       .eq("id", paymentRecord.id)
-      .eq("status", "pending");
+      .in("status", ["pending", "processing"]);
 
     if (updatePaymentError) {
       throw updatePaymentError;
     }
+  }
+
+  // Pix falhou mas a reserva AINDA está no prazo: devolve para 'pending' para o
+  // cliente poder tentar de novo (outro Pix ou cartão). Sem isto ele ficaria
+  // preso em "aguardando Pix" olhando um código morto, com a vaga separada e
+  // sem botão de pagar — o pior dos dois mundos.
+  // SÓ o async_payment_failed pode devolver a reserva para 'pending'. Um
+  // payment_intent.payment_failed atrasado (cartão recusado antes do Pix, na
+  // mesma sessão) ou o checkout_expired da sessão anterior derrubariam um Pix
+  // ainda vivo: o botão de pagar voltaria, o cliente pagaria de novo, e
+  // ficariam duas cobranças de pé.
+  if (
+    kind === "async_payment_failed" &&
+    !expired &&
+    bookingRecord.payment_status === "processing"
+  ) {
+    const { error: resetError } = await supabase
+      .from("bookings")
+      .update({ payment_status: "pending" })
+      .eq("id", bookingRecord.id)
+      .eq("payment_status", "processing");
+
+    if (resetError) {
+      throw resetError;
+    }
+
+    await logEvent("booking_async_payment_reset", "booking", bookingRecord.id, {
+      payment_id: paymentRecord.id,
+      stripe_event_kind: kind,
+    });
   }
 
   if (!expired && !slotsReleased) {

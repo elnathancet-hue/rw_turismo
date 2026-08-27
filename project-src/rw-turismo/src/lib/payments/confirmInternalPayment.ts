@@ -94,12 +94,17 @@ const markRequiresReview = async (
       stripe_checkout_session_id: session.id,
       stripe_payment_intent_id: stripePaymentIntentId,
     })
-    .eq("id", payment.id);
+    .eq("id", payment.id)
+    .not("status", "eq", "paid");
 
   if (updatePaymentError) {
     throw updatePaymentError;
   }
 
+  // As guardas acima conferem um snapshot lido segundos antes; entre a leitura
+  // e a escrita não há transação. Sem estas condições, um evento atrasado
+  // rebaixaria para "Em análise" uma reserva que já confirmou — e o pagamento
+  // sumiria da receita, que filtra por 'paid'.
   const { error: updateBookingError } = await supabase
     .from("bookings")
     .update({
@@ -107,7 +112,9 @@ const markRequiresReview = async (
       stripe_checkout_session_id: session.id,
       stripe_payment_intent_id: stripePaymentIntentId,
     })
-    .eq("id", booking.id);
+    .eq("id", booking.id)
+    .neq("status", "confirmed")
+    .not("payment_status", "eq", "paid");
 
   if (updateBookingError) {
     throw updateBookingError;
@@ -124,6 +131,119 @@ const markRequiresReview = async (
     payment_id: payment.id,
     status: "requires_review",
     reason,
+  };
+};
+
+// Sessão concluída com o dinheiro ainda por vir (Pix, boleto).
+//
+// A reserva NÃO é confirmada e o cupom NÃO é queimado: nada disso aconteceu
+// ainda. O hold segue de pé com o mesmo expires_at, então a vaga continua
+// separada até a transferência cair ou o prazo passar.
+const markAwaitingAsyncPayment = async (
+  payment: PaymentRecord,
+  booking: BookingRecord,
+  session: Stripe.Checkout.Session
+): Promise<ConfirmInternalPaymentResult> => {
+  const supabase = createSupabaseAdminClient() as any;
+  const stripePaymentIntentId = getPaymentIntentId(session);
+
+  // Já estava em processing: reentrega do mesmo evento, nada a fazer.
+  if (
+    payment.status === "processing" &&
+    booking.payment_status === "processing"
+  ) {
+    return {
+      booking_id: booking.id,
+      payment_id: payment.id,
+      status: "processing",
+      reason: "Already awaiting asynchronous payment.",
+    };
+  }
+
+  // Só reserva viva e sem dinheiro pode ficar esperando. Reserva já expirada,
+  // cancelada ou paga não volta para "aguardando" por causa de um evento
+  // atrasado — a Stripe não garante ordem de entrega.
+  if (
+    booking.status !== "pending" ||
+    !["pending", "processing"].includes(booking.payment_status)
+  ) {
+    await logEvent("payment_async_ignored", "payment", payment.id, {
+      booking_id: booking.id,
+      stripe_checkout_session_id: session.id,
+      booking_status: booking.status,
+      booking_payment_status: booking.payment_status,
+    });
+
+    return {
+      booking_id: booking.id,
+      payment_id: payment.id,
+      status: "ignored",
+      reason: "Booking cannot wait for an asynchronous payment.",
+    };
+  }
+
+  // A reserva primeiro, e com condição de estado: é ela que decide o que a tela
+  // mostra e o que o cron faz. Um UPDATE do PostgREST que não casa nenhuma
+  // linha NÃO devolve erro — por isso o .select(), para saber se de fato mudou
+  // alguma coisa em vez de seguir contando uma história que não aconteceu.
+  const { data: reservaAtualizada, error: updateBookingError } = await supabase
+    .from("bookings")
+    .update({
+      payment_status: "processing",
+      stripe_checkout_session_id: session.id,
+      stripe_payment_intent_id: stripePaymentIntentId,
+    })
+    .eq("id", booking.id)
+    .eq("status", "pending")
+    .in("payment_status", ["pending", "processing"])
+    .select("id");
+
+  if (updateBookingError) {
+    throw updateBookingError;
+  }
+
+  if (!reservaAtualizada?.length) {
+    await logEvent("payment_async_race", "payment", payment.id, {
+      booking_id: booking.id,
+      stripe_checkout_session_id: session.id,
+      reason: "Booking state changed between read and write.",
+    });
+
+    return {
+      booking_id: booking.id,
+      payment_id: payment.id,
+      status: "ignored",
+      reason: "Booking state changed between read and write.",
+    };
+  }
+
+  // 'failed' também pode virar 'processing': cartão recusado e depois Pix, na
+  // mesma sessão. O que nunca pode é rebaixar um pagamento já confirmado.
+  const { error: updatePaymentError } = await supabase
+    .from("payments")
+    .update({
+      status: "processing",
+      stripe_checkout_session_id: session.id,
+      stripe_payment_intent_id: stripePaymentIntentId,
+    })
+    .eq("id", payment.id)
+    .not("status", "eq", "paid");
+
+  if (updatePaymentError) {
+    throw updatePaymentError;
+  }
+
+  await logEvent("payment_awaiting_async", "payment", payment.id, {
+    booking_id: booking.id,
+    stripe_checkout_session_id: session.id,
+    stripe_payment_status: session.payment_status,
+  });
+
+  return {
+    booking_id: booking.id,
+    payment_id: payment.id,
+    status: "processing",
+    reason: "Awaiting asynchronous payment confirmation.",
   };
 };
 
@@ -234,6 +354,21 @@ export const confirmInternalPayment = async (
     };
   }
 
+  // O PORTÃO DO DINHEIRO DE VERDADE.
+  //
+  // "checkout.session.completed" quer dizer que a SESSÃO terminou, não que o
+  // pagamento entrou. Com cartão as duas coisas coincidem. Com Pix não: a
+  // sessão conclui no instante em que o cliente recebe o QR Code, e o
+  // amount_total já vem certo desde a criação — ou seja, a conferência de valor
+  // logo acima passa perfeitamente numa sessão em que ninguém pagou nada. Sem
+  // esta linha, ligar o Pix confirmaria reserva não paga e queimaria o cupom.
+  //
+  // 'no_payment_required' (sessão de valor zero) não existe neste fluxo, mas
+  // também não é dinheiro entrando: só 'paid' confirma.
+  if (session.payment_status !== "paid") {
+    return markAwaitingAsyncPayment(paymentRecord, bookingRecord, session);
+  }
+
   const expiresAtMs = bookingRecord.expires_at
     ? new Date(bookingRecord.expires_at).getTime()
     : NaN;
@@ -249,11 +384,13 @@ export const confirmInternalPayment = async (
 
   if (
     bookingRecord.status !== "pending" ||
-    bookingRecord.payment_status !== "pending" ||
+    // "processing" é onde o Pix fica entre o QR e a transferência: é
+    // exatamente de onde async_payment_succeeded confirma.
+    !["pending", "processing"].includes(bookingRecord.payment_status) ||
     // "failed" é confirmável: cartão recusado seguido de nova tentativa na
     // MESMA sessão de checkout. Valor/moeda e expiração já foram validados
     // acima, então o dinheiro capturado corresponde à reserva ainda válida.
-    !["pending", "paid", "failed"].includes(paymentRecord.status)
+    !["pending", "processing", "paid", "failed"].includes(paymentRecord.status)
   ) {
     return markRequiresReview(
       paymentRecord,
@@ -280,7 +417,7 @@ export const confirmInternalPayment = async (
     throw updatePaymentError;
   }
 
-  const { error: updateBookingError } = await supabase
+  const { data: confirmada, error: updateBookingError } = await supabase
     .from("bookings")
     .update({
       status: "confirmed",
@@ -289,10 +426,29 @@ export const confirmInternalPayment = async (
       stripe_checkout_session_id: session.id,
       stripe_payment_intent_id: stripePaymentIntentId,
     })
-    .eq("id", bookingRecord.id);
+    .eq("id", bookingRecord.id)
+    // Só reserva ainda pendente vira confirmada. Se o cron a expirou entre a
+    // leitura e agora, confirmar aqui daria vaga que já voltou para o estoque.
+    .eq("status", "pending")
+    .select("id");
 
   if (updateBookingError) {
     throw updateBookingError;
+  }
+
+  if (!confirmada?.length) {
+    await logEvent("payment_confirm_race", "payment", paymentRecord.id, {
+      booking_id: bookingRecord.id,
+      stripe_checkout_session_id: session.id,
+      reason: "Booking left the pending state between read and write.",
+    });
+
+    return markRequiresReview(
+      paymentRecord,
+      bookingRecord,
+      session,
+      "Booking left the pending state before confirmation."
+    );
   }
 
   // Cupom só é "consumido" quando o pagamento confirma (Fase 2.5). Falha aqui

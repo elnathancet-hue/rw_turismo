@@ -71,7 +71,13 @@ const loadPassengerForUpload = async (
     throw new PassengerDocumentError("Reserva não encontrada.", 404);
   }
 
-  if (booking.status !== "pending" || booking.payment_status !== "pending") {
+  // 'processing' entra junto: com o Pix emitido a reserva ainda não foi paga, e
+  // se a operação pedir reenvio de documento nesse meio-tempo o cliente precisa
+  // conseguir enviar. Sem isto ele via o campo aberto na tela e levava 409.
+  if (
+    booking.status !== "pending" ||
+    !["pending", "processing"].includes(booking.payment_status)
+  ) {
     throw new PassengerDocumentError(
       "Esta reserva não aceita mais envio de documento.",
       409
@@ -141,6 +147,35 @@ export const confirmDocumentUpload = async (
   // apontaria o registro para um arquivo de outra reserva.
   if (!path.startsWith(`${bookingId}/${passenger.id}/`)) {
     throw new PassengerDocumentError("Arquivo inválido.", 400);
+  }
+
+  // O arquivo TEM que estar lá. Sem esta conferência bastava chamar a rota de
+  // "confirmar" com um caminho inventado — o prefixo confere, afinal é a
+  // própria reserva — para o status virar 'uploaded' e o portão do pagamento
+  // abrir sem nenhum documento ter sido enviado.
+  const pasta = path.slice(0, path.lastIndexOf("/"));
+  const arquivo = path.slice(path.lastIndexOf("/") + 1);
+
+  const { data: encontrados, error: listError } = await admin()
+    .storage.from(DOCUMENT_BUCKET)
+    .list(pasta, { search: arquivo, limit: 100 });
+
+  if (listError) {
+    throw new PassengerDocumentError(
+      "Não foi possível conferir o envio do documento.",
+      503
+    );
+  }
+
+  const existe = (encontrados ?? []).some(
+    (item: { name?: string }) => item?.name === arquivo
+  );
+
+  if (!existe) {
+    throw new PassengerDocumentError(
+      "O arquivo não chegou. Tente enviar novamente.",
+      409
+    );
   }
 
   const antigo = passenger.document_path;

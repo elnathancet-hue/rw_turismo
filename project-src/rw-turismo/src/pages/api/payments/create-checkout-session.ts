@@ -39,24 +39,39 @@ const handler = async (
     // enviou — do contrário bastaria mandar o user_id de outra pessoa.
     const supabase = createSupabaseServerClient({ req, res });
     const { data } = await supabase.auth.getUser();
-    let ownerUserId = data?.user?.id ?? null;
+    const sessionUserId = data?.user?.id ?? null;
+
+    // O token é conferido SEMPRE que vem, mesmo havendo sessão. Aceitar a
+    // sessão às cegas quebrava quem abre o link da compra sem cadastro num
+    // navegador onde outra pessoa está logada: o dono viraria o usuário
+    // logado, a reserva não seria encontrada e o erro seria "reserva não
+    // existe" — para uma reserva que existe e é dela.
+    const guestBooking = await findBookingByAccessToken(
+      bookingId,
+      getString(req.body?.access_token)
+    );
+    const tokenUserId = guestBooking
+      ? (guestBooking as unknown as { user_id: string }).user_id
+      : null;
+
+    // Quem manda é o dono da reserva NO BANCO. No caminho do token o user_id
+    // sai da própria reserva encontrada, nunca de algo que o cliente enviou.
+    const ownerUserId = tokenUserId ?? sessionUserId;
 
     if (!ownerUserId) {
-      const guestBooking = await findBookingByAccessToken(
-        bookingId,
-        getString(req.body?.access_token)
-      );
-
-      if (!guestBooking) {
-        return res.status(401).json({ error: "Authentication required." });
-      }
-
-      ownerUserId = (guestBooking as unknown as { user_id: string }).user_id;
+      return res.status(401).json({ error: "Authentication required." });
     }
+
+    // Convidado é quem provou posse pelo token, e não pela sessão: só ele
+    // precisa do token de volta nas URLs de retorno da Stripe.
+    const isGuest = Boolean(tokenUserId) && tokenUserId !== sessionUserId;
 
     const result = await createInternalCheckoutSession({
       booking_id: bookingId,
       user_id: ownerUserId,
+      // Só o convidado leva o token nas URLs de retorno. Quem está logado volta
+      // pela sessão, e não há motivo para o token dele passear pela Stripe.
+      is_guest: isGuest,
     });
 
     return res.status(200).json(result);

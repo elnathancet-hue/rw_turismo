@@ -9,10 +9,7 @@ import Drawer from "../../../components/Drawer";
 import Footer from "../../../components/Footer";
 import Header from "../../../components/Header";
 import useSupabaseSession from "../../../hooks/useSupabaseSession";
-import {
-  getMyBookingById,
-  getMyBookingPassengers,
-} from "../../../lib/bookings/client";
+import { fetchBookingForViewer } from "../../../lib/bookings/viewerAccess";
 import {
   isBookingExpired,
   isExpiredPendingBooking,
@@ -55,28 +52,15 @@ const BookingDetails = () => {
   // pagamento). Antes cada um chamava getMyBookingById direto, que depende de
   // sessão — para o convidado, todos falhariam calados.
   const fetchBooking = useCallback(async (): Promise<BookingSummary | null> => {
-    if (isAuthenticated) {
-      const [reserva, pax] = await Promise.all([
-        getMyBookingById(id),
-        getMyBookingPassengers(id),
-      ]);
-      setPassengers(pax);
-      return reserva;
-    }
-
-    if (!accessToken) return null;
-
-    const response = await fetch(`/api/bookings/${id}/guest`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ access_token: accessToken }),
+    const resultado = await fetchBookingForViewer(id, {
+      isAuthenticated,
+      accessToken,
     });
-    const payload = await response.json();
-    if (!response.ok) {
-      throw new Error(payload?.error ?? "Reserva não encontrada.");
-    }
-    setPassengers((payload.passengers ?? []) as PassengerDocument[]);
-    return payload.booking as BookingSummary;
+
+    if (!resultado) return null;
+
+    setPassengers(resultado.passengers as PassengerDocument[]);
+    return resultado.booking;
   }, [accessToken, id, isAuthenticated]);
 
   useEffect(() => {

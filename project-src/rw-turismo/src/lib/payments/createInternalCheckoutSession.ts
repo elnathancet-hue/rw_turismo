@@ -25,6 +25,7 @@ type BookingRecord = {
   status: string;
   payment_status: string;
   expires_at: string | null;
+  access_token?: string | null;
   stripe_checkout_session_id?: string | null;
   products?: {
     title?: string | null;
@@ -77,7 +78,7 @@ export const createInternalCheckoutSession = async (
   const { data: booking, error: bookingError } = await supabase
     .from("bookings")
     .select(
-      "id, user_id, product_id, product_date_id, travelers_count, total_amount, status, payment_status, expires_at, stripe_checkout_session_id, products(title, destination, cover_image)"
+      "id, user_id, product_id, product_date_id, travelers_count, total_amount, status, payment_status, expires_at, access_token, stripe_checkout_session_id, products(title, destination, cover_image)"
     )
     .eq("id", input.booking_id)
     .maybeSingle();
@@ -100,7 +101,12 @@ export const createInternalCheckoutSession = async (
     bookingRecord.status !== "pending" ||
     bookingRecord.payment_status !== "pending"
   ) {
-    throw new InternalCheckoutError("Booking is not payable.", 409);
+    throw new InternalCheckoutError(
+      bookingRecord.payment_status === "processing"
+        ? "Já existe um Pix aberto para esta reserva. Pague por ele ou aguarde o código expirar para tentar de outra forma."
+        : "Esta reserva não está mais disponível para pagamento.",
+      409
+    );
   }
 
   assertNotExpired(bookingRecord.expires_at);
@@ -206,9 +212,56 @@ export const createInternalCheckoutSession = async (
     Math.max(bookingExpiresAtMs, minSessionExpiryMs) / 1000
   );
 
-  const session = await stripe.checkout.sessions.create({
-    mode: "payment",
-    payment_method_types: ["card"],
+  // Pix é assíncrono: a sessão conclui quando o QR é emitido, e o dinheiro vem
+  // depois. Todo o caminho que trata isso (payment_status 'processing',
+  // async_payment_succeeded/failed) já está no ar — esta chave só decide se o
+  // meio de pagamento aparece na tela.
+  //
+  // Lista explícita em vez de formas de pagamento dinâmicas de propósito: se o
+  // Pix não estiver liberado na conta, sessions.create falha alto e visível. Com
+  // formas dinâmicas ele sumiria em silêncio, inclusive por estourar o teto de
+  // valor do Pix — e pacote de viagem é justamente o caso caro.
+  // Quem comprou sem cadastro volta da Stripe sem sessão nenhuma. Sem o token na
+  // URL de retorno, a tela de "pagamento aprovado" manda a pessoa para o login
+  // logo depois de ela pagar — que é onde o funil morre.
+  const returnToken =
+    input.is_guest && bookingRecord.access_token
+      ? `&t=${encodeURIComponent(bookingRecord.access_token)}`
+      : "";
+
+  const pixEnabled = (await getSecret("stripe_pix_enabled")) === "true";
+
+  // O Pix é assíncrono: o cliente sai da tela com um código e paga depois. Se o
+  // hold estiver acabando, esse código nasce condenado — ou o cliente paga um
+  // QR de uma vaga que já voltou para o estoque, ou desiste no meio. Com pouco
+  // tempo restante, oferecer só cartão (que resolve na hora) é o certo.
+  const restanteDoHoldMs = bookingExpiresAtMs - Date.now();
+  const MARGEM_MINIMA_PIX_MS = 10 * 60 * 1000;
+  const oferecePix = pixEnabled && restanteDoHoldMs >= MARGEM_MINIMA_PIX_MS;
+
+  // A Stripe conta este prazo a partir do momento em que o cliente CONFIRMA o
+  // Pix na tela dela, não de agora. Ou seja: mesmo alinhado ao hold, sobra uma
+  // folga em que o QR vive além da reserva. Quem pagar nessa folga cai no
+  // portão de expiração de confirmInternalPayment e vai para "em análise" —
+  // dinheiro recebido, reserva conferida por gente. É o motivo da margem acima
+  // ser generosa. O mínimo aceito pela API é 10 segundos.
+  const pixExpiresAfterSeconds = Math.min(
+    86400,
+    Math.max(10, Math.floor(restanteDoHoldMs / 1000))
+  );
+
+  const parametrosDaSessao = (
+    metodos: Array<"card" | "pix">
+  ): Stripe.Checkout.SessionCreateParams => ({
+    mode: "payment" as const,
+    payment_method_types: metodos,
+    ...(metodos.includes("pix")
+      ? {
+          payment_method_options: {
+            pix: { expires_after_seconds: pixExpiresAfterSeconds },
+          },
+        }
+      : {}),
     expires_at: sessionExpiresAt,
     line_items: [
       {
@@ -226,8 +279,8 @@ export const createInternalCheckoutSession = async (
         quantity: 1,
       },
     ],
-    success_url: `${siteUrl}/account/bookings/payment-success?booking_id=${bookingRecord.id}`,
-    cancel_url: `${siteUrl}/account/bookings/payment-cancel?booking_id=${bookingRecord.id}`,
+    success_url: `${siteUrl}/account/bookings/payment-success?booking_id=${bookingRecord.id}${returnToken}`,
+    cancel_url: `${siteUrl}/account/bookings/payment-cancel?booking_id=${bookingRecord.id}${returnToken}`,
     metadata: {
       booking_id: bookingRecord.id,
       payment_id: payment.id,
@@ -243,6 +296,45 @@ export const createInternalCheckoutSession = async (
       },
     },
   });
+
+  // Pix e cartão não podem cair juntos.
+  //
+  // No Brasil o Pix é liberado por convite: se a chave estiver ligada e a conta
+  // não tiver a permissão, sessions.create lança e o comprador vê um erro
+  // genérico — sem conseguir pagar por meio NENHUM, cartão inclusive. Um campo
+  // de texto no painel derrubaria o funil inteiro. Aqui a sessão é refeita só
+  // com cartão, e a recusa fica registrada para alguém ver.
+  let session: Stripe.Checkout.Session;
+
+  try {
+    session = await stripe.checkout.sessions.create(
+      parametrosDaSessao(oferecePix ? ["card", "pix"] : ["card"])
+    );
+  } catch (erroDaSessao) {
+    const mensagem =
+      erroDaSessao instanceof Error ? erroDaSessao.message : String(erroDaSessao);
+    const pareceRecusaDePix =
+      oferecePix &&
+      (mensagem.toLowerCase().includes("pix") ||
+        mensagem.includes("payment_method_types"));
+
+    if (!pareceRecusaDePix) {
+      console.error("Stripe recusou a criação da sessão", erroDaSessao);
+      throw new InternalCheckoutError(
+        "Não foi possível abrir o pagamento agora. Tente novamente em instantes.",
+        502
+      );
+    }
+
+    await supabase.from("system_logs").insert({
+      action: "stripe_pix_rejected",
+      entity: "booking",
+      entity_id: bookingRecord.id,
+      metadata: { message: mensagem },
+    });
+
+    session = await stripe.checkout.sessions.create(parametrosDaSessao(["card"]));
+  }
 
   if (!session.url) {
     throw new InternalCheckoutError("Unable to create checkout URL.", 500);

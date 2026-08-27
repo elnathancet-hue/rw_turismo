@@ -31,6 +31,9 @@ const formatDateTime = (value: string | null) =>
 const paymentStatuses: Array<PaymentStatus | "all"> = [
   "all",
   "pending",
+  // Quem gerou o Pix e não pagou. É a lista de retomada de venda com maior
+  // retorno do painel — sem ela, não há como montar esse follow-up.
+  "processing",
   "paid",
   "failed",
   "refunded",
@@ -93,7 +96,7 @@ const AdminPayments = () => {
               value={status}
             >
               {paymentStatuses.map((item) => (
-                <option key={item} value={item}>
+                <option key={paymentStatusBadge(item as PaymentStatus).label} value={item}>
                   {item === "all" ? "Todos" : item}
                 </option>
               ))}

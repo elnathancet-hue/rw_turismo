@@ -28,8 +28,17 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       console.error("daily cron: expire sweep failed", error);
       return null;
     });
+    // Retenção de documento entra aqui em vez de virar um terceiro cron: é
+    // rotina de granularidade diária, e o plano da Vercel limita quantos crons
+    // o projeto pode ter. Falha nela não derruba as notificações.
+    const purgedDocuments = await purgeExpiredDocuments().catch((error) => {
+      console.error("daily cron: purge de documentos falhou", error);
+      return null;
+    });
     const summary = await runDailyNotifications();
-    return res.status(200).json({ ok: true, summary, expiredBookings });
+    return res
+      .status(200)
+      .json({ ok: true, summary, expiredBookings, purgedDocuments });
   } catch (error) {
     console.error("daily cron failed", error);
     return res.status(500).json({ error: "Cron failed" });

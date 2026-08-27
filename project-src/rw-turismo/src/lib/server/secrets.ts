@@ -9,7 +9,11 @@ export type SecretKey =
   | "resend_from"
   | "stripe_secret_key"
   | "stripe_publishable_key"
-  | "stripe_webhook_secret";
+  | "stripe_webhook_secret"
+  // "true" liga o Pix no checkout. Fica no painel, e não em variável de
+  // ambiente, porque env na Vercel só passa a valer depois de um novo deploy —
+  // e ligar/desligar meio de pagamento é decisão de operação, não de release.
+  | "stripe_pix_enabled";
 
 const envFallback: Partial<Record<SecretKey, string | undefined>> = {
   stripe_secret_key: process.env.STRIPE_SECRET_KEY,

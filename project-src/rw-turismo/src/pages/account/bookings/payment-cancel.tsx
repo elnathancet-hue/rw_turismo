@@ -4,11 +4,18 @@ import { useState } from "react";
 import Drawer from "../../../components/Drawer";
 import Footer from "../../../components/Footer";
 import Header from "../../../components/Header";
+import useSupabaseSession from "../../../hooks/useSupabaseSession";
+import { withAccessToken } from "../../../lib/bookings/viewerAccess";
 
 const PaymentCancel = () => {
   const router = useRouter();
   const bookingId =
     typeof router.query.booking_id === "string" ? router.query.booking_id : "";
+  // Sem o token aqui, "Concluir pagamento" levava quem comprou sem cadastro
+  // direto para o login — desistindo da venda no lugar exato em que ela ainda
+  // podia ser salva.
+  const accessToken = typeof router.query.t === "string" ? router.query.t : "";
+  const { isAuthenticated } = useSupabaseSession();
   const [isOpen, setIsOpen] = useState(false);
   const [headerSearch, setHeaderSearch] = useState("");
 
@@ -31,17 +38,22 @@ const PaymentCancel = () => {
           {bookingId && (
             <Link
               className="rounded bg-orange-600 px-5 py-2 font-semibold text-white hover:bg-orange-700"
-              href={`/account/bookings/${bookingId}`}
+              href={withAccessToken(
+                `/account/bookings/${bookingId}`,
+                accessToken
+              )}
             >
               Concluir pagamento
             </Link>
           )}
-          <Link
-            className="rounded border px-5 py-2 font-semibold hover:bg-gray-50"
-            href="/account/bookings"
-          >
-            Minhas reservas
-          </Link>
+          {isAuthenticated && (
+            <Link
+              className="rounded border px-5 py-2 font-semibold hover:bg-gray-50"
+              href="/account/bookings"
+            >
+              Minhas reservas
+            </Link>
+          )}
         </div>
       </main>
       <Footer />

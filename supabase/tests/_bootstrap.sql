@@ -63,5 +63,14 @@ create table if not exists storage.objects (
 );
 alter table storage.objects enable row level security;
 
+-- storage.foldername: usada pelas policies do bucket de documentos para ler o
+-- booking_id da primeira pasta do caminho. Sem este stub o rls.sql aborta e o
+-- pgTAP nunca roda — o job fica "verde" por não ter executado nada.
+create or replace function storage.foldername(name text)
+returns text[]
+language sql
+immutable
+as $$ select string_to_array(name, '/') $$;
+
 -- pgTAP
 create extension if not exists pgtap;

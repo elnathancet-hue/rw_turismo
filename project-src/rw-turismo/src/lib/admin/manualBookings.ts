@@ -63,6 +63,11 @@ const RPC_ERRORS: Record<string, { message: string; status: number }> = {
     status: 409,
   },
   ALREADY_PAID: { message: "Esta reserva já está paga.", status: 409 },
+  STRIPE_PAYMENT_PENDING: {
+    message:
+      "Há um Pix em aberto para esta reserva. Aguarde o código expirar ou cancele a cobrança no Stripe antes de registrar o pagamento manual.",
+    status: 409,
+  },
   SAME_DATE: { message: "Escolha uma data diferente da atual.", status: 400 },
 };
 

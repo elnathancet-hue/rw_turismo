@@ -50,7 +50,7 @@ const handler = async (
       return res.status(404).json({ error: "Booking not found." });
     }
 
-    if (booking.status !== "pending" || booking.payment_status !== "pending") {
+    if (booking.status !== "pending" || !["pending", "processing"].includes(booking.payment_status)) {
       return res.status(200).json({
         booking_id: booking.id,
         expired: false,

@@ -6,6 +6,12 @@ import {
   View,
   renderToBuffer,
 } from "@react-pdf/renderer";
+import {
+  bookingStatusBadge,
+  passengerTypeLabel,
+  paymentStatusBadge,
+} from "../bookings/status";
+import type { BookingStatus, PaymentStatus } from "../bookings/types";
 
 export type VoucherBooking = {
   id: string;
@@ -36,8 +42,6 @@ const brl = (value: number | string) =>
 const dateBR = (iso?: string | null) =>
   iso ? new Date(`${iso}T00:00:00`).toLocaleDateString("pt-BR") : "-";
 
-const typeLabel = (type: string) =>
-  ({ adult: "Adulto", child: "Criança", infant: "Bebê" }[type] ?? type);
 
 const styles = StyleSheet.create({
   page: { padding: 40, fontSize: 11, color: "#1f2937", fontFamily: "Helvetica" },
@@ -102,8 +106,8 @@ const VoucherDocument = ({ booking }: { booking: VoucherBooking }) => {
           <Text style={styles.docTitle}>Voucher de Reserva</Text>
         </View>
         <Text style={styles.ref}>
-          Reserva #{booking.id.slice(0, 8).toUpperCase()} · {booking.status} ·
-          pagamento {booking.payment_status}
+          Reserva #{booking.id.slice(0, 8).toUpperCase()} · {bookingStatusBadge(booking.status as BookingStatus).label} ·
+          pagamento {paymentStatusBadge(booking.payment_status as PaymentStatus).label.toLowerCase()}
         </Text>
 
         <View style={styles.section}>
@@ -160,7 +164,7 @@ const VoucherDocument = ({ booking }: { booking: VoucherBooking }) => {
               <View key={index} style={styles.paxRow}>
                 <Text>{passenger.full_name}</Text>
                 <Text>
-                  {typeLabel(passenger.type)}
+                  {passengerTypeLabel(passenger.type)}
                   {passenger.document ? ` · ${passenger.document}` : ""}
                 </Text>
               </View>

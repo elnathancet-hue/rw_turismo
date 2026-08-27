@@ -52,6 +52,15 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     return res.status(403).json({ error: "Acesso restrito." });
   }
 
+  // Voucher é comprovante de embarque, não de intenção. Emitir um para reserva
+  // aguardando Pix entrega ao cliente um documento que a operação vai recusar
+  // no dia — e que ele já pode ter mostrado para a família.
+  if (booking.payment_status !== "paid") {
+    return res.status(409).json({
+      error: "O voucher fica disponível assim que o pagamento for confirmado.",
+    });
+  }
+
   try {
     const pdf = await renderVoucherPdf(booking);
     res.setHeader("Content-Type", "application/pdf");

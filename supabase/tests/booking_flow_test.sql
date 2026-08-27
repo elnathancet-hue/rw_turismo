@@ -3,7 +3,7 @@
 -- Cobre: contagem de vagas, guarda de soft delete (5.4), expiração e a
 -- idempotência do pagamento manual (ALREADY_PAID).
 begin;
-select plan(9);
+select plan(11);
 
 -- ---------------------------------------------------------------------------
 -- Seeds
@@ -31,7 +31,8 @@ select lives_ok(
        '11111111-1111-1111-1111-111111111111',
        'aaaaaaa1-0000-0000-0000-000000000001',
        'bbbbbbb1-0000-0000-0000-000000000001',
-       'Cliente TAP', 'cliente@tap.test', null, 2) $$,
+       'Cliente TAP', 'cliente@tap.test', null, 2,
+       null, null, '[{"full_name":"TAP 1","birth_date":"1990-01-01"},{"full_name":"TAP 2","birth_date":"1990-01-01"}]'::jsonb) $$,
   'cria reserva pendente sem erro'
 );
 
@@ -57,7 +58,8 @@ select throws_ok(
        '11111111-1111-1111-1111-111111111111',
        'aaaaaaa1-0000-0000-0000-000000000001',
        'bbbbbbb1-0000-0000-0000-000000000001',
-       'Cliente TAP', 'cliente@tap.test', null, 99) $$,
+       'Cliente TAP', 'cliente@tap.test', null, 99,
+       null, null, '[{"full_name":"TAP 1","birth_date":"1990-01-01"},{"full_name":"TAP 2","birth_date":"1990-01-01"},{"full_name":"TAP 3","birth_date":"1990-01-01"},{"full_name":"TAP 4","birth_date":"1990-01-01"},{"full_name":"TAP 5","birth_date":"1990-01-01"},{"full_name":"TAP 6","birth_date":"1990-01-01"},{"full_name":"TAP 7","birth_date":"1990-01-01"},{"full_name":"TAP 8","birth_date":"1990-01-01"},{"full_name":"TAP 9","birth_date":"1990-01-01"},{"full_name":"TAP 10","birth_date":"1990-01-01"},{"full_name":"TAP 11","birth_date":"1990-01-01"},{"full_name":"TAP 12","birth_date":"1990-01-01"},{"full_name":"TAP 13","birth_date":"1990-01-01"},{"full_name":"TAP 14","birth_date":"1990-01-01"},{"full_name":"TAP 15","birth_date":"1990-01-01"},{"full_name":"TAP 16","birth_date":"1990-01-01"},{"full_name":"TAP 17","birth_date":"1990-01-01"},{"full_name":"TAP 18","birth_date":"1990-01-01"},{"full_name":"TAP 19","birth_date":"1990-01-01"},{"full_name":"TAP 20","birth_date":"1990-01-01"},{"full_name":"TAP 21","birth_date":"1990-01-01"},{"full_name":"TAP 22","birth_date":"1990-01-01"},{"full_name":"TAP 23","birth_date":"1990-01-01"},{"full_name":"TAP 24","birth_date":"1990-01-01"},{"full_name":"TAP 25","birth_date":"1990-01-01"},{"full_name":"TAP 26","birth_date":"1990-01-01"},{"full_name":"TAP 27","birth_date":"1990-01-01"},{"full_name":"TAP 28","birth_date":"1990-01-01"},{"full_name":"TAP 29","birth_date":"1990-01-01"},{"full_name":"TAP 30","birth_date":"1990-01-01"},{"full_name":"TAP 31","birth_date":"1990-01-01"},{"full_name":"TAP 32","birth_date":"1990-01-01"},{"full_name":"TAP 33","birth_date":"1990-01-01"},{"full_name":"TAP 34","birth_date":"1990-01-01"},{"full_name":"TAP 35","birth_date":"1990-01-01"},{"full_name":"TAP 36","birth_date":"1990-01-01"},{"full_name":"TAP 37","birth_date":"1990-01-01"},{"full_name":"TAP 38","birth_date":"1990-01-01"},{"full_name":"TAP 39","birth_date":"1990-01-01"},{"full_name":"TAP 40","birth_date":"1990-01-01"},{"full_name":"TAP 41","birth_date":"1990-01-01"},{"full_name":"TAP 42","birth_date":"1990-01-01"},{"full_name":"TAP 43","birth_date":"1990-01-01"},{"full_name":"TAP 44","birth_date":"1990-01-01"},{"full_name":"TAP 45","birth_date":"1990-01-01"},{"full_name":"TAP 46","birth_date":"1990-01-01"},{"full_name":"TAP 47","birth_date":"1990-01-01"},{"full_name":"TAP 48","birth_date":"1990-01-01"},{"full_name":"TAP 49","birth_date":"1990-01-01"},{"full_name":"TAP 50","birth_date":"1990-01-01"},{"full_name":"TAP 51","birth_date":"1990-01-01"},{"full_name":"TAP 52","birth_date":"1990-01-01"},{"full_name":"TAP 53","birth_date":"1990-01-01"},{"full_name":"TAP 54","birth_date":"1990-01-01"},{"full_name":"TAP 55","birth_date":"1990-01-01"},{"full_name":"TAP 56","birth_date":"1990-01-01"},{"full_name":"TAP 57","birth_date":"1990-01-01"},{"full_name":"TAP 58","birth_date":"1990-01-01"},{"full_name":"TAP 59","birth_date":"1990-01-01"},{"full_name":"TAP 60","birth_date":"1990-01-01"},{"full_name":"TAP 61","birth_date":"1990-01-01"},{"full_name":"TAP 62","birth_date":"1990-01-01"},{"full_name":"TAP 63","birth_date":"1990-01-01"},{"full_name":"TAP 64","birth_date":"1990-01-01"},{"full_name":"TAP 65","birth_date":"1990-01-01"},{"full_name":"TAP 66","birth_date":"1990-01-01"},{"full_name":"TAP 67","birth_date":"1990-01-01"},{"full_name":"TAP 68","birth_date":"1990-01-01"},{"full_name":"TAP 69","birth_date":"1990-01-01"},{"full_name":"TAP 70","birth_date":"1990-01-01"},{"full_name":"TAP 71","birth_date":"1990-01-01"},{"full_name":"TAP 72","birth_date":"1990-01-01"},{"full_name":"TAP 73","birth_date":"1990-01-01"},{"full_name":"TAP 74","birth_date":"1990-01-01"},{"full_name":"TAP 75","birth_date":"1990-01-01"},{"full_name":"TAP 76","birth_date":"1990-01-01"},{"full_name":"TAP 77","birth_date":"1990-01-01"},{"full_name":"TAP 78","birth_date":"1990-01-01"},{"full_name":"TAP 79","birth_date":"1990-01-01"},{"full_name":"TAP 80","birth_date":"1990-01-01"},{"full_name":"TAP 81","birth_date":"1990-01-01"},{"full_name":"TAP 82","birth_date":"1990-01-01"},{"full_name":"TAP 83","birth_date":"1990-01-01"},{"full_name":"TAP 84","birth_date":"1990-01-01"},{"full_name":"TAP 85","birth_date":"1990-01-01"},{"full_name":"TAP 86","birth_date":"1990-01-01"},{"full_name":"TAP 87","birth_date":"1990-01-01"},{"full_name":"TAP 88","birth_date":"1990-01-01"},{"full_name":"TAP 89","birth_date":"1990-01-01"},{"full_name":"TAP 90","birth_date":"1990-01-01"},{"full_name":"TAP 91","birth_date":"1990-01-01"},{"full_name":"TAP 92","birth_date":"1990-01-01"},{"full_name":"TAP 93","birth_date":"1990-01-01"},{"full_name":"TAP 94","birth_date":"1990-01-01"},{"full_name":"TAP 95","birth_date":"1990-01-01"},{"full_name":"TAP 96","birth_date":"1990-01-01"},{"full_name":"TAP 97","birth_date":"1990-01-01"},{"full_name":"TAP 98","birth_date":"1990-01-01"},{"full_name":"TAP 99","birth_date":"1990-01-01"}]'::jsonb) $$,
   'P0001', 'NOT_ENOUGH_SLOTS',
   'reserva além das vagas é recusada'
 );
@@ -73,7 +75,8 @@ select throws_ok(
        '11111111-1111-1111-1111-111111111111',
        'aaaaaaa1-0000-0000-0000-000000000001',
        'bbbbbbb1-0000-0000-0000-000000000001',
-       'Cliente TAP', 'cliente@tap.test', null, 1) $$,
+       'Cliente TAP', 'cliente@tap.test', null, 1,
+       null, null, '[{"full_name":"TAP 1","birth_date":"1990-01-01"}]'::jsonb) $$,
   'P0001', 'PRODUCT_NOT_AVAILABLE',
   'produto com deleted_at não pode ser reservado'
 );
@@ -129,6 +132,38 @@ select throws_ok(
        'ccccccc1-0000-0000-0000-000000000001', 1000, 'pix', null) $$,
   'P0001', 'ALREADY_PAID',
   'segunda confirmação é bloqueada (idempotência)'
+);
+
+-- ---------------------------------------------------------------------------
+-- Passageiro é obrigatório na compra online
+-- ---------------------------------------------------------------------------
+-- Sem esta trava, omitir o campo criava reserva com ZERO passageiros: a
+-- exigência de documento não existia (não há linha para exigir) e Quartos,
+-- Assentos e Check-in mostravam a saída como se ninguém fosse viajar.
+update public.products set deleted_at = null
+where id = 'aaaaaaa1-0000-0000-0000-000000000001';
+
+select throws_ok(
+  $$ select public.create_pending_booking_transaction(
+       '11111111-1111-1111-1111-111111111111',
+       'aaaaaaa1-0000-0000-0000-000000000001',
+       'bbbbbbb1-0000-0000-0000-000000000001',
+       'Cliente TAP', 'cliente@tap.test', null, 1) $$,
+  'P0001', 'PASSENGERS_REQUIRED',
+  'reserva sem lista de passageiros é recusada'
+);
+
+-- A contagem é dos nomes PREENCHIDOS: mandar nome em branco passava pela
+-- checagem antiga (que só olhava o tamanho do array) e inseria zero linhas.
+select throws_ok(
+  $$ select public.create_pending_booking_transaction(
+       '11111111-1111-1111-1111-111111111111',
+       'aaaaaaa1-0000-0000-0000-000000000001',
+       'bbbbbbb1-0000-0000-0000-000000000001',
+       'Cliente TAP', 'cliente@tap.test', null, 1,
+       null, null, '[{"full_name":"   ","birth_date":"1990-01-01"}]'::jsonb) $$,
+  'P0001', 'PASSENGERS_COUNT_MISMATCH',
+  'nome em branco não conta como passageiro'
 );
 
 select * from finish();

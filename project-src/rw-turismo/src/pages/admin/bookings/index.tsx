@@ -35,6 +35,9 @@ const bookingStatuses: Array<BookingStatus | "all"> = [
 const paymentStatuses: Array<PaymentStatus | "all"> = [
   "all",
   "pending",
+  // Quem gerou o Pix e não pagou. É a lista de retomada de venda com maior
+  // retorno do painel — sem ela, não há como montar esse follow-up.
+  "processing",
   "paid",
   "failed",
   "refunded",

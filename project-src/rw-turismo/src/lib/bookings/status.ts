@@ -19,6 +19,7 @@ export const toneClasses: Record<StatusTone, string> = {
 
 const paymentLabels: Record<PaymentStatus, StatusBadge> = {
   pending: { label: "Aguardando pagamento", tone: "warning" },
+  processing: { label: "Aguardando Pix", tone: "info" },
   paid: { label: "Pago", tone: "success" },
   failed: { label: "Recusado", tone: "danger" },
   refunded: { label: "Reembolsado", tone: "neutral" },
@@ -60,9 +61,12 @@ export const bookingStatusBadge = (status: BookingStatus): StatusBadge =>
   bookingLabels[status] ?? { label: status, tone: "neutral" };
 
 // A pending hold whose payment window has lapsed (still needs to be expired).
+// 'processing' entra junto: é o Pix emitido e nunca pago, que também precisa
+// devolver a vaga. Se ficasse de fora, a liberação sob demanda não enxergaria
+// justamente o caso que a sessão da Stripe nunca vai expirar sozinha.
 export const isExpiredPendingBooking = (booking: BookingSummary): boolean =>
   booking.status === "pending" &&
-  booking.payment_status === "pending" &&
+  ["pending", "processing"].includes(booking.payment_status) &&
   Boolean(booking.expires_at) &&
   new Date(booking.expires_at as string).getTime() < Date.now();
 
@@ -82,8 +86,15 @@ export const isPayablePendingBooking = (booking: BookingSummary): boolean =>
 // Checkout started, waiting on the payment confirmation.
 export const isProcessingPayment = (booking: BookingSummary): boolean =>
   booking.status === "pending" &&
-  booking.payment_status === "pending" &&
-  Boolean(booking.stripe_checkout_session_id);
+  (booking.payment_status === "processing" ||
+    (booking.payment_status === "pending" &&
+      Boolean(booking.stripe_checkout_session_id)));
+
+// Pix emitido: o cliente já fechou o pedido e tem o código na mão. Difere de
+// isProcessingPayment porque aqui a Stripe CONFIRMOU que a cobrança existe —
+// não é o palpite "abriu o checkout e sumiu".
+export const isAwaitingAsyncPayment = (booking: BookingSummary): boolean =>
+  booking.payment_status === "processing";
 
 export type CustomerBookingState = StatusBadge & { description: string };
 
@@ -97,6 +108,31 @@ export const getCustomerBookingState = (
       label: "Reserva confirmada",
       tone: "success",
       description: "Seu pagamento foi aprovado e sua reserva está garantida.",
+    };
+  }
+
+  if (booking.payment_status === "processing") {
+    // Depois do prazo, as duas promessas do texto abaixo viram mentira: a vaga
+    // não está mais separada, e o pagamento que chegar agora não confirma nada
+    // sozinho — vai para análise humana.
+    const prazoVencido =
+      Boolean(booking.expires_at) &&
+      new Date(booking.expires_at as string).getTime() < Date.now();
+
+    if (prazoVencido) {
+      return {
+        label: "Prazo encerrado",
+        tone: "warning",
+        description:
+          "O prazo desta reserva terminou. Se você já pagou o Pix, vamos conferir e falar com você. Se ainda não pagou, não pague por este código.",
+      };
+    }
+
+    return {
+      label: "Aguardando o Pix",
+      tone: "info",
+      description:
+        "Já geramos sua cobrança. Assim que o pagamento cair, sua reserva é confirmada automaticamente e avisamos você. Sua vaga fica separada até o fim do prazo.",
     };
   }
 
@@ -143,12 +179,16 @@ export const getCustomerBookingState = (
     };
   }
 
+  // Este ramo cobre tanto "abriu o checkout e abandonou" quanto "a tentativa
+  // anterior não passou": nos dois casos existe stripe_checkout_session_id e a
+  // reserva voltou para 'pending'. Afirmar "estamos confirmando seu pagamento"
+  // seria mentira para quem acabou de receber o aviso de recusa.
   if (isProcessingPayment(booking)) {
     return {
-      label: "Processando pagamento",
-      tone: "info",
+      label: "Aguardando pagamento",
+      tone: "warning",
       description:
-        "Estamos confirmando seu pagamento. Se você não concluiu o checkout, pode tentar pagar novamente pelo botão abaixo.",
+        "Sua reserva está separada e o pagamento ainda não foi concluído. Você pode retomar pelo botão abaixo enquanto estiver no prazo.",
     };
   }
 
