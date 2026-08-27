@@ -52,23 +52,57 @@ Tres buckets, **todos publicos** (`public = true`), limite de 5 MB:
 Policies em `rls.sql`: leitura publica (`for select to public`), escrita para
 `is_admin()` e para o papel `conteudo`. **Nenhum bucket aceita PDF.**
 
+### Bucket privado de documentos
+
+`booking-documents` **existe** desde a migration
+`20260803050000_documentos_passageiro.sql`. Ele e o unico bucket **privado**
+(`public = false`) e o unico que aceita `application/pdf`. Limite de 10 MB.
+
+Caminho dos arquivos: `{booking_id}/{passenger_id}/{arquivo}`. A estrutura de
+pastas nao e enfeite — e o que permite a policy escopar "so o dono desta
+reserva", lendo o `booking_id` da primeira pasta. Caminho plano, como o dos
+buckets de imagem, tornaria essa regra impossivel de escrever.
+
+Quem le (policies em `rls.sql`):
+
+- `booking_documents_owner_read`: o titular da reserva.
+- `booking_documents_staff_read`: **somente** `is_admin()` e o papel
+  `operacoes`. Financeiro e Conteudo ficam de fora de proposito — nenhuma
+  tarefa deles precisa do documento de uma crianca.
+
+**Ninguem escreve por policy.** O upload usa URL assinada emitida pelo servidor
+(`src/lib/bookings/passengerDocuments.ts`), porque na compra sem cadastro o
+cliente nao tem sessao para o RLS avaliar: nao existe `auth.uid()` para uma
+policy comparar. O servidor confere a posse da reserva e so entao emite uma
+permissao de escrita curta, para um caminho especifico.
+
+Leitura tambem nunca sai por URL publica: sempre `createSignedUrl` com
+validade curta. Cada abertura pelo painel fica registrada em `system_logs`.
+
+Retencao: `expire_booking_documents(dias)` limpa os registros de viagens
+encerradas ha mais de 90 dias e devolve os caminhos; o cron diario
+(`/api/cron/daily`) apaga os arquivos no Storage. Guardar documento depois do
+embarque e o oposto do principio da necessidade.
+
 ### O que NAO existe
 
-`booking-documents` e `avatars` **nao existem** — nao ha SQL, policy nem codigo
-para eles. Versoes anteriores deste README os descreviam como se ja estivessem
-prontos e protegidos; nao estavam.
+`avatars` **nao existe** — nao ha SQL, policy nem codigo para ele. Versoes
+anteriores deste README o descreviam como se ja estivesse pronto e protegido;
+nao estava.
 
-> **Atencao ao implementar upload de documento de passageiro.**
+> **Atencao ao implementar qualquer novo upload de dado pessoal.**
 > Nao reaproveite `src/lib/admin/uploadImage.ts`: ele envia para os buckets
-> publicos acima e devolve `getPublicUrl()`. Documento de passageiro — ainda
-> mais de menor de idade — publicado numa URL publica permanente e vazamento de
-> dado pessoal, sem revogacao possivel.
+> **publicos** acima e devolve `getPublicUrl()`. Documento de passageiro —
+> ainda mais de menor de idade — publicado numa URL publica permanente e
+> vazamento de dado pessoal, sem revogacao possivel.
 >
-> O caminho correto exige: bucket **privado** novo, `createSignedUrl` com
-> expiracao curta, caminho por reserva (para a policy conseguir escopar quem le),
-> aceitar `application/pdf`, e politica de retencao/expurgo apos a viagem.
-> Criar o bucket pelo painel sem policy NAO resolve: as tres policies existentes
-> filtram por `bucket_id in (...)` e nao o incluem, entao com RLS ativo ninguem
+> Use `src/lib/bookings/passengerDocuments.ts` como modelo: bucket privado,
+> `createSignedUpload`/`createSignedUrl` com expiracao curta, caminho com
+> pasta por dono (para a policy conseguir escopar quem le) e expurgo depois que
+> o dado cumpriu a finalidade.
+>
+> Criar bucket pelo painel sem policy NAO resolve: as policies existentes
+> filtram por `bucket_id` e nao incluem o novo, entao com RLS ativo ninguem
 > alem do service_role consegue ler ou escrever.
 
 ## Teste de RLS
