@@ -1,6 +1,6 @@
 import Link from "next/link";
 import CardActions from "./CardActions";
-import { parseInstallment } from "../../lib/products/installment";
+import { hasInstallmentOffer, INSTALLMENT_LABEL } from "../../lib/products/installment";
 import type { Product } from "../../lib/products/types";
 
 const money = (value: number) =>
@@ -12,7 +12,7 @@ const money = (value: number) =>
 const ProductCard = ({ product }: { product: Product }) => {
   const promotionalPrice = product.promotional_price;
   const href = `/products/${product.slug}`;
-  const installment = parseInstallment(product.description);
+  const installment = hasInstallmentOffer(product.description);
 
   return (
     <article className="group overflow-hidden rounded-xl border bg-white shadow-sm transition hover:shadow-lg">
@@ -52,7 +52,7 @@ const ProductCard = ({ product }: { product: Product }) => {
           )}
           {installment && (
             <span className="mt-1 block text-xs text-gray-500">
-              ou {installment} no cartão
+              {INSTALLMENT_LABEL}
             </span>
           )}
         </Link>

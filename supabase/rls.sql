@@ -742,11 +742,10 @@ for all to authenticated
 using (public.has_staff_role(array['operacoes']))
 with check (public.has_staff_role(array['operacoes']));
 
+-- Financeiro NAO le passengers: a tabela guarda documento e nascimento,
+-- inclusive de criancas, e nenhuma tarefa financeira precisa disso. RLS e por
+-- linha, entao nao da para liberar so o nome — a policy inteira fica de fora.
 drop policy if exists "passengers_financeiro_select" on public.passengers;
-create policy "passengers_financeiro_select"
-on public.passengers
-for select to authenticated
-using (public.has_staff_role(array['financeiro']));
 
 drop policy if exists "suppliers_operacoes_all" on public.suppliers;
 create policy "suppliers_operacoes_all"

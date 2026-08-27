@@ -6,7 +6,7 @@ import Footer from "../components/Footer";
 import Header from "../components/Header";
 import PackageSearchBar from "../components/PackageSearchBar";
 import CardActions from "../components/home/CardActions";
-import { parseInstallment } from "../lib/products/installment";
+import { hasInstallmentOffer, INSTALLMENT_LABEL } from "../lib/products/installment";
 import { signOutFromSupabase } from "../lib/auth/client";
 import { PRODUCT_TYPE_LABELS } from "../lib/content/home-registry";
 import { searchPackages, type PackageSort } from "../lib/products/client";
@@ -275,9 +275,9 @@ const Search = () => {
                     <span className="mt-4 block font-semibold text-orange-600">
                       {money(product.promotional_price ?? product.price)}
                     </span>
-                    {parseInstallment(product.description) && (
+                    {hasInstallmentOffer(product.description) && (
                       <span className="mt-1 block text-xs text-gray-500">
-                        ou {parseInstallment(product.description)} no cartão
+                        {INSTALLMENT_LABEL}
                       </span>
                     )}
                   </Link>

@@ -12,6 +12,7 @@ import {
   type ProductDateWithProduct,
 } from "../../../lib/admin/client";
 import { formatDateRangeBR } from "../../../lib/format";
+import useSupabaseSession from "../../../hooks/useSupabaseSession";
 import {
   bookingStatusBadge,
   passengerTypeLabel,
@@ -98,6 +99,7 @@ type ActiveModal = "payment" | "cancel" | "rebook" | null;
 
 const AdminBookingDetailPage = () => {
   const router = useRouter();
+  const { staffRole } = useSupabaseSession();
   const id = typeof router.query.id === "string" ? router.query.id : "";
   const [booking, setBooking] = useState<AdminBookingDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -403,6 +405,13 @@ const AdminBookingDetailPage = () => {
 
             <section className="rounded-lg border bg-white p-5 shadow-sm">
               <h2 className="font-semibold">Passageiros</h2>
+              {staffRole === "financeiro" && booking.passengers.length === 0 && (
+                <p className="mt-2 rounded border bg-gray-50 p-3 text-sm text-gray-600">
+                  A relação de passageiros não aparece para o papel Financeiro —
+                  ela guarda documento e data de nascimento, inclusive de
+                  crianças. Peça a Operações ou a um Administrador se precisar.
+                </p>
+              )}
               <div className="mt-4 grid gap-3 md:grid-cols-2">
                 {booking.passengers.map((passenger) => (
                   <div className="rounded border p-3" key={passenger.id}>

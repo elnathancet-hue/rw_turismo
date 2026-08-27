@@ -41,17 +41,35 @@ No painel do Supabase:
 
 ## Storage
 
-Buckets sugeridos:
+### O que EXISTE hoje (criado por schema.sql)
 
-- `product-images`: imagens publicas de produtos.
-- `avatars`: fotos de perfil dos usuarios.
-- `booking-documents`: documentos privados de reservas.
+Tres buckets, **todos publicos** (`public = true`), limite de 5 MB:
 
-Recomendacao inicial:
+- `site-assets`: logo, favicon e banners. Aceita JPG, PNG, WEBP, SVG e ICO.
+- `product-images`: capa e galeria dos pacotes. Aceita JPG, PNG e WEBP.
+- `blog-images`: capas do blog. Aceita JPG, PNG e WEBP.
 
-- `product-images` pode ser publico se as imagens forem de vitrine.
-- `avatars` pode ser publico ou privado conforme a regra de negocio.
-- `booking-documents` deve ser privado e acessado somente por politicas ou URLs assinadas.
+Policies em `rls.sql`: leitura publica (`for select to public`), escrita para
+`is_admin()` e para o papel `conteudo`. **Nenhum bucket aceita PDF.**
+
+### O que NAO existe
+
+`booking-documents` e `avatars` **nao existem** — nao ha SQL, policy nem codigo
+para eles. Versoes anteriores deste README os descreviam como se ja estivessem
+prontos e protegidos; nao estavam.
+
+> **Atencao ao implementar upload de documento de passageiro.**
+> Nao reaproveite `src/lib/admin/uploadImage.ts`: ele envia para os buckets
+> publicos acima e devolve `getPublicUrl()`. Documento de passageiro — ainda
+> mais de menor de idade — publicado numa URL publica permanente e vazamento de
+> dado pessoal, sem revogacao possivel.
+>
+> O caminho correto exige: bucket **privado** novo, `createSignedUrl` com
+> expiracao curta, caminho por reserva (para a policy conseguir escopar quem le),
+> aceitar `application/pdf`, e politica de retencao/expurgo apos a viagem.
+> Criar o bucket pelo painel sem policy NAO resolve: as tres policies existentes
+> filtram por `bucket_id in (...)` e nao o incluem, entao com RLS ativo ninguem
+> alem do service_role consegue ler ou escrever.
 
 ## Teste de RLS
 

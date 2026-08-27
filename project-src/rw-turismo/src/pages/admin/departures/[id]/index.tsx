@@ -103,6 +103,15 @@ const AdminDepartureDetail = () => {
   };
 
   const exportCsv = () => {
+    // Registra a exportacao antes de baixar: o arquivo leva nome, documento e
+    // nascimento (inclusive de criancas) para fora do sistema. O registro e
+    // best-effort e nunca bloqueia o trabalho, como o resto da auditoria.
+    void fetch("/api/admin/departures/" + id + "/log-export", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ passenger_count: passengers.length }),
+    }).catch(() => {});
+
     downloadCsv(
       `relacao-pax-${departure?.products?.title ?? "saida"}-${departure?.start_date ?? ""}.csv`,
       [

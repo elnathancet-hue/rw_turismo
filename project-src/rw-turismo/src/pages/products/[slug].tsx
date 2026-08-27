@@ -24,7 +24,8 @@ import {
   getActiveProductsServer,
   getProductBySlugServer,
 } from "../../lib/products/server";
-import { parseInstallment } from "../../lib/products/installment";
+import { hasInstallmentOffer, INSTALLMENT_LABEL } from "../../lib/products/installment";
+import useBookingQuote from "../../hooks/useBookingQuote";
 import type {
   FaqItem,
   ItineraryDay,
@@ -60,7 +61,7 @@ const ProductDetails = ({ product, productDates, suggestions }: Props) => {
   const router = useRouter();
   const { user, profile, isAuthenticated } = useSupabaseSession();
   const whatsApp = useWhatsAppWidget();
-  const installment = parseInstallment(product.description);
+  const installment = hasInstallmentOffer(product.description);
   const suggestionsToShow = whatsApp.suggestions
     ? suggestions.slice(0, whatsApp.suggestionsCount)
     : [];
@@ -94,7 +95,7 @@ const ProductDetails = ({ product, productDates, suggestions }: Props) => {
       .catch(console.error);
   }, [isAuthenticated, product.id]);
 
-  // GA4: visualização do produto (funil).
+  // GA4: visualizaÃ§Ã£o do produto (funil).
   useEffect(() => {
     gaEvent("view_item", {
       currency: "BRL",
@@ -161,7 +162,7 @@ const ProductDetails = ({ product, productDates, suggestions }: Props) => {
       setFavoriteError(
         error instanceof Error
           ? error.message
-          : "Não foi possível atualizar o favorito."
+          : "NÃ£o foi possÃ­vel atualizar o favorito."
       );
     }
   };
@@ -189,7 +190,20 @@ const ProductDetails = ({ product, productDates, suggestions }: Props) => {
   );
   const selectedDate = productDates.find((date) => date.id === selectedDateId);
   const selectedUnitPrice = selectedDate?.price_override ?? displayPrice;
-  const estimatedTotal = selectedUnitPrice * travelersCount;
+  const localEstimate = selectedUnitPrice * travelersCount;
+  // Total oficial vem do servidor (mesma funcao que a reserva usa). O calculo
+  // local so aparece enquanto a cotacao nao volta, para o preco nao "piscar".
+  const {
+    quote,
+    error: quoteError,
+    isLoading: isQuoting,
+  } = useBookingQuote({
+    productId: product.id,
+    productDateId: selectedDateId,
+    travelersCount,
+    couponCode,
+  });
+  const estimatedTotal = quote?.total_amount ?? localEstimate;
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") ?? "";
   const canonicalUrl = `${siteUrl}/products/${product.slug}`;
   const productJsonLd = {
@@ -223,7 +237,7 @@ const ProductDetails = ({ product, productDates, suggestions }: Props) => {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Início", item: siteUrl },
+      { "@type": "ListItem", position: 1, name: "InÃ­cio", item: siteUrl },
       { "@type": "ListItem", position: 2, name: product.title, item: canonicalUrl },
     ],
   };
@@ -274,7 +288,7 @@ const ProductDetails = ({ product, productDates, suggestions }: Props) => {
     }
 
     if (!selectedDateId) {
-      setBookingError("Selecione uma data disponível.");
+      setBookingError("Selecione uma data disponÃ­vel.");
       return;
     }
 
@@ -300,7 +314,7 @@ const ProductDetails = ({ product, productDates, suggestions }: Props) => {
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error ?? "Não foi possível iniciar a reserva.");
+        throw new Error(result.error ?? "NÃ£o foi possÃ­vel iniciar a reserva.");
       }
 
       gaEvent("begin_checkout", {
@@ -320,15 +334,15 @@ const ProductDetails = ({ product, productDates, suggestions }: Props) => {
       setBookingError(
         error instanceof Error
           ? error.message
-          : "Não foi possível iniciar a reserva."
+          : "NÃ£o foi possÃ­vel iniciar a reserva."
       );
     } finally {
       setIsBooking(false);
     }
   };
 
-  // Saída lotada (ou sem datas): oferece a lista de espera com os mesmos
-  // campos do formulário de reserva.
+  // SaÃ­da lotada (ou sem datas): oferece a lista de espera com os mesmos
+  // campos do formulÃ¡rio de reserva.
   const soldOut =
     productDates.length === 0 || (selectedDate?.available_slots ?? 0) <= 0;
 
@@ -355,24 +369,24 @@ const ProductDetails = ({ product, productDates, suggestions }: Props) => {
       setWaitlistDone(true);
     } catch {
       setWaitlistError(
-        "Não foi possível entrar na lista agora. Tente novamente."
+        "NÃ£o foi possÃ­vel entrar na lista agora. Tente novamente."
       );
     } finally {
       setIsJoiningWaitlist(false);
     }
   };
 
-  // Botões da área de compra: WhatsApp e/ou Reserva, conforme o modo global
-  // (Aparência do site). O link do WhatsApp depende só de ter telefone.
+  // BotÃµes da Ã¡rea de compra: WhatsApp e/ou Reserva, conforme o modo global
+  // (AparÃªncia do site). O link do WhatsApp depende sÃ³ de ter telefone.
   const whatsAppLink = buildWaLink(
     whatsApp.phone,
-    `Olá! Tenho interesse em "${product.title}". Pode me ajudar?`
+    `OlÃ¡! Tenho interesse em "${product.title}". Pode me ajudar?`
   );
   const ctaMode = whatsApp.productCta;
   const showWhatsButton =
     (ctaMode === "both" || ctaMode === "whatsapp") && !!whatsAppLink;
-  // Reserva aparece nos modos "both"/"reserva" — e como fallback se o modo for
-  // "whatsapp" mas não houver telefone (senão a área ficaria sem botão nenhum).
+  // Reserva aparece nos modos "both"/"reserva" â e como fallback se o modo for
+  // "whatsapp" mas nÃ£o houver telefone (senÃ£o a Ã¡rea ficaria sem botÃ£o nenhum).
   const showBooking =
     ctaMode === "reserva" || ctaMode === "both" || !showWhatsButton;
 
@@ -382,7 +396,7 @@ const ProductDetails = ({ product, productDates, suggestions }: Props) => {
         <title>{product.title} | RW Turismo</title>
         <meta
           name="description"
-          content={product.description ?? "Pacotes e experiências RW Turismo."}
+          content={product.description ?? "Pacotes e experiÃªncias RW Turismo."}
         />
         <link rel="canonical" href={canonicalUrl} />
         <meta property="og:type" content="product" />
@@ -410,7 +424,7 @@ const ProductDetails = ({ product, productDates, suggestions }: Props) => {
           onClick={() => router.back()}
           type="button"
         >
-          ← Voltar
+          â Voltar
         </button>
         <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
           <section>
@@ -441,14 +455,14 @@ const ProductDetails = ({ product, productDates, suggestions }: Props) => {
             </div>
             {installment && (
               <p className="mt-1 text-sm text-gray-500">
-                ou {installment} no cartão
+                {INSTALLMENT_LABEL}
               </p>
             )}
 
             {product.tiers && product.tiers.length > 0 && (
               <div className="mt-4 rounded-lg border bg-orange-50/60 p-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  Opções de suíte
+                  OpÃ§Ãµes de suÃ­te
                 </p>
                 <ul className="mt-2 space-y-1 text-sm">
                   {product.tiers.map((tier, index) => (
@@ -464,7 +478,7 @@ const ProductDetails = ({ product, productDates, suggestions }: Props) => {
                   ))}
                 </ul>
                 <p className="mt-2 text-xs text-gray-500">
-                  Valor da suíte confirmado no atendimento.
+                  Valor da suÃ­te confirmado no atendimento.
                 </p>
               </div>
             )}
@@ -503,10 +517,10 @@ const ProductDetails = ({ product, productDates, suggestions }: Props) => {
                 (selectedDate.departure_time || selectedDate.return_time) && (
                   <p className="mt-2 text-xs text-gray-500">
                     {selectedDate.departure_time &&
-                      `Saída ${selectedDate.departure_time.slice(0, 5)}`}
+                      `SaÃ­da ${selectedDate.departure_time.slice(0, 5)}`}
                     {selectedDate.departure_time &&
                       selectedDate.return_time &&
-                      " · "}
+                      " Â· "}
                     {selectedDate.return_time &&
                       `Retorno ${selectedDate.return_time.slice(0, 5)}`}
                   </p>
@@ -557,16 +571,33 @@ const ProductDetails = ({ product, productDates, suggestions }: Props) => {
                 <input
                   className="mt-1 w-full rounded border px-3 py-2 uppercase placeholder:normal-case"
                   onChange={(event) => setCouponCode(event.target.value)}
-                  placeholder="Se você tiver um cupom"
+                  placeholder="Se vocÃª tiver um cupom"
                   value={couponCode}
                 />
               </label>
-              <p className="mt-4 text-sm text-gray-500">
-                Total estimado:{" "}
-                <span className="font-semibold text-gray-900">
-                  {formatCurrency(estimatedTotal)}
-                </span>
-              </p>
+              {quoteError && (
+                <p className="mt-2 text-sm text-red-600" role="alert">
+                  {quoteError}
+                </p>
+              )}
+              <div className="mt-4 text-sm text-gray-500">
+                {quote && quote.discount > 0 && (
+                  <p className="text-green-700">
+                    Cupom aplicado: −{formatCurrency(quote.discount)}
+                  </p>
+                )}
+                <p>
+                  {quote ? "Total:" : "Total estimado:"}{" "}
+                  <span className="font-semibold text-gray-900">
+                    {formatCurrency(estimatedTotal)}
+                  </span>
+                  {isQuoting && (
+                    <span className="ml-2 text-xs text-gray-400">
+                      calculando…
+                    </span>
+                  )}
+                </p>
+              </div>
               {showWhatsButton && (
                 <a
                   className="mt-4 flex w-full items-center justify-center gap-2 rounded border border-green-600 px-4 py-2 font-semibold text-green-700 transition hover:bg-green-50"
@@ -575,7 +606,7 @@ const ProductDetails = ({ product, productDates, suggestions }: Props) => {
                   target="_blank"
                 >
                   <WhatsAppIcon className="h-5 w-5" />
-                  Tirar dúvida no WhatsApp
+                  Tirar dÃºvida no WhatsApp
                 </a>
               )}
               {showBooking &&
@@ -586,7 +617,7 @@ const ProductDetails = ({ product, productDates, suggestions }: Props) => {
                       className="rounded border border-green-200 bg-green-50 p-3 text-sm text-green-800"
                       role="status"
                     >
-                      Você entrou na lista de espera! Avisaremos assim que
+                      VocÃª entrou na lista de espera! Avisaremos assim que
                       abrir vaga.
                     </p>
                   ) : (
@@ -594,8 +625,8 @@ const ProductDetails = ({ product, productDates, suggestions }: Props) => {
                       <p className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
                         {productDates.length === 0
                           ? "Sem datas abertas no momento."
-                          : "Esta saída está lotada."}{" "}
-                        Preencha seus dados acima e entre na lista de espera —
+                          : "Esta saÃ­da estÃ¡ lotada."}{" "}
+                        Preencha seus dados acima e entre na lista de espera â
                         avisamos quando abrir vaga.
                       </p>
                       <button
@@ -605,7 +636,7 @@ const ProductDetails = ({ product, productDates, suggestions }: Props) => {
                         type="button"
                       >
                         {isJoiningWaitlist
-                          ? "Enviando…"
+                          ? "Enviandoâ¦"
                           : "Entrar na lista de espera"}
                       </button>
                     </>
@@ -639,11 +670,11 @@ const ProductDetails = ({ product, productDates, suggestions }: Props) => {
         </div>
 
         <section className="mt-10">
-          <h2 className="text-2xl font-semibold">Datas disponíveis</h2>
+          <h2 className="text-2xl font-semibold">Datas disponÃ­veis</h2>
           <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {productDates.length === 0 && (
               <p className="text-gray-500">
-                Nenhuma data disponível no momento.
+                Nenhuma data disponÃ­vel no momento.
               </p>
             )}
             {productDates.map((productDate) => (
@@ -652,22 +683,22 @@ const ProductDetails = ({ product, productDates, suggestions }: Props) => {
                 key={productDate.id}
               >
                 <p className="font-semibold">
-                  {formatDate(productDate.start_date)} até{" "}
+                  {formatDate(productDate.start_date)} atÃ©{" "}
                   {formatDate(productDate.end_date)}
                 </p>
                 {(productDate.departure_time || productDate.return_time) && (
                   <p className="mt-1 text-xs text-gray-500">
                     {productDate.departure_time &&
-                      `Saída ${productDate.departure_time.slice(0, 5)}`}
+                      `SaÃ­da ${productDate.departure_time.slice(0, 5)}`}
                     {productDate.departure_time &&
                       productDate.return_time &&
-                      " · "}
+                      " Â· "}
                     {productDate.return_time &&
                       `Retorno ${productDate.return_time.slice(0, 5)}`}
                   </p>
                 )}
                 <p className="mt-2 text-sm text-gray-500">
-                  {productDate.available_slots} vagas disponíveis
+                  {productDate.available_slots} vagas disponÃ­veis
                 </p>
                 <p className="mt-3 font-semibold">
                   {formatCurrency(productDate.price_override ?? displayPrice)}
@@ -721,7 +752,7 @@ const ProductDetails = ({ product, productDates, suggestions }: Props) => {
 
         {suggestionsToShow.length > 0 && (
           <section className="mt-12">
-            <h2 className="text-2xl font-semibold">Sugestões de viagens</h2>
+            <h2 className="text-2xl font-semibold">SugestÃµes de viagens</h2>
             <div className="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {suggestionsToShow.map((item) => (
                 <ProductCard key={item.id} product={item} />
@@ -785,7 +816,7 @@ export const getServerSideProps = async (
       const others = (await getActiveProductsServer()).filter(
         (item) => item.id !== product.id
       );
-      // Mesma "tipo" primeiro (pacote/experiência), depois o resto.
+      // Mesma "tipo" primeiro (pacote/experiÃªncia), depois o resto.
       suggestions = [
         ...others.filter((item) => item.type === product.type),
         ...others.filter((item) => item.type !== product.type),
