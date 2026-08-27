@@ -39,6 +39,9 @@ export type CreatePendingBookingResult = {
   booking_id: string;
   total_amount: number;
   expires_at: string;
+  // Segredo que da acesso a ESTA reserva sem sessao. Volta so para quem acabou
+  // de criar, e vai no link de retorno da compra sem cadastro.
+  access_token: string | null;
 };
 
 export type ExpirePendingBookingResult = {

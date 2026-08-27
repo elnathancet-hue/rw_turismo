@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import BookingSummaryCard from "../../../components/BookingSummaryCard";
 import Drawer from "../../../components/Drawer";
 import Footer from "../../../components/Footer";
@@ -30,6 +30,8 @@ const formatRemaining = (ms: number): string => {
 const BookingDetails = () => {
   const router = useRouter();
   const id = typeof router.query.id === "string" ? router.query.id : "";
+  // Token da compra sem cadastro (?t=). Prova posse desta reserva sem sessão.
+  const accessToken = typeof router.query.t === "string" ? router.query.t : "";
   const { isAuthenticated, isLoading } = useSupabaseSession();
   const [booking, setBooking] = useState<BookingSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -41,22 +43,50 @@ const BookingDetails = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [headerSearch, setHeaderSearch] = useState("");
 
+  // Uma única forma de reler a reserva, usada pelo carregamento inicial e pelos
+  // três pontos que atualizam depois (expiração, "atualizar status", retorno do
+  // pagamento). Antes cada um chamava getMyBookingById direto, que depende de
+  // sessão — para o convidado, todos falhariam calados.
+  const fetchBooking = useCallback(async (): Promise<BookingSummary | null> => {
+    if (isAuthenticated) return getMyBookingById(id);
+
+    if (!accessToken) return null;
+
+    const response = await fetch(`/api/bookings/${id}/guest`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ access_token: accessToken }),
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload?.error ?? "Reserva não encontrada.");
+    }
+    return payload.booking as BookingSummary;
+  }, [accessToken, id, isAuthenticated]);
+
   useEffect(() => {
     if (isLoading || !id) return;
-    if (!isAuthenticated) {
-      router.push(`/signin?next=${encodeURIComponent(router.asPath)}`);
-      return;
-    }
-    getMyBookingById(id)
-      .then(setBooking)
-      .catch((loadError) =>
+
+    const carregar = async () => {
+      try {
+        // Sem sessão e sem token não há como provar posse: só resta o login.
+        if (!isAuthenticated && !accessToken) {
+          router.push(`/signin?next=${encodeURIComponent(router.asPath)}`);
+          return;
+        }
+
+        setBooking(await fetchBooking());
+      } catch (loadError) {
         setError(
           loadError instanceof Error
             ? loadError.message
             : "Não foi possível carregar a reserva."
-        )
-      );
-  }, [id, isAuthenticated, isLoading, router]);
+        );
+      }
+    };
+
+    void carregar();
+  }, [accessToken, fetchBooking, isAuthenticated, isLoading, id, router]);
 
   // Live tick so the payment countdown updates.
   useEffect(() => {
@@ -81,7 +111,7 @@ const BookingDetails = () => {
         if (!response.ok) {
           throw new Error("Não foi possível liberar a reserva.");
         }
-        await getMyBookingById(booking.id).then(setBooking);
+        setBooking(await fetchBooking());
         setExpireNotice(null);
       })
       .catch((expireError) =>
@@ -91,6 +121,10 @@ const BookingDetails = () => {
             : "Não foi possível liberar a reserva."
         )
       );
+    // fetchBooking fora das dependências de propósito: `hasTriedExpire` já
+    // garante que este efeito roda uma vez só, e incluí-lo faria a liberação
+    // ser tentada de novo a cada mudança de sessão.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [booking, hasTriedExpire]);
 
   const handlePayNow = async () => {
@@ -103,7 +137,9 @@ const BookingDetails = () => {
       const response = await fetch("/api/payments/create-checkout-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ booking_id: booking.id }),
+        // O token vai junto: sem sessão, é ele que prova a posse da reserva
+        // para o servidor abrir a cobrança.
+        body: JSON.stringify({ booking_id: booking.id, access_token: accessToken }),
       });
       const payload = await response.json();
 
@@ -210,7 +246,7 @@ const BookingDetails = () => {
                     <button
                       className="rounded border px-6 py-2.5 font-semibold hover:bg-gray-50"
                       onClick={() =>
-                        getMyBookingById(booking.id)
+                        fetchBooking()
                           .then(setBooking)
                           .catch(() => {})
                       }
@@ -231,7 +267,7 @@ const BookingDetails = () => {
                 <button
                   className="rounded border px-6 py-2.5 font-semibold hover:bg-gray-50"
                   onClick={() =>
-                    getMyBookingById(booking.id)
+                    fetchBooking()
                       .then(setBooking)
                       .catch(() => {})
                   }

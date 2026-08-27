@@ -241,9 +241,19 @@ export const createPendingBooking = async (
     throw new PendingBookingError("Unable to create pending booking.", 500);
   }
 
+  // Token gerado pelo trigger da tabela. Lido aqui e devolvido UMA vez, para o
+  // convidado conseguir voltar a reserva sem sessao. Nao aparece em nenhuma
+  // listagem.
+  const { data: tokenRow } = await supabase
+    .from("bookings")
+    .select("access_token")
+    .eq("id", booking.booking_id)
+    .maybeSingle();
+
   return {
     booking_id: booking.booking_id,
     total_amount: Number(booking.total_amount),
     expires_at: booking.expires_at,
+    access_token: tokenRow?.access_token ?? null,
   };
 };

@@ -4,6 +4,7 @@ import {
   InternalCheckoutError,
 } from "../../../lib/payments/createInternalCheckoutSession";
 import type { CreateCheckoutResult } from "../../../lib/payments/types";
+import { findBookingByAccessToken } from "../../../lib/bookings/guestAccess";
 import { createSupabaseServerClient } from "../../../lib/supabase/server";
 
 type ErrorResponse = {
@@ -28,16 +29,34 @@ const handler = async (
       return res.status(400).json({ error: "booking_id is required." });
     }
 
+    // Dois caminhos de posse da reserva:
+    //  - sessão (cliente logado), como sempre foi;
+    //  - token de acesso (compra sem cadastro), porque o convidado não tem
+    //    sessão e sem isto não chegaria ao pagamento.
+    //
+    // Em ambos, quem manda é o dono da reserva NO BANCO. No caminho do token o
+    // user_id sai da própria reserva encontrada, nunca de algo que o cliente
+    // enviou — do contrário bastaria mandar o user_id de outra pessoa.
     const supabase = createSupabaseServerClient({ req, res });
-    const { data, error } = await supabase.auth.getUser();
+    const { data } = await supabase.auth.getUser();
+    let ownerUserId = data?.user?.id ?? null;
 
-    if (error || !data.user) {
-      return res.status(401).json({ error: "Authentication required." });
+    if (!ownerUserId) {
+      const guestBooking = await findBookingByAccessToken(
+        bookingId,
+        getString(req.body?.access_token)
+      );
+
+      if (!guestBooking) {
+        return res.status(401).json({ error: "Authentication required." });
+      }
+
+      ownerUserId = (guestBooking as unknown as { user_id: string }).user_id;
     }
 
     const result = await createInternalCheckoutSession({
       booking_id: bookingId,
-      user_id: data.user.id,
+      user_id: ownerUserId,
     });
 
     return res.status(200).json(result);

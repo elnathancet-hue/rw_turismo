@@ -1554,6 +1554,33 @@ alter table public.bookings
   add column if not exists accommodation_code text,
   add column if not exists accommodation_name text;
 
+-- Acesso à reserva sem sessão (compra sem cadastro): segredo por reserva que
+-- vai no link de retorno. Ver migration acesso_reserva_convidado.
+alter table public.bookings
+  add column if not exists access_token text;
+
+create unique index if not exists bookings_access_token_key
+  on public.bookings(access_token)
+  where access_token is not null;
+
+create or replace function public.set_booking_access_token()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if new.access_token is null then
+    new.access_token := encode(gen_random_bytes(24), 'hex');
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists set_bookings_access_token on public.bookings;
+create trigger set_bookings_access_token
+before insert on public.bookings
+for each row execute function public.set_booking_access_token();
+
 -- Tarifa por faixa etária. Ausente = 100% para todo mundo, ou seja, pacote sem
 -- regra cobra igual a antes.
 alter table public.products

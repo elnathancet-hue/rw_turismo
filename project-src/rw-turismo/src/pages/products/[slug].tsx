@@ -352,7 +352,12 @@ const ProductDetails = ({ product, productDates, suggestions }: Props) => {
         ],
       });
 
-      router.push(`/account/bookings/${result.booking_id}`);
+      // Leva o token na URL: sem sessao, e o unico jeito de o convidado
+      // reabrir a propria reserva e chegar ao pagamento.
+      const acesso = result.access_token
+        ? `?t=${encodeURIComponent(result.access_token)}`
+        : "";
+      router.push(`/account/bookings/${result.booking_id}${acesso}`);
     } catch (error) {
       setBookingError(
         error instanceof Error
