@@ -30,7 +30,7 @@ export type Product = {
   // que é informativo. Ver lib/products/accommodation.ts.
   accommodations?: Accommodation[];
   // Faixas e percentuais da tarifa por idade. Ver lib/products/fareRules.ts.
-  fare_rules?: Record<string, number>;
+  fare_rules?: Record<string, number | null>;
   active: boolean;
   // Ids das categorias (temas comerciais) às quais o produto pertence. Anexado
   // ao carregar via product_categories; usado no filtro "por categoria" da home.

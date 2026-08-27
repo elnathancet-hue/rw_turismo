@@ -27,7 +27,7 @@ export type ProductFormValues = {
   // Opções de suíte/quarto com preço próprio (informativo).
   tiers: ProductTier[];
   accommodations: Accommodation[];
-  fare_rules: Record<string, number>;
+  fare_rules: Record<string, number | null>;
   active: boolean;
   // Categorias marcadas para o produto. Não é coluna de `products` — é salva
   // separadamente na tabela de ligação product_categories.
@@ -129,6 +129,10 @@ export type AdminPassenger = {
   checked_in_at?: string | null;
   seat_number?: string | null;
   room_label?: string | null;
+  document_status?: string | null;
+  document_path?: string | null;
+  document_uploaded_at?: string | null;
+  document_verified_at?: string | null;
   created_at: string;
 };
 

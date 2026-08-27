@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import { countPendingDocuments } from "../bookings/passengerDocuments";
 import { getPublicEnv } from "../env";
 import { getSecret } from "../server/secrets";
 import { createSupabaseAdminClient } from "../supabase/admin";
@@ -103,6 +104,23 @@ export const createInternalCheckoutSession = async (
   }
 
   assertNotExpired(bookingRecord.expires_at);
+
+  // Portão do documento obrigatório. A especificação é explícita: "o botão 'Ir
+  // para pagamento' permanece bloqueado até o envio do documento obrigatório".
+  //
+  // A trava vive AQUI, e não só no botão da tela: esconder o botão não impede
+  // ninguém de chamar a rota direto, e é justamente o caso em que a agência
+  // ficaria sem o documento de uma criança já embarcada.
+  const pendingDocuments = await countPendingDocuments(bookingRecord.id);
+  if (pendingDocuments > 0) {
+    throw new InternalCheckoutError(
+      pendingDocuments === 1
+        ? "Envie o documento obrigatório do passageiro antes de pagar."
+        : `Envie os documentos obrigatórios (${pendingDocuments} pendentes) antes de pagar.`,
+      409
+    );
+  }
+
   const amountInCents = toStripeAmountInCents(bookingRecord.total_amount);
 
   const { data: existingPayments, error: paymentLookupError } = await supabase

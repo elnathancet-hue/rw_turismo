@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import AdminGuard from "../../../components/admin/AdminGuard";
 import AdminLayout from "../../../components/admin/AdminLayout";
+import PassengerDocumentCell from "../../../components/admin/PassengerDocumentCell";
 import Button from "../../../components/ui/Button";
 import { Field, Input, Select, Textarea } from "../../../components/ui/form";
 import {
@@ -422,6 +423,10 @@ const AdminBookingDetailPage = () => {
                     <p className="text-sm text-gray-500">
                       Documento: {passenger.document ?? "-"}
                     </p>
+                    <PassengerDocumentCell
+                      onChanged={load}
+                      passenger={passenger}
+                    />
                   </div>
                 ))}
                 {booking.passengers.length === 0 && (

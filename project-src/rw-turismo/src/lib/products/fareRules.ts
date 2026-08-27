@@ -11,6 +11,9 @@ export type FareRules = {
   // Percentual do preço de adulto que cada faixa paga.
   infantPercent: number;
   childPercent: number;
+  // Ate que idade (na data da saida) o documento e obrigatorio. null = nunca.
+  // E o que decide se o pagamento fica travado esperando o envio.
+  documentRequiredMaxAge: number | null;
 };
 
 export const DEFAULT_FARE_RULES: FareRules = {
@@ -18,6 +21,7 @@ export const DEFAULT_FARE_RULES: FareRules = {
   childMaxAge: 11,
   infantPercent: 100,
   childPercent: 100,
+  documentRequiredMaxAge: null,
 };
 
 const toNumber = (value: unknown, fallback: number): number => {
@@ -54,6 +58,12 @@ export const normalizeFareRules = (value: unknown): FareRules => {
     childPercent: clampPercent(
       toNumber(raw.child_percent, DEFAULT_FARE_RULES.childPercent)
     ),
+    documentRequiredMaxAge:
+      raw.document_required_max_age === null ||
+      raw.document_required_max_age === undefined ||
+      raw.document_required_max_age === ""
+        ? null
+        : Math.max(0, Math.trunc(toNumber(raw.document_required_max_age, 0))),
   };
 };
 
@@ -63,6 +73,7 @@ export const toFareRulesJson = (rules: FareRules) => ({
   child_max_age: rules.childMaxAge,
   infant_percent: rules.infantPercent,
   child_percent: rules.childPercent,
+  document_required_max_age: rules.documentRequiredMaxAge,
 });
 
 export const hasFareDiscount = (rules: FareRules): boolean =>

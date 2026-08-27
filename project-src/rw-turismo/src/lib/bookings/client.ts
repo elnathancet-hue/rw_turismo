@@ -34,3 +34,19 @@ export const getMyBookingById = async (
 
   return data as BookingSummary | null;
 };
+
+// Passageiros da própria reserva, só com o que a tela de documento precisa.
+// O RLS já permite ao dono ler os passageiros da reserva dele — esta é a
+// primeira tela do cliente a usar essa permissão.
+export const getMyBookingPassengers = async (
+  bookingId: string
+): Promise<Array<{ id: string; full_name: string; document_status: string }>> => {
+  const { data, error } = await (createSupabaseBrowserClient() as any)
+    .from("passengers")
+    .select("id, full_name, document_status")
+    .eq("booking_id", bookingId)
+    .order("created_at", { ascending: true });
+
+  if (error) throw error;
+  return data ?? [];
+};

@@ -29,7 +29,29 @@ describe("normalizeFareRules", () => {
       childMaxAge: 10,
       infantPercent: 0,
       childPercent: 70,
+      documentRequiredMaxAge: null,
     });
+  });
+
+  // Sem a chave, o pacote não exige documento de ninguém. É o que garante que
+  // ligar a tarifa infantil num pacote antigo não trave o pagamento de repente.
+  it("sem a idade de documento, ninguém é obrigado a enviar", () => {
+    expect(normalizeFareRules({ child_percent: 70 }).documentRequiredMaxAge).toBe(
+      null
+    );
+    expect(normalizeFareRules({ document_required_max_age: "" }).documentRequiredMaxAge).toBe(
+      null
+    );
+  });
+
+  it("lê a idade limite do documento", () => {
+    expect(
+      normalizeFareRules({ document_required_max_age: 12 }).documentRequiredMaxAge
+    ).toBe(12);
+    // Zero é uma idade válida (só bebês de colo), não "sem regra".
+    expect(
+      normalizeFareRules({ document_required_max_age: 0 }).documentRequiredMaxAge
+    ).toBe(0);
   });
 
   it("prende o percentual entre 0 e 100", () => {
@@ -73,6 +95,7 @@ describe("toFareRulesJson", () => {
       child_max_age: 11,
       infant_percent: 0,
       child_percent: 60,
+      document_required_max_age: null,
     });
     // Ida e volta não pode mudar o valor.
     expect(normalizeFareRules(toFareRulesJson(rules))).toEqual(rules);

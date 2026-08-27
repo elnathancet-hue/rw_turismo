@@ -2,11 +2,17 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useCallback, useEffect, useState } from "react";
 import BookingSummaryCard from "../../../components/BookingSummaryCard";
+import DocumentUpload, {
+  type PassengerDocument,
+} from "../../../components/booking/DocumentUpload";
 import Drawer from "../../../components/Drawer";
 import Footer from "../../../components/Footer";
 import Header from "../../../components/Header";
 import useSupabaseSession from "../../../hooks/useSupabaseSession";
-import { getMyBookingById } from "../../../lib/bookings/client";
+import {
+  getMyBookingById,
+  getMyBookingPassengers,
+} from "../../../lib/bookings/client";
 import {
   isBookingExpired,
   isExpiredPendingBooking,
@@ -42,13 +48,21 @@ const BookingDetails = () => {
   const [nowTick, setNowTick] = useState(() => Date.now());
   const [isOpen, setIsOpen] = useState(false);
   const [headerSearch, setHeaderSearch] = useState("");
+  const [passengers, setPassengers] = useState<PassengerDocument[]>([]);
 
   // Uma única forma de reler a reserva, usada pelo carregamento inicial e pelos
   // três pontos que atualizam depois (expiração, "atualizar status", retorno do
   // pagamento). Antes cada um chamava getMyBookingById direto, que depende de
   // sessão — para o convidado, todos falhariam calados.
   const fetchBooking = useCallback(async (): Promise<BookingSummary | null> => {
-    if (isAuthenticated) return getMyBookingById(id);
+    if (isAuthenticated) {
+      const [reserva, pax] = await Promise.all([
+        getMyBookingById(id),
+        getMyBookingPassengers(id),
+      ]);
+      setPassengers(pax);
+      return reserva;
+    }
 
     if (!accessToken) return null;
 
@@ -61,6 +75,7 @@ const BookingDetails = () => {
     if (!response.ok) {
       throw new Error(payload?.error ?? "Reserva não encontrada.");
     }
+    setPassengers((payload.passengers ?? []) as PassengerDocument[]);
     return payload.booking as BookingSummary;
   }, [accessToken, id, isAuthenticated]);
 
@@ -161,6 +176,15 @@ const BookingDetails = () => {
     }
   };
 
+  // Espelho na tela do que o servidor já impede em
+  // createInternalCheckoutSession. A trava de verdade continua lá — isto aqui
+  // só evita o clique que voltaria com erro.
+  const documentosPendentes = passengers.filter(
+    (passenger) =>
+      passenger.document_status === "pending" ||
+      passenger.document_status === "resend"
+  ).length;
+
   const payable = booking ? isPayablePendingBooking(booking) : false;
   const remainingMs = booking?.expires_at
     ? new Date(booking.expires_at).getTime() - nowTick
@@ -216,6 +240,17 @@ const BookingDetails = () => {
                 </p>
               )}
 
+              {payable && documentosPendentes > 0 && (
+                <p
+                  className="mb-4 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+                  role="status"
+                >
+                  {documentosPendentes === 1
+                    ? "Falta enviar o documento de 1 passageiro para liberar o pagamento."
+                    : `Faltam os documentos de ${documentosPendentes} passageiros para liberar o pagamento.`}
+                </p>
+              )}
+
               {payable && booking.expires_at && (
                 <p className="mb-4 text-sm text-gray-600">
                   Prazo para pagamento:{" "}
@@ -232,7 +267,7 @@ const BookingDetails = () => {
                 <div className="flex flex-wrap gap-3">
                   <button
                     className="rounded bg-orange-600 px-6 py-2.5 font-semibold text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-orange-300"
-                    disabled={isCreatingCheckout}
+                    disabled={isCreatingCheckout || documentosPendentes > 0}
                     onClick={handlePayNow}
                     type="button"
                   >
@@ -288,6 +323,17 @@ const BookingDetails = () => {
                 </a>
               )}
             </BookingSummaryCard>
+
+            {/* Documento obrigatório aparece antes do botão de pagar: é ele que
+                destrava o pagamento, então precisa estar no caminho do olho. */}
+            <DocumentUpload
+              accessToken={accessToken}
+              bookingId={booking.id}
+              onUploaded={() => {
+                void fetchBooking().then(setBooking);
+              }}
+              passengers={passengers}
+            />
           </div>
         )}
       </main>

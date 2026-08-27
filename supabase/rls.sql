@@ -927,3 +927,32 @@ with check (
   bucket_id in ('site-assets', 'product-images', 'blog-images')
   and public.has_staff_role(array['conteudo'])
 );
+
+-- =====================================================================
+-- Documentos de passageiro (bucket privado booking-documents)
+-- =====================================================================
+-- Operação e Admin leem para conferir. Financeiro e Conteúdo NÃO entram:
+-- nenhuma tarefa deles precisa do documento de uma criança.
+drop policy if exists "booking_documents_staff_read" on storage.objects;
+create policy "booking_documents_staff_read" on storage.objects
+for select to authenticated
+using (
+  bucket_id = 'booking-documents'
+  and (public.is_admin() or public.has_staff_role(array['operacoes']))
+);
+
+-- O titular lê o que enviou. Escrita NÃO passa por policy: o upload usa URL
+-- assinada emitida pelo servidor, porque na compra sem cadastro o cliente não
+-- tem sessão para o RLS avaliar.
+drop policy if exists "booking_documents_owner_read" on storage.objects;
+create policy "booking_documents_owner_read" on storage.objects
+for select to authenticated
+using (
+  bucket_id = 'booking-documents'
+  and exists (
+    select 1
+    from public.bookings b
+    where b.id = public.safe_uuid((storage.foldername(name))[1])
+      and b.user_id = auth.uid()
+  )
+);

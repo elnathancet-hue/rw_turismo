@@ -607,6 +607,28 @@ const ProductForm = ({ initialProduct, onSubmit, submitLabel }: Props) => {
               />
             </Field>
           </div>
+          <div className="mt-3 max-w-xs">
+            <Field
+              hint="Deixe vazio para nunca exigir. Com um valor, o pagamento fica bloqueado até o documento ser enviado."
+              label="Documento obrigatório até (anos)"
+            >
+              <Input
+                min={0}
+                onChange={(event) =>
+                  updateValue("fare_rules", {
+                    ...values.fare_rules,
+                    document_required_max_age:
+                      event.target.value === ""
+                        ? null
+                        : Number(event.target.value),
+                  })
+                }
+                placeholder="ex.: 17"
+                type="number"
+                value={values.fare_rules.document_required_max_age ?? ""}
+              />
+            </Field>
+          </div>
         </Field>
 
         <Field

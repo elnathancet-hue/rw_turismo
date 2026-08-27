@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { expireOverdueBookings } from "../../../lib/bookings/expireOverdueBookings";
+import { purgeExpiredDocuments } from "../../../lib/bookings/passengerDocuments";
 import { runDailyNotifications } from "../../../lib/server/notifications";
 import { isServiceRoleConfigured } from "../../../lib/server/secrets";
 
