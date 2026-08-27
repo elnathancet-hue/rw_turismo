@@ -1,7 +1,13 @@
 import { createSupabaseAdminClient } from "../supabase/admin";
+import {
+  isValidDateString,
+  passengerTypeOnDeparture,
+} from "./passengerAge";
 import type {
+  BookingPassengerInput,
   CreatePendingBookingInput,
   CreatePendingBookingResult,
+  PassengerType,
 } from "./types";
 
 export class PendingBookingError extends Error {
@@ -87,6 +93,62 @@ export const mapRpcError = (message: string) => {
   return null;
 };
 
+
+// Monta as linhas de `passengers` a partir do que o comprador digitou.
+// Exportada para teste unitário, como mapRpcError.
+//
+// Valida no SERVIDOR de propósito: o formulário também confere, mas quem chama
+// a API direto não passa pelo formulário. E o tipo do passageiro é DERIVADO da
+// data de nascimento contra a data da saída — nunca escolhido numa lista, que é
+// o que a especificação pede.
+export const buildPassengerRows = (
+  passengers: BookingPassengerInput[],
+  travelersCount: number,
+  departureDate: string
+): Array<{ full_name: string; birth_date: string; type: PassengerType }> => {
+  if (passengers.length !== travelersCount) {
+    throw new PendingBookingError(
+      `Informe os dados de ${travelersCount} ${
+        travelersCount === 1 ? "viajante" : "viajantes"
+      }.`,
+      400
+    );
+  }
+
+  return passengers.map((passenger, index) => {
+    const fullName = (passenger.full_name ?? "").trim();
+    const birthDate = (passenger.birth_date ?? "").trim();
+    const posicao = `${index + 1}º viajante`;
+
+    if (fullName.length < 3) {
+      throw new PendingBookingError(
+        `${posicao}: informe o nome completo.`,
+        400
+      );
+    }
+
+    if (!isValidDateString(birthDate)) {
+      throw new PendingBookingError(
+        `${posicao}: data de nascimento inválida.`,
+        400
+      );
+    }
+
+    if (birthDate > departureDate) {
+      throw new PendingBookingError(
+        `${posicao}: a data de nascimento é depois da viagem.`,
+        400
+      );
+    }
+
+    return {
+      full_name: fullName,
+      birth_date: birthDate,
+      type: passengerTypeOnDeparture(birthDate, departureDate),
+    };
+  });
+};
+
 export const createPendingBooking = async (
   input: CreatePendingBookingInput
 ): Promise<CreatePendingBookingResult> => {
@@ -101,6 +163,32 @@ export const createPendingBooking = async (
   }
 
   const supabase = createSupabaseAdminClient() as any;
+
+  // Passageiros são validados ANTES de criar a reserva: um nome faltando não
+  // pode deixar a vaga retida por 30 minutos até a expiração.
+  let passengerRows: Array<{
+    full_name: string;
+    birth_date: string;
+    type: PassengerType;
+  }> = [];
+
+  if (input.passengers && input.passengers.length > 0) {
+    const { data: departure, error: departureError } = await supabase
+      .from("product_dates")
+      .select("start_date")
+      .eq("id", input.product_date_id)
+      .maybeSingle();
+
+    if (departureError || !departure?.start_date) {
+      throw new PendingBookingError("Product date is not available.", 404);
+    }
+
+    passengerRows = buildPassengerRows(
+      input.passengers,
+      input.travelers_count,
+      departure.start_date as string
+    );
+  }
 
   const { data, error } = await supabase.rpc(
     "create_pending_booking_transaction",
@@ -125,6 +213,25 @@ export const createPendingBooking = async (
 
   if (!booking) {
     throw new PendingBookingError("Unable to create pending booking.", 500);
+  }
+
+  // Grava os viajantes com service role (não depende de sessão no navegador —
+  // na compra sem cadastro o cliente não tem sessão). Sem isto, a venda online
+  // chegava na operação com zero passageiros: sem rooming, sem mapa de
+  // assentos, sem check-in e com o voucher em branco.
+  if (passengerRows.length > 0) {
+    const { error: passengerError } = await supabase.from("passengers").insert(
+      passengerRows.map((row) => ({ ...row, booking_id: booking.booking_id }))
+    );
+
+    // A reserva já existe e a vaga já está retida; derrubar tudo aqui seria
+    // pior. Registra e segue — o admin completa pela tela da reserva.
+    if (passengerError) {
+      console.error("pending booking passengers insert failed", {
+        booking_id: booking.booking_id,
+        error: passengerError,
+      });
+    }
   }
 
   return {

@@ -8,6 +8,16 @@ export type PaymentStatus =
   | "cancelled"
   | "requires_review";
 
+// Tipo do passageiro. NÃO é escolhido numa lista: sai da data de nascimento
+// contra a data da saída — ver lib/bookings/passengerAge.ts.
+export type PassengerType = "adult" | "child" | "infant";
+
+// O que o comprador informa de cada viajante no checkout.
+export type BookingPassengerInput = {
+  full_name: string;
+  birth_date: string;
+};
+
 export type CreatePendingBookingInput = {
   user_id: string;
   product_id: string;
@@ -17,6 +27,9 @@ export type CreatePendingBookingInput = {
   customer_email: string;
   customer_phone?: string | null;
   coupon_code?: string | null;
+  // Viajantes informados no checkout. O tipo (adulto/crianca/bebe) NAO vem
+  // daqui: e derivado da data de nascimento contra a data da saida.
+  passengers?: BookingPassengerInput[];
 };
 
 export type CreatePendingBookingResult = {

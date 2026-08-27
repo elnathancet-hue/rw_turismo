@@ -1,4 +1,9 @@
 import { createSupabaseAdminClient } from "../supabase/admin";
+import {
+  CustomerAccountError,
+  resolveCustomerUserId,
+  type CustomerInput,
+} from "../auth/customerAccount";
 
 // Camada server-side da operação manual de reservas (Fase 1). Envolve os RPCs
 // security-definer (admin_create_booking, admin_confirm_manual_payment,
@@ -75,97 +80,6 @@ const firstRow = (data: unknown) => (Array.isArray(data) ? data[0] : data);
 
 // --- Resolução do cliente (auth.users) -------------------------------------
 
-type CustomerInput = {
-  user_id?: string | null;
-  name: string;
-  email: string;
-  phone?: string | null;
-};
-
-const ensureProfile = async (
-  admin: any,
-  userId: string,
-  customer: { name: string; email: string; phone: string | null }
-) => {
-  const { data: existing } = await admin
-    .from("users_profiles")
-    .select("id")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (existing) return;
-
-  await admin.from("users_profiles").insert({
-    user_id: userId,
-    name: customer.name || null,
-    email: customer.email,
-    phone: customer.phone,
-    role: "customer",
-  });
-};
-
-const findAuthUserByEmail = async (
-  admin: any,
-  email: string
-): Promise<string | null> => {
-  // Fallback para o caso raro de existir auth.users sem users_profiles.
-  const { data } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-  const match = (data?.users ?? []).find(
-    (user: any) => (user.email ?? "").toLowerCase() === email
-  );
-  return match?.id ?? null;
-};
-
-// Retorna o auth.users id do cliente: usa o informado, procura por e-mail ou
-// cria a conta (sem senha — o cliente acessa depois via "esqueci a senha"),
-// garantindo o users_profiles para a reserva aparecer em /account/bookings.
-const resolveCustomerUserId = async (
-  admin: any,
-  input: CustomerInput
-): Promise<string> => {
-  if (input.user_id) return input.user_id;
-
-  const email = input.email.trim().toLowerCase();
-  const name = input.name.trim();
-  const phone = input.phone?.trim() || null;
-
-  if (!email) {
-    throw new AdminBookingError("E-mail do cliente é obrigatório.", 400);
-  }
-
-  const { data: existing } = await admin
-    .from("users_profiles")
-    .select("user_id")
-    .eq("email", email)
-    .maybeSingle();
-  if (existing?.user_id) return existing.user_id;
-
-  const { data: created, error: createError } = await admin.auth.admin.createUser({
-    email,
-    email_confirm: true,
-    user_metadata: { name },
-  });
-
-  if (created?.user) {
-    await ensureProfile(admin, created.user.id, { name, email, phone });
-    return created.user.id;
-  }
-
-  if (createError) {
-    const recovered = await findAuthUserByEmail(admin, email);
-    if (recovered) {
-      await ensureProfile(admin, recovered, { name, email, phone });
-      return recovered;
-    }
-    throw new AdminBookingError(
-      `Não foi possível criar a conta do cliente: ${createError.message}`,
-      400
-    );
-  }
-
-  throw new AdminBookingError("Não foi possível criar a conta do cliente.", 500);
-};
-
 // --- Operações --------------------------------------------------------------
 
 export type ManualPassengerInput = {
@@ -198,7 +112,17 @@ export const adminCreateBooking = async (
 ): Promise<AdminCreateBookingResult> => {
   const admin = createSupabaseAdminClient() as any;
 
-  const customerUserId = await resolveCustomerUserId(admin, input.customer);
+  // Traduz o erro do módulo compartilhado para AdminBookingError: a rota do
+  // admin só trata esse tipo, e sem isto a mensagem viraria um 500 genérico.
+  let customerUserId: string;
+  try {
+    customerUserId = await resolveCustomerUserId(admin, input.customer);
+  } catch (error) {
+    if (error instanceof CustomerAccountError) {
+      throw new AdminBookingError(error.message, error.statusCode);
+    }
+    throw error;
+  }
 
   const { data, error } = await admin.rpc("admin_create_booking", {
     p_admin_id: input.admin_id,

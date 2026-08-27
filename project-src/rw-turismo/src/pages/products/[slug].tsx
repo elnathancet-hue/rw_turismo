@@ -26,6 +26,10 @@ import {
 } from "../../lib/products/server";
 import { hasInstallmentOffer, INSTALLMENT_LABEL } from "../../lib/products/installment";
 import useBookingQuote from "../../hooks/useBookingQuote";
+import PassengerFields, {
+  resizePassengers,
+} from "../../components/booking/PassengerFields";
+import type { BookingPassengerInput } from "../../lib/bookings/types";
 import type {
   FaqItem,
   ItineraryDay,
@@ -78,6 +82,7 @@ const ProductDetails = ({ product, productDates, suggestions }: Props) => {
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [couponCode, setCouponCode] = useState("");
+  const [passengers, setPassengers] = useState<BookingPassengerInput[]>([]);
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [isBooking, setIsBooking] = useState(false);
   const [isJoiningWaitlist, setIsJoiningWaitlist] = useState(false);
@@ -281,18 +286,20 @@ const ProductDetails = ({ product, productDates, suggestions }: Props) => {
   const startPendingBooking = async () => {
     setBookingError(null);
 
-    if (!isAuthenticated) {
-      saveBookingDraft();
-      router.push(`/signin?next=${encodeURIComponent(router.asPath)}`);
+    if (!selectedDateId) {
+      setBookingError("Selecione uma data disponivel.");
       return;
     }
 
-    if (!selectedDateId) {
-      setBookingError("Selecione uma data disponÃ­vel.");
+    // Login deixou de ser exigido: a conta e criada nos bastidores pelo e-mail.
+    // O rascunho continua salvo para quem escolher entrar antes de concluir.
+    if (!customerName.trim() || !customerEmail.trim()) {
+      setBookingError("Informe seu nome e e-mail para reservar.");
       return;
     }
 
     setIsBooking(true);
+
 
     try {
       const response = await fetch("/api/bookings/create-pending", {
@@ -308,6 +315,7 @@ const ProductDetails = ({ product, productDates, suggestions }: Props) => {
           customer_email: customerEmail,
           customer_phone: customerPhone,
           coupon_code: couponCode || null,
+          passengers: resizePassengers(passengers, travelersCount),
         }),
       });
 
@@ -575,6 +583,14 @@ const ProductDetails = ({ product, productDates, suggestions }: Props) => {
                   value={couponCode}
                 />
               </label>
+              {showBooking && !soldOut && selectedDateId && (
+                <PassengerFields
+                  departureDate={selectedDate?.start_date ?? null}
+                  onChange={setPassengers}
+                  passengers={passengers}
+                  travelersCount={travelersCount}
+                />
+              )}
               {quoteError && (
                 <p className="mt-2 text-sm text-red-600" role="alert">
                   {quoteError}
