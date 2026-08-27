@@ -426,19 +426,64 @@ grant execute on function public.release_expired_holds_for_date(uuid) to service
 -- =====================================================================
 drop function if exists public.quote_booking(uuid, uuid, integer, text);
 
+-- =====================================================================
+-- 2) Classificação por idade
+-- =====================================================================
+create or replace function public.passenger_type_on_departure(
+  p_birth_date date,
+  p_departure_date date,
+  p_infant_max_age integer default 1,
+  p_child_max_age integer default 11
+)
+returns text
+language sql
+immutable
+as $$
+  select case
+    when p_birth_date is null then 'adult'
+    -- age() devolve intervalo; extract(year) dá os anos COMPLETOS, que é
+    -- exatamente "quantos aniversários já passaram" na data da viagem.
+    when extract(year from age(p_departure_date, p_birth_date)) <= p_infant_max_age
+      then 'infant'
+    when extract(year from age(p_departure_date, p_birth_date)) <= p_child_max_age
+      then 'child'
+    else 'adult'
+  end;
+$$;
+
+revoke all on function public.passenger_type_on_departure(date, date, integer, integer) from public;
+grant execute on function public.passenger_type_on_departure(date, date, integer, integer) to authenticated;
+grant execute on function public.passenger_type_on_departure(date, date, integer, integer) to service_role;
+
+-- =====================================================================
+-- 3) Cotação somando por passageiro
+-- =====================================================================
+drop function if exists public.quote_booking(uuid, uuid, integer, text, text);
+
 create or replace function public.quote_booking(
   p_product_id uuid,
   p_product_date_id uuid,
   p_travelers_count integer,
   p_coupon_code text default null,
-  p_accommodation_code text default null
+  p_accommodation_code text default null,
+  -- [{ "birth_date": "2016-04-02" }, ...]. Nulo/vazio = todos adultos, que é o
+  -- preço mais alto: enquanto a pessoa não digita as datas, o valor mostrado
+  -- nunca sobe depois — só pode cair.
+  p_passengers jsonb default null
 )
 returns table (
   unit_amount numeric(12,2),
+  -- Total ANTES do cupom. Sem ele a tela nao consegue separar o abatimento da
+  -- tarifa infantil do abatimento do cupom, e mostraria os dois somados como se
+  -- fossem desconto de cupom.
+  subtotal_amount numeric(12,2),
   total_amount numeric(12,2),
   coupon_id uuid,
   accommodation_code text,
-  accommodation_name text
+  accommodation_name text,
+  adults_count integer,
+  children_count integer,
+  infants_count integer
 )
 language plpgsql
 stable
@@ -450,6 +495,7 @@ declare
   v_product_date public.product_dates%rowtype;
   v_unit_amount numeric(12,2);
   v_total_amount numeric(12,2);
+  v_subtotal_amount numeric(12,2);
   v_coupon public.coupons%rowtype;
   v_coupon_id uuid := null;
   v_coupon_code text;
@@ -458,6 +504,15 @@ declare
   v_capacity integer;
   v_accommodation_code text := null;
   v_accommodation_name text := null;
+  v_infant_max integer;
+  v_child_max integer;
+  v_infant_percent numeric;
+  v_child_percent numeric;
+  v_adults integer := 0;
+  v_children integer := 0;
+  v_infants integer := 0;
+  v_passenger jsonb;
+  v_type text;
 begin
   if p_product_id is null or p_product_date_id is null then
     raise exception 'PRODUCT_AND_DATE_REQUIRED' using errcode = 'P0001';
@@ -495,8 +550,6 @@ begin
     raise exception 'NOT_ENOUGH_SLOTS' using errcode = 'P0001';
   end if;
 
-  -- Quantas acomodações vendáveis o pacote tem. Só conta a que está completa:
-  -- sem capacidade ou sem preço não dá para vender nem para calcular.
   select count(*) into v_accommodation_count
   from jsonb_array_elements(coalesce(v_product.accommodations, '[]'::jsonb)) as item
   where coalesce((item->>'active')::boolean, true) = true
@@ -519,8 +572,6 @@ begin
       raise exception 'ACCOMMODATION_NOT_AVAILABLE' using errcode = 'P0001';
     end if;
 
-    -- Mesma regra da tela: a acomodação só serve quando o grupo se divide
-    -- exatamente nela. Três pessoas num duplo deixaria alguém sem cama.
     if p_travelers_count % v_capacity <> 0 then
       raise exception 'ACCOMMODATION_DOES_NOT_FIT' using errcode = 'P0001';
     end if;
@@ -533,11 +584,8 @@ begin
     v_accommodation_code := v_accommodation->>'code';
     v_accommodation_name := v_accommodation->>'name';
   elsif v_accommodation_count > 0 then
-    -- O pacote vende acomodação e ninguém escolheu: não dá para adivinhar o
-    -- preço nem para montar o quarto.
     raise exception 'ACCOMMODATION_REQUIRED' using errcode = 'P0001';
   else
-    -- Pacote sem acomodação configurada segue exatamente como antes.
     v_unit_amount := coalesce(
       v_product_date.price_override,
       v_product.promotional_price,
@@ -545,7 +593,42 @@ begin
     );
   end if;
 
-  v_total_amount := round(v_unit_amount * p_travelers_count, 2);
+  -- Regras de faixa etária. Ausentes = 100%, ou seja, sem desconto: pacote sem
+  -- regra configurada cobra exatamente como cobrava antes desta migration.
+  v_infant_max := coalesce((v_product.fare_rules->>'infant_max_age')::integer, 1);
+  v_child_max := coalesce((v_product.fare_rules->>'child_max_age')::integer, 11);
+  v_infant_percent := coalesce((v_product.fare_rules->>'infant_percent')::numeric, 100);
+  v_child_percent := coalesce((v_product.fare_rules->>'child_percent')::numeric, 100);
+
+  if jsonb_typeof(p_passengers) = 'array' and jsonb_array_length(p_passengers) > 0 then
+    v_total_amount := 0;
+    for v_passenger in select * from jsonb_array_elements(p_passengers)
+    loop
+      v_type := public.passenger_type_on_departure(
+        nullif(v_passenger->>'birth_date', '')::date,
+        v_product_date.start_date,
+        v_infant_max,
+        v_child_max
+      );
+
+      if v_type = 'infant' then
+        v_infants := v_infants + 1;
+        v_total_amount := v_total_amount + round(v_unit_amount * v_infant_percent / 100.0, 2);
+      elsif v_type = 'child' then
+        v_children := v_children + 1;
+        v_total_amount := v_total_amount + round(v_unit_amount * v_child_percent / 100.0, 2);
+      else
+        v_adults := v_adults + 1;
+        v_total_amount := v_total_amount + v_unit_amount;
+      end if;
+    end loop;
+  else
+    -- Sem lista de passageiros ainda: cobra todo mundo como adulto.
+    v_adults := p_travelers_count;
+    v_total_amount := round(v_unit_amount * p_travelers_count, 2);
+  end if;
+
+  v_subtotal_amount := v_total_amount;
 
   v_coupon_code := nullif(upper(trim(coalesce(p_coupon_code, ''))), '');
   if v_coupon_code is not null then
@@ -575,30 +658,36 @@ begin
       v_total_amount := round(v_total_amount - v_coupon.discount_value, 2);
     end if;
 
-    if v_total_amount < 0.01 then
-      v_total_amount := 0.01;
-    end if;
-
     v_coupon_id := v_coupon.id;
+  end if;
+
+  -- Piso de 1 centavo: bookings.total_amount tem check (> 0), e uma reserva só
+  -- de bebês com tarifa zerada cairia em zero e quebraria a inserção.
+  if v_total_amount < 0.01 then
+    v_total_amount := 0.01;
   end if;
 
   return query select
     v_unit_amount,
+    v_subtotal_amount,
     v_total_amount,
     v_coupon_id,
     v_accommodation_code,
-    v_accommodation_name;
+    v_accommodation_name,
+    v_adults,
+    v_children,
+    v_infants;
 end;
 $$;
 
-revoke all on function public.quote_booking(uuid, uuid, integer, text, text) from public;
-grant execute on function public.quote_booking(uuid, uuid, integer, text, text) to service_role;
+revoke all on function public.quote_booking(uuid, uuid, integer, text, text, jsonb) from public;
+grant execute on function public.quote_booking(uuid, uuid, integer, text, text, jsonb) to service_role;
 
 -- =====================================================================
--- 3) Reserva com acomodação
+-- 4) Reserva: preço por passageiro e gravação atômica dos viajantes
 -- =====================================================================
 drop function if exists public.create_pending_booking_transaction(
-  uuid, uuid, uuid, text, text, text, integer, text
+  uuid, uuid, uuid, text, text, text, integer, text, text
 );
 
 create or replace function public.create_pending_booking_transaction(
@@ -610,7 +699,9 @@ create or replace function public.create_pending_booking_transaction(
   p_customer_phone text,
   p_travelers_count integer,
   p_coupon_code text default null,
-  p_accommodation_code text default null
+  p_accommodation_code text default null,
+  -- [{ "full_name": "...", "birth_date": "YYYY-MM-DD" }, ...]
+  p_passengers jsonb default null
 )
 returns table (
   booking_id uuid,
@@ -630,6 +721,8 @@ declare
   v_coupon_id uuid := null;
   v_accommodation_code text := null;
   v_accommodation_name text := null;
+  v_infant_max integer;
+  v_child_max integer;
 begin
   if p_user_id is null then
     raise exception 'AUTH_REQUIRED' using errcode = 'P0001';
@@ -651,8 +744,13 @@ begin
     raise exception 'INVALID_TRAVELERS_COUNT' using errcode = 'P0001';
   end if;
 
-  -- Devolve ao estoque o que venceu nesta saída ANTES de olhar as vagas: sem
-  -- isto, uma reserva abandonada segura a vaga até o cron da madrugada.
+  -- Se veio lista, ela precisa bater com a quantidade: o preço é somado por
+  -- passageiro, então divergência aqui cobraria errado.
+  if jsonb_typeof(p_passengers) = 'array'
+     and jsonb_array_length(p_passengers) <> p_travelers_count then
+    raise exception 'PASSENGERS_COUNT_MISMATCH' using errcode = 'P0001';
+  end if;
+
   perform public.release_expired_holds_for_date(p_product_date_id);
 
   select *
@@ -683,8 +781,6 @@ begin
     raise exception 'PRODUCT_DATE_MISMATCH' using errcode = 'P0001';
   end if;
 
-  -- A departure that already left must never be sellable, even if the admin
-  -- forgot to deactivate it.
   if v_product_date.start_date < current_date then
     raise exception 'PRODUCT_DATE_IN_PAST' using errcode = 'P0001';
   end if;
@@ -693,10 +789,8 @@ begin
     raise exception 'NOT_ENOUGH_SLOTS' using errcode = 'P0001';
   end if;
 
-  -- Preço e acomodação vêm de quote_booking: é a MESMA função que a tela de
-  -- revisão chama, então o valor mostrado e o cobrado não têm como divergir.
-  -- As linhas de produto/data/cupom já estão travadas por este bloco (mesma
-  -- transação). used_count do cupom continua incrementando só no webhook.
+  -- Preço, acomodação e composição vêm de quote_booking: é a MESMA função que a
+  -- tela de revisão chama, então o valor mostrado e o cobrado não divergem.
   select q.total_amount, q.coupon_id, q.accommodation_code, q.accommodation_name
     into v_total_amount, v_coupon_id, v_accommodation_code, v_accommodation_name
   from public.quote_booking(
@@ -704,7 +798,8 @@ begin
     p_product_date_id,
     p_travelers_count,
     p_coupon_code,
-    p_accommodation_code
+    p_accommodation_code,
+    p_passengers
   ) as q;
 
   update public.product_dates
@@ -712,47 +807,49 @@ begin
   where id = p_product_date_id;
 
   insert into public.bookings (
-    user_id,
-    product_id,
-    product_date_id,
-    customer_name,
-    customer_email,
-    customer_phone,
-    travelers_count,
-    total_amount,
-    status,
-    payment_status,
-    expires_at,
-    slots_released,
-    coupon_id,
-    accommodation_code,
-    accommodation_name
+    user_id, product_id, product_date_id,
+    customer_name, customer_email, customer_phone,
+    travelers_count, total_amount, status, payment_status,
+    expires_at, slots_released, coupon_id,
+    accommodation_code, accommodation_name
   )
   values (
-    p_user_id,
-    p_product_id,
-    p_product_date_id,
-    trim(p_customer_name),
-    lower(trim(p_customer_email)),
+    p_user_id, p_product_id, p_product_date_id,
+    trim(p_customer_name), lower(trim(p_customer_email)),
     nullif(trim(coalesce(p_customer_phone, '')), ''),
-    p_travelers_count,
-    v_total_amount,
-    'pending',
-    'pending',
-    v_expires_at,
-    false,
-    v_coupon_id,
-    v_accommodation_code,
-    v_accommodation_name
+    p_travelers_count, v_total_amount, 'pending', 'pending',
+    v_expires_at, false, v_coupon_id,
+    v_accommodation_code, v_accommodation_name
   )
   returning id into v_booking_id;
+
+  -- Passageiros na MESMA transação: se falhar aqui, a reserva inteira volta
+  -- atrás e a vaga não fica retida por uma compra pela metade.
+  if jsonb_typeof(p_passengers) = 'array' and jsonb_array_length(p_passengers) > 0 then
+    v_infant_max := coalesce((v_product.fare_rules->>'infant_max_age')::integer, 1);
+    v_child_max := coalesce((v_product.fare_rules->>'child_max_age')::integer, 11);
+
+    insert into public.passengers (booking_id, full_name, birth_date, type)
+    select
+      v_booking_id,
+      trim(item->>'full_name'),
+      nullif(item->>'birth_date', '')::date,
+      public.passenger_type_on_departure(
+        nullif(item->>'birth_date', '')::date,
+        v_product_date.start_date,
+        v_infant_max,
+        v_child_max
+      )
+    from jsonb_array_elements(p_passengers) as item
+    where length(trim(coalesce(item->>'full_name', ''))) > 0;
+  end if;
 
   return query select v_booking_id, v_total_amount, v_expires_at;
 end;
 $$;
 
-revoke all on function public.create_pending_booking_transaction(uuid, uuid, uuid, text, text, text, integer, text, text) from public;
-grant execute on function public.create_pending_booking_transaction(uuid, uuid, uuid, text, text, text, integer, text, text) to service_role;
+revoke all on function public.create_pending_booking_transaction(uuid, uuid, uuid, text, text, text, integer, text, text, jsonb) from public;
+grant execute on function public.create_pending_booking_transaction(uuid, uuid, uuid, text, text, text, integer, text, text, jsonb) to service_role;
 
 -- Fase 2.5 — incremento atômico de uso do cupom (webhook, ao confirmar pagamento).
 create or replace function public.increment_coupon_usage(p_coupon_id uuid)
@@ -1456,6 +1553,15 @@ alter table public.products add constraint products_accommodations_array_check
 alter table public.bookings
   add column if not exists accommodation_code text,
   add column if not exists accommodation_name text;
+
+-- Tarifa por faixa etária. Ausente = 100% para todo mundo, ou seja, pacote sem
+-- regra cobra igual a antes.
+alter table public.products
+  add column if not exists fare_rules jsonb not null default '{}'::jsonb;
+
+alter table public.products drop constraint if exists products_fare_rules_object_check;
+alter table public.products add constraint products_fare_rules_object_check
+  check (jsonb_typeof(fare_rules) = 'object');
 -- Fase 1 (operação): perfil enriquecido, check-in, fornecedores e lista de espera.
 alter table public.users_profiles
   add column if not exists birth_date date,

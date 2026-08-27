@@ -27,6 +27,7 @@ export type ProductFormValues = {
   // Opções de suíte/quarto com preço próprio (informativo).
   tiers: ProductTier[];
   accommodations: Accommodation[];
+  fare_rules: Record<string, number>;
   active: boolean;
   // Categorias marcadas para o produto. Não é coluna de `products` — é salva
   // separadamente na tabela de ligação product_categories.

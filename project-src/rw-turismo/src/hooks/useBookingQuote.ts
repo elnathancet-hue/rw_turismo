@@ -18,6 +18,9 @@ type Params = {
   // Codigo da acomodacao escolhida; entra no preco quando o pacote tem
   // acomodacoes cadastradas.
   accommodationCode: string | null;
+  // Datas de nascimento, para a tarifa por faixa etaria. O servidor so aplica
+  // quando todas estao preenchidas.
+  passengers: Array<{ birth_date: string }>;
 };
 
 type State = {
@@ -34,7 +37,13 @@ export const useBookingQuote = ({
   travelersCount,
   couponCode,
   accommodationCode,
+  passengers,
 }: Params): State => {
+  // Chave estavel da lista: o array chega novo a cada render, e usa-lo como
+  // dependencia dispararia uma cotacao por tecla digitada.
+  const passengersKey = passengers
+    .map((passenger) => passenger.birth_date ?? "")
+    .join("|");
   const [state, setState] = useState<State>({
     quote: null,
     error: null,
@@ -65,6 +74,7 @@ export const useBookingQuote = ({
             travelers_count: travelersCount,
             coupon_code: couponCode.trim() || null,
             accommodation_code: accommodationCode,
+            passengers,
           }),
           signal: controller.signal,
         });
@@ -99,7 +109,19 @@ export const useBookingQuote = ({
     }, DEBOUNCE_MS);
 
     return () => clearTimeout(timer);
-  }, [productId, productDateId, travelersCount, couponCode, accommodationCode]);
+    // `passengersKey` no lugar de `passengers`: o array chega novo a cada
+    // render, e depender dele dispararia uma cotação por tecla digitada mesmo
+    // quando nenhuma data mudou. A chave é derivada exatamente do que o preço
+    // usa (as datas de nascimento), então nada deixa de ser recalculado.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    productId,
+    productDateId,
+    travelersCount,
+    couponCode,
+    accommodationCode,
+    passengersKey,
+  ]);
 
   useEffect(() => () => abortRef.current?.abort(), []);
 

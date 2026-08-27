@@ -12,35 +12,35 @@ const passenger = (full_name: string, birth_date: string) => ({
 });
 
 describe("buildPassengerRows", () => {
-  it("deriva o tipo pela idade na data da saída", () => {
+  it("devolve apenas nome e nascimento", () => {
     const rows = buildPassengerRows(
       [
         passenger("Ana Souza", "1990-04-02"),
         passenger("Beto Souza", "2016-01-10"),
-        passenger("Cauã Souza", "2025-06-01"),
       ],
-      3,
+      2,
       DEPARTURE
     );
 
-    expect(rows.map((row) => row.type)).toEqual(["adult", "child", "infant"]);
+    expect(rows).toEqual([
+      { full_name: "Ana Souza", birth_date: "1990-04-02" },
+      { full_name: "Beto Souza", birth_date: "2016-01-10" },
+    ]);
   });
 
-  it("usa a data da VIAGEM, não a de hoje, para decidir a faixa", () => {
-    // Faz 12 anos em 10/12/2026, cinco dias antes da saída.
+  // Decisão deliberada: adulto/criança/bebê é classificado no banco, pela mesma
+  // função que calcula o preço (public.passenger_type_on_departure, com as
+  // faixas do pacote). Se o TypeScript também classificasse, mudar a faixa no
+  // admin alteraria o valor cobrado sem alterar o rótulo mostrado na tela.
+  it("NÃO classifica a faixa etária — quem faz isso é o banco", () => {
     const rows = buildPassengerRows(
-      [passenger("Duda Lima", "2014-12-10")],
+      [passenger("Cauã Souza", "2025-06-01")],
       1,
       DEPARTURE
     );
-    expect(rows[0]!.type).toBe("adult");
 
-    const antes = buildPassengerRows(
-      [passenger("Duda Lima", "2014-12-10")],
-      1,
-      "2026-12-09"
-    );
-    expect(antes[0]!.type).toBe("child");
+    expect(Object.keys(rows[0]!).sort()).toEqual(["birth_date", "full_name"]);
+    expect(rows[0]).not.toHaveProperty("type");
   });
 
   it("limpa espaços do nome", () => {

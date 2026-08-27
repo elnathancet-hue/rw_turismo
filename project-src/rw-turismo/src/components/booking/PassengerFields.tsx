@@ -1,4 +1,8 @@
-import { passengerTypeOnDeparture } from "../../lib/bookings/passengerAge";
+import {
+  DEFAULT_AGE_BANDS,
+  passengerTypeOnDeparture,
+  type AgeBands,
+} from "../../lib/bookings/passengerAge";
 import { passengerTypeLabel } from "../../lib/bookings/status";
 import type { BookingPassengerInput } from "../../lib/bookings/types";
 
@@ -9,6 +13,9 @@ type Props = {
   departureDate: string | null;
   passengers: BookingPassengerInput[];
   onChange: (passengers: BookingPassengerInput[]) => void;
+  // Faixas do pacote. O rotulo mostrado aqui tem que usar a mesma regra que o
+  // banco usa para cobrar, senao a tela diz "crianca" e a cobranca vem cheia.
+  ageBands?: AgeBands;
 };
 
 const emptyPassenger = (): BookingPassengerInput => ({
@@ -36,6 +43,7 @@ const PassengerFields = ({
   departureDate,
   passengers,
   onChange,
+  ageBands = DEFAULT_AGE_BANDS,
 }: Props) => {
   const rows = resizePassengers(passengers, travelersCount);
 
@@ -57,7 +65,11 @@ const PassengerFields = ({
           const tipo =
             row.birth_date && departureDate
               ? passengerTypeLabel(
-                  passengerTypeOnDeparture(row.birth_date, departureDate)
+                  passengerTypeOnDeparture(
+                    row.birth_date,
+                    departureDate,
+                    ageBands
+                  )
                 )
               : null;
 

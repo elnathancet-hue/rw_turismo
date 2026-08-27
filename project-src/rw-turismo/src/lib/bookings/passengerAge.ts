@@ -7,11 +7,17 @@ import type { PassengerType } from "./types";
 // entre a compra e a viagem embarca como adulto, e é isso que a operação e a
 // companhia de transporte conferem no embarque.
 
-// Faixas padrão do mercado de turismo terrestre no Brasil. Viram configuráveis
-// por pacote quando a tarifa infantil entrar (fase seguinte); até lá servem de
-// regra geral e ficam num lugar só.
+// As faixas vêm do pacote (products.fare_rules). Estes são só os padrões de
+// mercado usados quando o pacote não configura nada.
 export const INFANT_MAX_AGE = 1; // colo: 0 e 1 ano
 export const CHILD_MAX_AGE = 11; // criança: 2 a 11 anos
+
+export type AgeBands = { infantMaxAge: number; childMaxAge: number };
+
+export const DEFAULT_AGE_BANDS: AgeBands = {
+  infantMaxAge: INFANT_MAX_AGE,
+  childMaxAge: CHILD_MAX_AGE,
+};
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -45,13 +51,19 @@ export const ageOnDate = (birthDate: string, referenceDate: string): number => {
   return age;
 };
 
-export const passengerTypeForAge = (age: number): PassengerType => {
-  if (age <= INFANT_MAX_AGE) return "infant";
-  if (age <= CHILD_MAX_AGE) return "child";
+export const passengerTypeForAge = (
+  age: number,
+  bands: AgeBands = DEFAULT_AGE_BANDS
+): PassengerType => {
+  if (age <= bands.infantMaxAge) return "infant";
+  if (age <= bands.childMaxAge) return "child";
   return "adult";
 };
 
+// Espelha public.passenger_type_on_departure no banco. O preço é calculado lá;
+// aqui é só para a tela mostrar a faixa enquanto a pessoa digita.
 export const passengerTypeOnDeparture = (
   birthDate: string,
-  departureDate: string
-): PassengerType => passengerTypeForAge(ageOnDate(birthDate, departureDate));
+  departureDate: string,
+  bands: AgeBands = DEFAULT_AGE_BANDS
+): PassengerType => passengerTypeForAge(ageOnDate(birthDate, departureDate), bands);

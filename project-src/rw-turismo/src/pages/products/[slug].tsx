@@ -28,6 +28,7 @@ import { hasInstallmentOffer, INSTALLMENT_LABEL } from "../../lib/products/insta
 import useBookingQuote from "../../hooks/useBookingQuote";
 import AccommodationPicker from "../../components/booking/AccommodationPicker";
 import { normalizeAccommodations } from "../../lib/products/accommodation";
+import { normalizeFareRules } from "../../lib/products/fareRules";
 import PassengerFields, {
   resizePassengers,
 } from "../../components/booking/PassengerFields";
@@ -201,6 +202,11 @@ const ProductDetails = ({ product, productDates, suggestions }: Props) => {
   const accommodations = normalizeAccommodations(
     (product as { accommodations?: unknown }).accommodations
   );
+  // Faixas do pacote: o rotulo (Adulto/Crianca/Bebe) mostrado ao lado de cada
+  // viajante tem que usar a MESMA regra que o banco usa para cobrar.
+  const fareRules = normalizeFareRules(
+    (product as { fare_rules?: unknown }).fare_rules
+  );
   const localEstimate = selectedUnitPrice * travelersCount;
   // Total oficial vem do servidor (mesma funcao que a reserva usa). O calculo
   // local so aparece enquanto a cotacao nao volta, para o preco nao "piscar".
@@ -214,6 +220,7 @@ const ProductDetails = ({ product, productDates, suggestions }: Props) => {
     travelersCount,
     couponCode,
     accommodationCode,
+    passengers,
   });
   const estimatedTotal = quote?.total_amount ?? localEstimate;
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") ?? "";
@@ -602,6 +609,10 @@ const ProductDetails = ({ product, productDates, suggestions }: Props) => {
               )}
               {showBooking && !soldOut && selectedDateId && (
                 <PassengerFields
+                  ageBands={{
+                    infantMaxAge: fareRules.infantMaxAge,
+                    childMaxAge: fareRules.childMaxAge,
+                  }}
                   departureDate={selectedDate?.start_date ?? null}
                   onChange={setPassengers}
                   passengers={passengers}

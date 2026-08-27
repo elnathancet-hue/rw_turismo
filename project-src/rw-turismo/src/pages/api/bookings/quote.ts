@@ -51,6 +51,7 @@ const handler = async (
       travelers_count: Number(body.travelers_count),
       coupon_code: getString(body.coupon_code) || null,
       accommodation_code: getString(body.accommodation_code) || null,
+      passengers: Array.isArray(body.passengers) ? body.passengers : undefined,
     });
 
     return res.status(200).json(quote);

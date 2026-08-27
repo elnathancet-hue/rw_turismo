@@ -16,6 +16,10 @@ import {
   normalizeAccommodations,
   type Accommodation,
 } from "../../lib/products/accommodation";
+import {
+  normalizeFareRules,
+  toFareRulesJson,
+} from "../../lib/products/fareRules";
 import ImageField from "./ImageField";
 import SaveMessage from "./SaveMessage";
 import { slugFieldProps, useSlugStatus } from "../../hooks/useSlugStatus";
@@ -58,6 +62,7 @@ const ProductForm = ({ initialProduct, onSubmit, submitLabel }: Props) => {
       : [],
     tiers: Array.isArray(initialProduct?.tiers) ? initialProduct.tiers : [],
     accommodations: normalizeAccommodations(initialProduct?.accommodations),
+    fare_rules: toFareRulesJson(normalizeFareRules(initialProduct?.fare_rules)),
     active: initialProduct?.active ?? true,
     category_ids: initialProduct?.category_ids ?? [],
   });
@@ -224,6 +229,9 @@ const ProductForm = ({ initialProduct, onSubmit, submitLabel }: Props) => {
             price: Number(item.price) || 0,
           }))
           .filter((item) => item.name && item.capacity > 0 && item.price > 0),
+        // Passa pelo normalizador para nao gravar percentual fora de 0-100 nem
+        // faixa de crianca menor que a de bebe (deixaria idades sem regra).
+        fare_rules: toFareRulesJson(normalizeFareRules(values.fare_rules)),
       };
       await onSubmit(normalized);
       // Na criação o onSubmit redireciona; na edição a pessoa fica na mesma
@@ -536,6 +544,68 @@ const ProductForm = ({ initialProduct, onSubmit, submitLabel }: Props) => {
             >
               + Adicionar pergunta
             </Button>
+          </div>
+        </Field>
+
+        <Field
+          hint="A idade é calculada na DATA DA SAÍDA, a partir do nascimento que o cliente informa. Deixe 100% para cobrar cheio."
+          label="Tarifa por faixa etária"
+        >
+          <div className="grid gap-3 md:grid-cols-4">
+            <Field label="Bebê até (anos)">
+              <Input
+                min={0}
+                onChange={(event) =>
+                  updateValue("fare_rules", {
+                    ...values.fare_rules,
+                    infant_max_age: Number(event.target.value),
+                  })
+                }
+                type="number"
+                value={values.fare_rules.infant_max_age ?? 1}
+              />
+            </Field>
+            <Field label="Bebê paga (%)">
+              <Input
+                max={100}
+                min={0}
+                onChange={(event) =>
+                  updateValue("fare_rules", {
+                    ...values.fare_rules,
+                    infant_percent: Number(event.target.value),
+                  })
+                }
+                type="number"
+                value={values.fare_rules.infant_percent ?? 100}
+              />
+            </Field>
+            <Field label="Criança até (anos)">
+              <Input
+                min={0}
+                onChange={(event) =>
+                  updateValue("fare_rules", {
+                    ...values.fare_rules,
+                    child_max_age: Number(event.target.value),
+                  })
+                }
+                type="number"
+                value={values.fare_rules.child_max_age ?? 11}
+              />
+            </Field>
+            <Field label="Criança paga (%)">
+              <Input
+                max={100}
+                min={0}
+                onChange={(event) =>
+                  updateValue("fare_rules", {
+                    ...values.fare_rules,
+                    child_percent: Number(event.target.value),
+                  })
+                }
+                type="number"
+                value={values.fare_rules.child_percent ?? 100}
+              />
+            </Field>
           </div>
         </Field>
 

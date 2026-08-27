@@ -1,13 +1,9 @@
 import { createSupabaseAdminClient } from "../supabase/admin";
-import {
-  isValidDateString,
-  passengerTypeOnDeparture,
-} from "./passengerAge";
+import { isValidDateString } from "./passengerAge";
 import type {
   BookingPassengerInput,
   CreatePendingBookingInput,
   CreatePendingBookingResult,
-  PassengerType,
 } from "./types";
 
 export class PendingBookingError extends Error {
@@ -71,6 +67,13 @@ export const mapRpcError = (message: string) => {
     return new PendingBookingError("Not enough available slots.", 409);
   }
 
+  if (message.includes("PASSENGERS_COUNT_MISMATCH")) {
+    return new PendingBookingError(
+      "A lista de viajantes não bate com a quantidade informada.",
+      400
+    );
+  }
+
   if (message.includes("ACCOMMODATION_REQUIRED")) {
     return new PendingBookingError(
       "Escolha a acomodação para continuar.",
@@ -119,14 +122,18 @@ export const mapRpcError = (message: string) => {
 // Exportada para teste unitário, como mapRpcError.
 //
 // Valida no SERVIDOR de propósito: o formulário também confere, mas quem chama
-// a API direto não passa pelo formulário. E o tipo do passageiro é DERIVADO da
-// data de nascimento contra a data da saída — nunca escolhido numa lista, que é
-// o que a especificação pede.
+// a API direto não passa pelo formulário.
+//
+// NÃO classifica adulto/criança/bebê. Quem faz isso é
+// public.passenger_type_on_departure, no banco, usando as faixas do pacote — a
+// mesma função que calcula o preço. Classificar aqui também criaria duas fontes
+// da verdade: mudar a faixa no admin alteraria o valor cobrado sem alterar o
+// rótulo mostrado na tela.
 export const buildPassengerRows = (
   passengers: BookingPassengerInput[],
   travelersCount: number,
   departureDate: string
-): Array<{ full_name: string; birth_date: string; type: PassengerType }> => {
+): Array<{ full_name: string; birth_date: string }> => {
   if (passengers.length !== travelersCount) {
     throw new PendingBookingError(
       `Informe os dados de ${travelersCount} ${
@@ -162,11 +169,7 @@ export const buildPassengerRows = (
       );
     }
 
-    return {
-      full_name: fullName,
-      birth_date: birthDate,
-      type: passengerTypeOnDeparture(birthDate, departureDate),
-    };
+    return { full_name: fullName, birth_date: birthDate };
   });
 };
 
@@ -187,11 +190,7 @@ export const createPendingBooking = async (
 
   // Passageiros são validados ANTES de criar a reserva: um nome faltando não
   // pode deixar a vaga retida por 30 minutos até a expiração.
-  let passengerRows: Array<{
-    full_name: string;
-    birth_date: string;
-    type: PassengerType;
-  }> = [];
+  let passengerRows: Array<{ full_name: string; birth_date: string }> = [];
 
   if (input.passengers && input.passengers.length > 0) {
     const { data: departure, error: departureError } = await supabase
@@ -223,6 +222,11 @@ export const createPendingBooking = async (
       p_travelers_count: input.travelers_count,
       p_coupon_code: input.coupon_code ?? null,
       p_accommodation_code: input.accommodation_code ?? null,
+      // Os viajantes vão para dentro da transação: o preço agora é somado por
+      // passageiro (tarifa infantil), então reserva com desconto de criança e
+      // sem a criança gravada seria incoerente. A RPC insere em `passengers` e
+      // classifica a faixa com as regras do pacote.
+      p_passengers: passengerRows.length > 0 ? passengerRows : null,
     }
   );
 
@@ -235,25 +239,6 @@ export const createPendingBooking = async (
 
   if (!booking) {
     throw new PendingBookingError("Unable to create pending booking.", 500);
-  }
-
-  // Grava os viajantes com service role (não depende de sessão no navegador —
-  // na compra sem cadastro o cliente não tem sessão). Sem isto, a venda online
-  // chegava na operação com zero passageiros: sem rooming, sem mapa de
-  // assentos, sem check-in e com o voucher em branco.
-  if (passengerRows.length > 0) {
-    const { error: passengerError } = await supabase.from("passengers").insert(
-      passengerRows.map((row) => ({ ...row, booking_id: booking.booking_id }))
-    );
-
-    // A reserva já existe e a vaga já está retida; derrubar tudo aqui seria
-    // pior. Registra e segue — o admin completa pela tela da reserva.
-    if (passengerError) {
-      console.error("pending booking passengers insert failed", {
-        booking_id: booking.booking_id,
-        error: passengerError,
-      });
-    }
   }
 
   return {

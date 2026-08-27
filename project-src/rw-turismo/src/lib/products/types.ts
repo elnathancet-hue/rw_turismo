@@ -29,6 +29,8 @@ export type Product = {
   // Acomodações vendáveis (capacidade + preço por pessoa). Diferente de tiers,
   // que é informativo. Ver lib/products/accommodation.ts.
   accommodations?: Accommodation[];
+  // Faixas e percentuais da tarifa por idade. Ver lib/products/fareRules.ts.
+  fare_rules?: Record<string, number>;
   active: boolean;
   // Ids das categorias (temas comerciais) às quais o produto pertence. Anexado
   // ao carregar via product_categories; usado no filtro "por categoria" da home.
