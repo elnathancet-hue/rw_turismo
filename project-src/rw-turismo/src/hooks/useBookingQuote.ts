@@ -15,6 +15,9 @@ type Params = {
   productDateId: string;
   travelersCount: number;
   couponCode: string;
+  // Codigo da acomodacao escolhida; entra no preco quando o pacote tem
+  // acomodacoes cadastradas.
+  accommodationCode: string | null;
 };
 
 type State = {
@@ -30,6 +33,7 @@ export const useBookingQuote = ({
   productDateId,
   travelersCount,
   couponCode,
+  accommodationCode,
 }: Params): State => {
   const [state, setState] = useState<State>({
     quote: null,
@@ -60,6 +64,7 @@ export const useBookingQuote = ({
             product_date_id: productDateId,
             travelers_count: travelersCount,
             coupon_code: couponCode.trim() || null,
+            accommodation_code: accommodationCode,
           }),
           signal: controller.signal,
         });
@@ -94,7 +99,7 @@ export const useBookingQuote = ({
     }, DEBOUNCE_MS);
 
     return () => clearTimeout(timer);
-  }, [productId, productDateId, travelersCount, couponCode]);
+  }, [productId, productDateId, travelersCount, couponCode, accommodationCode]);
 
   useEffect(() => () => abortRef.current?.abort(), []);
 

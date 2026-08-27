@@ -222,7 +222,21 @@ const AdminDepartureRooms = () => {
                       </p>
                       <ul className="mt-1 list-inside list-disc text-sm text-amber-800">
                         {grouped.unassigned.map((p) => (
-                          <li key={p.id}>{p.full_name}</li>
+                          <li key={p.id}>
+                            {p.full_name}
+                            {/* Quem comprou acomodação e ainda não tem quarto
+                                não é cadastro faltando: é a RW que ainda vai
+                                parear. Sem essa distinção, a operação trata os
+                                dois casos como o mesmo problema. */}
+                            {p.bookings?.accommodation_code && (
+                              <span className="ml-1 text-xs font-medium">
+                                (aguardando pareamento ·{" "}
+                                {p.bookings.accommodation_name ??
+                                  p.bookings.accommodation_code}
+                                )
+                              </span>
+                            )}
+                          </li>
                         ))}
                       </ul>
                     </Card>

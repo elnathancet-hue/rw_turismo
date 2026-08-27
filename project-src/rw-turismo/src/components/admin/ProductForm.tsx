@@ -12,6 +12,10 @@ import Button from "../ui/Button";
 import Card from "../ui/Card";
 import { Field, Input, Select, Textarea } from "../ui/form";
 import ImageDropzone from "./ImageDropzone";
+import {
+  normalizeAccommodations,
+  type Accommodation,
+} from "../../lib/products/accommodation";
 import ImageField from "./ImageField";
 import SaveMessage from "./SaveMessage";
 import { slugFieldProps, useSlugStatus } from "../../hooks/useSlugStatus";
@@ -53,6 +57,7 @@ const ProductForm = ({ initialProduct, onSubmit, submitLabel }: Props) => {
       ? (initialProduct?.faq as FaqItem[])
       : [],
     tiers: Array.isArray(initialProduct?.tiers) ? initialProduct.tiers : [],
+    accommodations: normalizeAccommodations(initialProduct?.accommodations),
     active: initialProduct?.active ?? true,
     category_ids: initialProduct?.category_ids ?? [],
   });
@@ -154,6 +159,37 @@ const ProductForm = ({ initialProduct, onSubmit, submitLabel }: Props) => {
   const removeTier = (index: number) =>
     setValues((c) => ({ ...c, tiers: c.tiers.filter((_, i) => i !== index) }));
 
+
+  // --- Acomodações (vendáveis: entram no preço e na reserva) ---
+  const slugifyCode = (value: string) =>
+    value
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+
+  const addAccommodation = () =>
+    setValues((c) => ({
+      ...c,
+      accommodations: [
+        ...c.accommodations,
+        { code: "", name: "", capacity: 2, price: 0, shared: false, active: true },
+      ],
+    }));
+  const updateAccommodation = (index: number, patch: Partial<Accommodation>) =>
+    setValues((c) => ({
+      ...c,
+      accommodations: c.accommodations.map((item, i) =>
+        i === index ? { ...item, ...patch } : item
+      ),
+    }));
+  const removeAccommodation = (index: number) =>
+    setValues((c) => ({
+      ...c,
+      accommodations: c.accommodations.filter((_, i) => i !== index),
+    }));
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
@@ -177,6 +213,17 @@ const ProductForm = ({ initialProduct, onSubmit, submitLabel }: Props) => {
         tiers: values.tiers
           .map((tier) => ({ name: tier.name.trim(), price: Number(tier.price) || 0 }))
           .filter((tier) => tier.name),
+        // Codigo vazio vira o nome em formato de slug. Depois de salvo NAO deve
+        // mudar: e ele que fica gravado nas reservas ja vendidas.
+        accommodations: values.accommodations
+          .map((item) => ({
+            ...item,
+            name: item.name.trim(),
+            code: (item.code || slugifyCode(item.name)).trim(),
+            capacity: Number(item.capacity) || 0,
+            price: Number(item.price) || 0,
+          }))
+          .filter((item) => item.name && item.capacity > 0 && item.price > 0),
       };
       await onSubmit(normalized);
       // Na criação o onSubmit redireciona; na edição a pessoa fica na mesma
@@ -489,6 +536,102 @@ const ProductForm = ({ initialProduct, onSubmit, submitLabel }: Props) => {
             >
               + Adicionar pergunta
             </Button>
+          </div>
+        </Field>
+
+        <Field
+          hint="O cliente escolhe uma delas no checkout e o preço muda de verdade. Só aparecem as que dividem o grupo exatamente: um duplo não é oferecido para 3 pessoas."
+          label="Acomodações (vendáveis)"
+        >
+          <div className="space-y-3">
+            {values.accommodations.map((item, index) => (
+              <div className="rounded border p-3" key={index}>
+                <div className="grid gap-2 md:grid-cols-[1fr_7rem_9rem]">
+                  <Field label="Nome">
+                    <Input
+                      onChange={(event) =>
+                        updateAccommodation(index, { name: event.target.value })
+                      }
+                      placeholder="Duplo"
+                      value={item.name}
+                    />
+                  </Field>
+                  <Field label="Pessoas no quarto">
+                    <Input
+                      min={1}
+                      onChange={(event) =>
+                        updateAccommodation(index, {
+                          capacity: Number(event.target.value),
+                        })
+                      }
+                      type="number"
+                      value={item.capacity || ""}
+                    />
+                  </Field>
+                  <Field label="Preço por pessoa">
+                    <Input
+                      min={0}
+                      onChange={(event) =>
+                        updateAccommodation(index, {
+                          price: Number(event.target.value),
+                        })
+                      }
+                      step="0.01"
+                      type="number"
+                      value={item.price || ""}
+                    />
+                  </Field>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-4">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      checked={Boolean(item.shared)}
+                      onChange={(event) =>
+                        updateAccommodation(index, {
+                          shared: event.target.checked,
+                        })
+                      }
+                      type="checkbox"
+                    />
+                    Vaga compartilhada (a RW pareia depois)
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      checked={item.active !== false}
+                      onChange={(event) =>
+                        updateAccommodation(index, {
+                          active: event.target.checked,
+                        })
+                      }
+                      type="checkbox"
+                    />
+                    Disponível
+                  </label>
+                  <button
+                    className="ml-auto text-sm font-semibold text-red-600 hover:text-red-700"
+                    onClick={() => removeAccommodation(index)}
+                    type="button"
+                  >
+                    Remover
+                  </button>
+                </div>
+              </div>
+            ))}
+            <Button
+              onClick={addAccommodation}
+              size="sm"
+              type="button"
+              variant="secondary"
+            >
+              + Adicionar acomodação
+            </Button>
+            {values.accommodations.length > 0 && (
+              <p className="text-xs text-gray-500">
+                Com acomodação cadastrada, o cliente é obrigado a escolher uma
+                para reservar — e o preço passa a sair daqui, não do campo
+                &ldquo;Preço&rdquo; acima.
+              </p>
+            )}
           </div>
         </Field>
 

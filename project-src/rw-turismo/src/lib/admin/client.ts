@@ -1,5 +1,6 @@
 import { createSupabaseBrowserClient } from "../supabase/browser";
 import type { BookingStatus, PaymentStatus } from "../bookings/types";
+import type { Accommodation } from "../products/accommodation";
 import type {
   Category,
   FaqItem,
@@ -25,6 +26,7 @@ export type ProductFormValues = {
   faq: FaqItem[];
   // Opções de suíte/quarto com preço próprio (informativo).
   tiers: ProductTier[];
+  accommodations: Accommodation[];
   active: boolean;
   // Categorias marcadas para o produto. Não é coluna de `products` — é salva
   // separadamente na tabela de ligação product_categories.
@@ -555,6 +557,10 @@ export type DeparturePassenger = AdminPassenger & {
     customer_name: string;
     customer_phone: string | null;
     product_date_id: string;
+    // Acomodação comprada. Quando é vaga compartilhada, o passageiro sem
+    // quarto está "aguardando pareamento" — não é falta de cadastro.
+    accommodation_code?: string | null;
+    accommodation_name?: string | null;
   } | null;
 };
 
@@ -619,7 +625,7 @@ export const listDeparturePassengers = async (
   const { data, error } = await supabase()
     .from("passengers")
     .select(
-      "*, bookings!inner(id, status, payment_status, customer_name, customer_phone, product_date_id)"
+      "*, bookings!inner(id, status, payment_status, customer_name, customer_phone, product_date_id, accommodation_code, accommodation_name)"
     )
     .eq("bookings.product_date_id", productDateId)
     .order("full_name", { ascending: true });

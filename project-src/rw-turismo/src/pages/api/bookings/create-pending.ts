@@ -86,6 +86,7 @@ const handler = async (
       customer_email: customerEmail,
       customer_phone: customerPhone,
       coupon_code: getString(req.body?.coupon_code) || null,
+      accommodation_code: getString(req.body?.accommodation_code) || null,
       passengers: Array.isArray(req.body?.passengers)
         ? req.body.passengers
         : undefined,

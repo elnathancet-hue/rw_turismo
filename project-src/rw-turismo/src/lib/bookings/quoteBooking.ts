@@ -14,6 +14,7 @@ export type QuoteBookingInput = {
   product_date_id: string;
   travelers_count: number;
   coupon_code?: string | null;
+  accommodation_code?: string | null;
 };
 
 export type QuoteBookingResult = {
@@ -22,6 +23,9 @@ export type QuoteBookingResult = {
   // Quanto o cupom abateu. 0 quando não há cupom (ou quando ele não muda nada).
   discount: number;
   coupon_applied: boolean;
+  // Retrato da acomodacao que entrou no preco, para a tela conferir.
+  accommodation_code: string | null;
+  accommodation_name: string | null;
 };
 
 export const quoteBooking = async (
@@ -38,6 +42,7 @@ export const quoteBooking = async (
     p_product_date_id: input.product_date_id,
     p_travelers_count: input.travelers_count,
     p_coupon_code: input.coupon_code ?? null,
+    p_accommodation_code: input.accommodation_code ?? null,
   });
 
   if (error) {
@@ -62,5 +67,7 @@ export const quoteBooking = async (
       Number((unitAmount * input.travelers_count - totalAmount).toFixed(2))
     ),
     coupon_applied: Boolean(quote.coupon_id),
+    accommodation_code: quote.accommodation_code ?? null,
+    accommodation_name: quote.accommodation_name ?? null,
   };
 };

@@ -26,6 +26,8 @@ import {
 } from "../../lib/products/server";
 import { hasInstallmentOffer, INSTALLMENT_LABEL } from "../../lib/products/installment";
 import useBookingQuote from "../../hooks/useBookingQuote";
+import AccommodationPicker from "../../components/booking/AccommodationPicker";
+import { normalizeAccommodations } from "../../lib/products/accommodation";
 import PassengerFields, {
   resizePassengers,
 } from "../../components/booking/PassengerFields";
@@ -83,6 +85,7 @@ const ProductDetails = ({ product, productDates, suggestions }: Props) => {
   const [customerPhone, setCustomerPhone] = useState("");
   const [couponCode, setCouponCode] = useState("");
   const [passengers, setPassengers] = useState<BookingPassengerInput[]>([]);
+  const [accommodationCode, setAccommodationCode] = useState<string | null>(null);
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [isBooking, setIsBooking] = useState(false);
   const [isJoiningWaitlist, setIsJoiningWaitlist] = useState(false);
@@ -195,6 +198,9 @@ const ProductDetails = ({ product, productDates, suggestions }: Props) => {
   );
   const selectedDate = productDates.find((date) => date.id === selectedDateId);
   const selectedUnitPrice = selectedDate?.price_override ?? displayPrice;
+  const accommodations = normalizeAccommodations(
+    (product as { accommodations?: unknown }).accommodations
+  );
   const localEstimate = selectedUnitPrice * travelersCount;
   // Total oficial vem do servidor (mesma funcao que a reserva usa). O calculo
   // local so aparece enquanto a cotacao nao volta, para o preco nao "piscar".
@@ -207,6 +213,7 @@ const ProductDetails = ({ product, productDates, suggestions }: Props) => {
     productDateId: selectedDateId,
     travelersCount,
     couponCode,
+    accommodationCode,
   });
   const estimatedTotal = quote?.total_amount ?? localEstimate;
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") ?? "";
@@ -316,6 +323,7 @@ const ProductDetails = ({ product, productDates, suggestions }: Props) => {
           customer_phone: customerPhone,
           coupon_code: couponCode || null,
           passengers: resizePassengers(passengers, travelersCount),
+          accommodation_code: accommodationCode,
         }),
       });
 
@@ -583,6 +591,15 @@ const ProductDetails = ({ product, productDates, suggestions }: Props) => {
                   value={couponCode}
                 />
               </label>
+              {showBooking && !soldOut && selectedDateId && (
+                <AccommodationPicker
+                  accommodations={accommodations}
+                  formatCurrency={formatCurrency}
+                  onChange={setAccommodationCode}
+                  travelersCount={travelersCount}
+                  value={accommodationCode}
+                />
+              )}
               {showBooking && !soldOut && selectedDateId && (
                 <PassengerFields
                   departureDate={selectedDate?.start_date ?? null}

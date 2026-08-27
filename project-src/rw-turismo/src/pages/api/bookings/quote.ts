@@ -50,6 +50,7 @@ const handler = async (
       product_date_id: getString(body.product_date_id),
       travelers_count: Number(body.travelers_count),
       coupon_code: getString(body.coupon_code) || null,
+      accommodation_code: getString(body.accommodation_code) || null,
     });
 
     return res.status(200).json(quote);

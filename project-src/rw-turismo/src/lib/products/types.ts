@@ -1,3 +1,5 @@
+import type { Accommodation } from "./accommodation";
+
 import type { Json } from "../supabase/types";
 
 export type ProductType = "package" | "hotel" | "flight" | "stay" | "experience";
@@ -24,6 +26,9 @@ export type Product = {
   itinerary: Json;
   faq: Json;
   tiers?: ProductTier[];
+  // Acomodações vendáveis (capacidade + preço por pessoa). Diferente de tiers,
+  // que é informativo. Ver lib/products/accommodation.ts.
+  accommodations?: Accommodation[];
   active: boolean;
   // Ids das categorias (temas comerciais) às quais o produto pertence. Anexado
   // ao carregar via product_categories; usado no filtro "por categoria" da home.

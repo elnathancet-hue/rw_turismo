@@ -30,6 +30,9 @@ export type CreatePendingBookingInput = {
   // Viajantes informados no checkout. O tipo (adulto/crianca/bebe) NAO vem
   // daqui: e derivado da data de nascimento contra a data da saida.
   passengers?: BookingPassengerInput[];
+  // Codigo da acomodacao escolhida. Obrigatorio quando o pacote tem
+  // acomodacoes cadastradas — o preco depende dela.
+  accommodation_code?: string | null;
 };
 
 export type CreatePendingBookingResult = {

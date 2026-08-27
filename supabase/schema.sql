@@ -421,16 +421,24 @@ grant execute on function public.release_expired_holds_for_date(uuid) to service
 -- =====================================================================
 -- 2) Cotação — mesma regra da reserva, sem gravar
 -- =====================================================================
+-- =====================================================================
+-- 2) Cotação com acomodação
+-- =====================================================================
+drop function if exists public.quote_booking(uuid, uuid, integer, text);
+
 create or replace function public.quote_booking(
   p_product_id uuid,
   p_product_date_id uuid,
   p_travelers_count integer,
-  p_coupon_code text default null
+  p_coupon_code text default null,
+  p_accommodation_code text default null
 )
 returns table (
   unit_amount numeric(12,2),
   total_amount numeric(12,2),
-  coupon_id uuid
+  coupon_id uuid,
+  accommodation_code text,
+  accommodation_name text
 )
 language plpgsql
 stable
@@ -445,6 +453,11 @@ declare
   v_coupon public.coupons%rowtype;
   v_coupon_id uuid := null;
   v_coupon_code text;
+  v_accommodation jsonb;
+  v_accommodation_count integer := 0;
+  v_capacity integer;
+  v_accommodation_code text := null;
+  v_accommodation_name text := null;
 begin
   if p_product_id is null or p_product_date_id is null then
     raise exception 'PRODUCT_AND_DATE_REQUIRED' using errcode = 'P0001';
@@ -482,11 +495,56 @@ begin
     raise exception 'NOT_ENOUGH_SLOTS' using errcode = 'P0001';
   end if;
 
-  v_unit_amount := coalesce(
-    v_product_date.price_override,
-    v_product.promotional_price,
-    v_product.price
-  );
+  -- Quantas acomodações vendáveis o pacote tem. Só conta a que está completa:
+  -- sem capacidade ou sem preço não dá para vender nem para calcular.
+  select count(*) into v_accommodation_count
+  from jsonb_array_elements(coalesce(v_product.accommodations, '[]'::jsonb)) as item
+  where coalesce((item->>'active')::boolean, true) = true
+    and (item->>'capacity') is not null
+    and (item->>'price') is not null;
+
+  if p_accommodation_code is not null and length(trim(p_accommodation_code)) > 0 then
+    select item into v_accommodation
+    from jsonb_array_elements(coalesce(v_product.accommodations, '[]'::jsonb)) as item
+    where item->>'code' = trim(p_accommodation_code)
+      and coalesce((item->>'active')::boolean, true) = true
+    limit 1;
+
+    if v_accommodation is null then
+      raise exception 'ACCOMMODATION_NOT_AVAILABLE' using errcode = 'P0001';
+    end if;
+
+    v_capacity := (v_accommodation->>'capacity')::integer;
+    if v_capacity is null or v_capacity <= 0 then
+      raise exception 'ACCOMMODATION_NOT_AVAILABLE' using errcode = 'P0001';
+    end if;
+
+    -- Mesma regra da tela: a acomodação só serve quando o grupo se divide
+    -- exatamente nela. Três pessoas num duplo deixaria alguém sem cama.
+    if p_travelers_count % v_capacity <> 0 then
+      raise exception 'ACCOMMODATION_DOES_NOT_FIT' using errcode = 'P0001';
+    end if;
+
+    v_unit_amount := (v_accommodation->>'price')::numeric(12,2);
+    if v_unit_amount is null or v_unit_amount <= 0 then
+      raise exception 'ACCOMMODATION_NOT_AVAILABLE' using errcode = 'P0001';
+    end if;
+
+    v_accommodation_code := v_accommodation->>'code';
+    v_accommodation_name := v_accommodation->>'name';
+  elsif v_accommodation_count > 0 then
+    -- O pacote vende acomodação e ninguém escolheu: não dá para adivinhar o
+    -- preço nem para montar o quarto.
+    raise exception 'ACCOMMODATION_REQUIRED' using errcode = 'P0001';
+  else
+    -- Pacote sem acomodação configurada segue exatamente como antes.
+    v_unit_amount := coalesce(
+      v_product_date.price_override,
+      v_product.promotional_price,
+      v_product.price
+    );
+  end if;
+
   v_total_amount := round(v_unit_amount * p_travelers_count, 2);
 
   v_coupon_code := nullif(upper(trim(coalesce(p_coupon_code, ''))), '');
@@ -524,18 +582,25 @@ begin
     v_coupon_id := v_coupon.id;
   end if;
 
-  return query select v_unit_amount, v_total_amount, v_coupon_id;
+  return query select
+    v_unit_amount,
+    v_total_amount,
+    v_coupon_id,
+    v_accommodation_code,
+    v_accommodation_name;
 end;
 $$;
 
-revoke all on function public.quote_booking(uuid, uuid, integer, text) from public;
-grant execute on function public.quote_booking(uuid, uuid, integer, text) to service_role;
+revoke all on function public.quote_booking(uuid, uuid, integer, text, text) from public;
+grant execute on function public.quote_booking(uuid, uuid, integer, text, text) to service_role;
 
 -- =====================================================================
--- 3) Reserva: libera vencidas antes de conferir vaga e usa quote_booking
---    para o preço. Só isso muda — o resto do corpo é igual ao de
---    20260719040000_fase5_soft_delete.sql.
+-- 3) Reserva com acomodação
 -- =====================================================================
+drop function if exists public.create_pending_booking_transaction(
+  uuid, uuid, uuid, text, text, text, integer, text
+);
+
 create or replace function public.create_pending_booking_transaction(
   p_user_id uuid,
   p_product_id uuid,
@@ -544,7 +609,8 @@ create or replace function public.create_pending_booking_transaction(
   p_customer_email text,
   p_customer_phone text,
   p_travelers_count integer,
-  p_coupon_code text default null
+  p_coupon_code text default null,
+  p_accommodation_code text default null
 )
 returns table (
   booking_id uuid,
@@ -562,6 +628,8 @@ declare
   v_expires_at timestamptz := now() + interval '30 minutes';
   v_booking_id uuid;
   v_coupon_id uuid := null;
+  v_accommodation_code text := null;
+  v_accommodation_name text := null;
 begin
   if p_user_id is null then
     raise exception 'AUTH_REQUIRED' using errcode = 'P0001';
@@ -625,17 +693,18 @@ begin
     raise exception 'NOT_ENOUGH_SLOTS' using errcode = 'P0001';
   end if;
 
-  -- Preço vem de quote_booking: é a MESMA função que a tela de revisão chama,
-  -- então o valor mostrado e o cobrado não têm como divergir. As linhas de
-  -- produto/data/cupom já estão travadas por este bloco (mesma transação).
-  -- used_count do cupom continua sendo incrementado só no webhook.
-  select q.total_amount, q.coupon_id
-    into v_total_amount, v_coupon_id
+  -- Preço e acomodação vêm de quote_booking: é a MESMA função que a tela de
+  -- revisão chama, então o valor mostrado e o cobrado não têm como divergir.
+  -- As linhas de produto/data/cupom já estão travadas por este bloco (mesma
+  -- transação). used_count do cupom continua incrementando só no webhook.
+  select q.total_amount, q.coupon_id, q.accommodation_code, q.accommodation_name
+    into v_total_amount, v_coupon_id, v_accommodation_code, v_accommodation_name
   from public.quote_booking(
     p_product_id,
     p_product_date_id,
     p_travelers_count,
-    p_coupon_code
+    p_coupon_code,
+    p_accommodation_code
   ) as q;
 
   update public.product_dates
@@ -655,7 +724,9 @@ begin
     payment_status,
     expires_at,
     slots_released,
-    coupon_id
+    coupon_id,
+    accommodation_code,
+    accommodation_name
   )
   values (
     p_user_id,
@@ -670,7 +741,9 @@ begin
     'pending',
     v_expires_at,
     false,
-    v_coupon_id
+    v_coupon_id,
+    v_accommodation_code,
+    v_accommodation_name
   )
   returning id into v_booking_id;
 
@@ -678,9 +751,8 @@ begin
 end;
 $$;
 
-revoke all on function public.create_pending_booking_transaction(uuid, uuid, uuid, text, text, text, integer, text) from public;
-grant execute on function public.create_pending_booking_transaction(uuid, uuid, uuid, text, text, text, integer, text) to service_role;
-
+revoke all on function public.create_pending_booking_transaction(uuid, uuid, uuid, text, text, text, integer, text, text) from public;
+grant execute on function public.create_pending_booking_transaction(uuid, uuid, uuid, text, text, text, integer, text, text) to service_role;
 
 -- Fase 2.5 — incremento atômico de uso do cupom (webhook, ao confirmar pagamento).
 create or replace function public.increment_coupon_usage(p_coupon_id uuid)
@@ -1369,6 +1441,21 @@ create trigger set_pages_updated_at
 before update on public.pages
 for each row execute function public.set_updated_at();
 
+
+-- Acomodação vendável: tipo de quarto com capacidade e preço por pessoa,
+-- escolhido no checkout. `tiers` continua existindo e segue informativo.
+alter table public.products
+  add column if not exists accommodations jsonb not null default '[]'::jsonb;
+
+alter table public.products drop constraint if exists products_accommodations_array_check;
+alter table public.products add constraint products_accommodations_array_check
+  check (jsonb_typeof(accommodations) = 'array');
+
+-- Guarda código E nome: o nome é um retrato do momento da compra, para a
+-- operação continuar legível se o pacote for reconfigurado depois.
+alter table public.bookings
+  add column if not exists accommodation_code text,
+  add column if not exists accommodation_name text;
 -- Fase 1 (operação): perfil enriquecido, check-in, fornecedores e lista de espera.
 alter table public.users_profiles
   add column if not exists birth_date date,

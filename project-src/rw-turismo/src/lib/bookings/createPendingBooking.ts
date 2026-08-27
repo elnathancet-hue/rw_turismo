@@ -71,6 +71,27 @@ export const mapRpcError = (message: string) => {
     return new PendingBookingError("Not enough available slots.", 409);
   }
 
+  if (message.includes("ACCOMMODATION_REQUIRED")) {
+    return new PendingBookingError(
+      "Escolha a acomodação para continuar.",
+      400
+    );
+  }
+
+  if (message.includes("ACCOMMODATION_NOT_AVAILABLE")) {
+    return new PendingBookingError(
+      "Esta acomodação não está mais disponível neste pacote.",
+      400
+    );
+  }
+
+  if (message.includes("ACCOMMODATION_DOES_NOT_FIT")) {
+    return new PendingBookingError(
+      "Esta acomodação não comporta essa quantidade de viajantes.",
+      400
+    );
+  }
+
   if (message.includes("COUPON_NOT_FOUND")) {
     return new PendingBookingError("Cupom inválido ou inativo.", 400);
   }
@@ -201,6 +222,7 @@ export const createPendingBooking = async (
       p_customer_phone: input.customer_phone ?? null,
       p_travelers_count: input.travelers_count,
       p_coupon_code: input.coupon_code ?? null,
+      p_accommodation_code: input.accommodation_code ?? null,
     }
   );
 
