@@ -12,6 +12,9 @@ export type PaymentStatus =
 export type CreateCheckoutInput = {
   booking_id: string;
   user_id: string;
+  // Qual provedor abre a cobranca. Quem escolhe e o cliente na tela — e tudo
+  // bem, porque isto nao e preco: o valor continua saindo do banco.
+  provider?: "stripe" | "infinitepay";
   // Compra sem cadastro: o retorno da Stripe precisa levar o token, senão o
   // cliente cai numa tela de login logo depois de pagar.
   is_guest?: boolean;

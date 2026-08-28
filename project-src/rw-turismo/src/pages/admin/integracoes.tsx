@@ -12,7 +12,7 @@ type SecretRow = { key: string; value: string; updated_at: string };
 type TestResult = { ok: boolean; skipped?: boolean; error?: string };
 
 type GroupDef = {
-  id: "whatsapp" | "email" | "stripe";
+  id: "whatsapp" | "email" | "stripe" | "infinitepay";
   title: string;
   description: string;
   fields: { key: string; label: string; secret: boolean; hint?: string }[];
@@ -70,6 +70,32 @@ const groups: GroupDef[] = [
         label: "Aceitar Pix no checkout",
         secret: false,
         hint: 'Escreva "true" para oferecer Pix. Só funciona depois que o Pix estiver liberado para a conta no painel do Stripe; sem isso o checkout deixa de abrir. Teste em ambiente de testes antes.',
+      },
+    ],
+  },
+  {
+    id: "infinitepay",
+    title: "Pagamentos (InfinitePay)",
+    description:
+      "Segundo meio de pagamento: Pix sem taxa e parcelamento em até 12x, que a Stripe não faz no Brasil.",
+    fields: [
+      {
+        key: "infinitepay_handle",
+        label: "InfiniteTag (handle)",
+        secret: false,
+        hint: 'Seu nome de usuário no app InfinitePay, SEM o "$". Antes de funcionar, ative o Checkout Externo em app.infinitepay.io/external-checkout#configuracoes — sem isso toda cobrança falha.',
+      },
+      {
+        key: "infinitepay_webhook_token",
+        label: "Token do webhook",
+        secret: true,
+        hint: "Um texto aleatório e longo, inventado por você. Entra na URL do webhook. A InfinitePay não assina os avisos dela, então este token só serve para a URL não ser adivinhável — a confirmação de verdade é feita consultando a InfinitePay a cada aviso.",
+      },
+      {
+        key: "infinitepay_enabled",
+        label: "Aceitar InfinitePay no checkout",
+        secret: false,
+        hint: 'Escreva "true" para oferecer. Faça antes uma cobrança real de R$ 1,00 e confira: não existe ambiente de testes.',
       },
     ],
   },

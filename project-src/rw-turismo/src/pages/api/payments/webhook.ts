@@ -1,6 +1,7 @@
 import { buffer } from "micro";
 import type { NextApiRequest, NextApiResponse } from "next";
 import Stripe from "stripe";
+import { normalizarSessaoStripe } from "../../../lib/payments/adapters/stripe";
 import { confirmInternalPayment } from "../../../lib/payments/confirmInternalPayment";
 import { handleInternalPaymentNegativeEvent } from "../../../lib/payments/handleInternalPaymentNegativeEvent";
 import {
@@ -117,7 +118,15 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   try {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
-      const result = await confirmInternalPayment(session);
+      const pagamento = normalizarSessaoStripe(session, event.id);
+
+      // Sem metadata interna não é cobrança nossa: pode ser qualquer outra
+      // coisa que passe pela mesma conta Stripe.
+      if (!pagamento) {
+        return concluir({ ignored: "metadata não é de reserva interna" });
+      }
+
+      const result = await confirmInternalPayment(pagamento);
 
       await markStripeEventProcessed(event.id);
       await notifyIfConfirmed(result);
@@ -129,7 +138,13 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     // dinheiro ainda por vir. ESTE é o evento que significa "entrou".
     if (event.type === "checkout.session.async_payment_succeeded") {
       const session = event.data.object as Stripe.Checkout.Session;
-      const result = await confirmInternalPayment(session);
+      const pagamento = normalizarSessaoStripe(session, event.id);
+
+      if (!pagamento) {
+        return concluir({ ignored: "metadata não é de reserva interna" });
+      }
+
+      const result = await confirmInternalPayment(pagamento);
 
       await markStripeEventProcessed(event.id);
       await notifyIfConfirmed(result);

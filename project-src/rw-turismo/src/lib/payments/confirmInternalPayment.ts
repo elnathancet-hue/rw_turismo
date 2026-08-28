@@ -1,9 +1,6 @@
-import type Stripe from "stripe";
+import { colunasDoProvedor, type PagamentoNormalizado } from "./normalized";
 import { createSupabaseAdminClient } from "../supabase/admin";
-import type {
-  ConfirmInternalPaymentResult,
-  InternalStripeMetadata,
-} from "./types";
+import type { ConfirmInternalPaymentResult } from "./types";
 
 type BookingRecord = {
   id: string;
@@ -26,36 +23,6 @@ type PaymentRecord = {
 
 const toAmountInCents = (value: number | string) =>
   Math.round(Number(value) * 100);
-
-const getPaymentIntentId = (session: Stripe.Checkout.Session) => {
-  if (!session.payment_intent) return null;
-  return typeof session.payment_intent === "string"
-    ? session.payment_intent
-    : session.payment_intent.id;
-};
-
-const getMetadata = (
-  metadata: Stripe.Metadata | null
-): InternalStripeMetadata | null => {
-  if (!metadata || metadata.source !== "internal_booking") {
-    return null;
-  }
-
-  const bookingId = metadata.booking_id;
-  const paymentId = metadata.payment_id;
-  const userId = metadata.user_id;
-
-  if (!bookingId || !paymentId || !userId) {
-    return null;
-  }
-
-  return {
-    booking_id: bookingId,
-    payment_id: paymentId,
-    user_id: userId,
-    source: "internal_booking",
-  };
-};
 
 const logEvent = async (
   action: string,
@@ -80,19 +47,18 @@ const logEvent = async (
 const markRequiresReview = async (
   payment: PaymentRecord,
   booking: BookingRecord,
-  session: Stripe.Checkout.Session,
+  pagamento: PagamentoNormalizado,
   reason: string
 ): Promise<ConfirmInternalPaymentResult> => {
   const supabase = createSupabaseAdminClient() as any;
-  const stripePaymentIntentId = getPaymentIntentId(session);
+  const colunas = colunasDoProvedor(pagamento);
 
   const { error: updatePaymentError } = await supabase
     .from("payments")
     .update({
       status: "requires_review",
       paid_at: new Date().toISOString(),
-      stripe_checkout_session_id: session.id,
-      stripe_payment_intent_id: stripePaymentIntentId,
+      ...colunas,
     })
     .eq("id", payment.id)
     .not("status", "eq", "paid");
@@ -109,8 +75,7 @@ const markRequiresReview = async (
     .from("bookings")
     .update({
       payment_status: "requires_review",
-      stripe_checkout_session_id: session.id,
-      stripe_payment_intent_id: stripePaymentIntentId,
+      ...colunas,
     })
     .eq("id", booking.id)
     .neq("status", "confirmed")
@@ -122,7 +87,8 @@ const markRequiresReview = async (
 
   await logEvent("payment_requires_review", "payment", payment.id, {
     booking_id: booking.id,
-    stripe_checkout_session_id: session.id,
+    provider: pagamento.provider,
+    cobranca: pagamento.idCobranca,
     reason,
   });
 
@@ -142,10 +108,10 @@ const markRequiresReview = async (
 const markAwaitingAsyncPayment = async (
   payment: PaymentRecord,
   booking: BookingRecord,
-  session: Stripe.Checkout.Session
+  pagamento: PagamentoNormalizado
 ): Promise<ConfirmInternalPaymentResult> => {
   const supabase = createSupabaseAdminClient() as any;
-  const stripePaymentIntentId = getPaymentIntentId(session);
+  const colunas = colunasDoProvedor(pagamento);
 
   // Já estava em processing: reentrega do mesmo evento, nada a fazer.
   if (
@@ -169,7 +135,8 @@ const markAwaitingAsyncPayment = async (
   ) {
     await logEvent("payment_async_ignored", "payment", payment.id, {
       booking_id: booking.id,
-      stripe_checkout_session_id: session.id,
+      provider: pagamento.provider,
+      cobranca: pagamento.idCobranca,
       booking_status: booking.status,
       booking_payment_status: booking.payment_status,
     });
@@ -190,8 +157,7 @@ const markAwaitingAsyncPayment = async (
     .from("bookings")
     .update({
       payment_status: "processing",
-      stripe_checkout_session_id: session.id,
-      stripe_payment_intent_id: stripePaymentIntentId,
+      ...colunas,
     })
     .eq("id", booking.id)
     .eq("status", "pending")
@@ -205,7 +171,8 @@ const markAwaitingAsyncPayment = async (
   if (!reservaAtualizada?.length) {
     await logEvent("payment_async_race", "payment", payment.id, {
       booking_id: booking.id,
-      stripe_checkout_session_id: session.id,
+      provider: pagamento.provider,
+      cobranca: pagamento.idCobranca,
       reason: "Booking state changed between read and write.",
     });
 
@@ -223,8 +190,7 @@ const markAwaitingAsyncPayment = async (
     .from("payments")
     .update({
       status: "processing",
-      stripe_checkout_session_id: session.id,
-      stripe_payment_intent_id: stripePaymentIntentId,
+      ...colunas,
     })
     .eq("id", payment.id)
     .not("status", "eq", "paid");
@@ -235,8 +201,8 @@ const markAwaitingAsyncPayment = async (
 
   await logEvent("payment_awaiting_async", "payment", payment.id, {
     booking_id: booking.id,
-    stripe_checkout_session_id: session.id,
-    stripe_payment_status: session.payment_status,
+    provider: pagamento.provider,
+    cobranca: pagamento.idCobranca,
   });
 
   return {
@@ -247,29 +213,20 @@ const markAwaitingAsyncPayment = async (
   };
 };
 
+// A regra que decide dinheiro, para QUALQUER provedor.
+//
+// Recebe o pagamento já normalizado (ver normalized.ts). Quem traduz o formato
+// de cada provedor — e, no caso da InfinitePay, quem PROVA que o pagamento
+// existe — é o adaptador, antes de chegar aqui.
 export const confirmInternalPayment = async (
-  session: Stripe.Checkout.Session
+  pagamento: PagamentoNormalizado
 ): Promise<ConfirmInternalPaymentResult> => {
-  const metadata = getMetadata(session.metadata);
-
-  if (!metadata) {
-    await logEvent("payment_invalid_metadata", "payment", null, {
-      stripe_checkout_session_id: session.id,
-      source: session.metadata?.source ?? null,
-    });
-
-    return {
-      status: "ignored",
-      reason: "Invalid or non-internal metadata.",
-    };
-  }
-
   const supabase = createSupabaseAdminClient() as any;
 
   const { data: payment, error: paymentError } = await supabase
     .from("payments")
     .select("id, booking_id, user_id, amount, currency, status")
-    .eq("id", metadata.payment_id)
+    .eq("id", pagamento.paymentId)
     .maybeSingle();
 
   if (paymentError) {
@@ -279,7 +236,7 @@ export const confirmInternalPayment = async (
   const { data: booking, error: bookingError } = await supabase
     .from("bookings")
     .select("id, user_id, total_amount, status, payment_status, expires_at, coupon_id")
-    .eq("id", metadata.booking_id)
+    .eq("id", pagamento.bookingId)
     .maybeSingle();
 
   if (bookingError) {
@@ -287,15 +244,16 @@ export const confirmInternalPayment = async (
   }
 
   if (!payment || !booking) {
-    await logEvent("payment_invalid_metadata", "payment", metadata.payment_id, {
-      booking_id: metadata.booking_id,
-      stripe_checkout_session_id: session.id,
+    await logEvent("payment_invalid_metadata", "payment", pagamento.paymentId, {
+      booking_id: pagamento.bookingId,
+      provider: pagamento.provider,
+      cobranca: pagamento.idCobranca,
       reason: "Payment or booking not found.",
     });
 
     return {
-      booking_id: metadata.booking_id,
-      payment_id: metadata.payment_id,
+      booking_id: pagamento.bookingId,
+      payment_id: pagamento.paymentId,
       status: "ignored",
       reason: "Payment or booking not found.",
     };
@@ -307,12 +265,13 @@ export const confirmInternalPayment = async (
   const relationshipIsValid =
     paymentRecord.booking_id === bookingRecord.id &&
     paymentRecord.user_id === bookingRecord.user_id &&
-    metadata.user_id === bookingRecord.user_id;
+    (pagamento.userId === null || pagamento.userId === bookingRecord.user_id);
 
   if (!relationshipIsValid) {
     await logEvent("payment_invalid_metadata", "payment", paymentRecord.id, {
       booking_id: bookingRecord.id,
-      stripe_checkout_session_id: session.id,
+      provider: pagamento.provider,
+      cobranca: pagamento.idCobranca,
       reason: "Payment, booking and user relationship mismatch.",
     });
 
@@ -325,15 +284,19 @@ export const confirmInternalPayment = async (
   }
 
   const expectedAmount = toAmountInCents(bookingRecord.total_amount);
-  const receivedAmount = session.amount_total ?? 0;
-  const receivedCurrency = session.currency?.toUpperCase();
 
-  if (receivedAmount !== expectedAmount || receivedCurrency !== "BRL") {
+  // Compara o valor COBRADO, nunca o valor pago. Na InfinitePay o pago pode ser
+  // maior quando os juros do parcelamento são repassados ao cliente — comparar
+  // aquele por igualdade derrubaria toda venda parcelada.
+  if (
+    pagamento.valorCobradoEmCentavos !== expectedAmount ||
+    pagamento.moeda !== "BRL"
+  ) {
     return markRequiresReview(
       paymentRecord,
       bookingRecord,
-      session,
-      "Stripe amount or currency does not match booking."
+      pagamento,
+      "Provider amount or currency does not match booking."
     );
   }
 
@@ -344,7 +307,8 @@ export const confirmInternalPayment = async (
   ) {
     await logEvent("payment_ignored_duplicate", "payment", paymentRecord.id, {
       booking_id: bookingRecord.id,
-      stripe_checkout_session_id: session.id,
+      provider: pagamento.provider,
+      cobranca: pagamento.idCobranca,
     });
 
     return {
@@ -356,17 +320,16 @@ export const confirmInternalPayment = async (
 
   // O PORTÃO DO DINHEIRO DE VERDADE.
   //
-  // "checkout.session.completed" quer dizer que a SESSÃO terminou, não que o
-  // pagamento entrou. Com cartão as duas coisas coincidem. Com Pix não: a
-  // sessão conclui no instante em que o cliente recebe o QR Code, e o
-  // amount_total já vem certo desde a criação — ou seja, a conferência de valor
-  // logo acima passa perfeitamente numa sessão em que ninguém pagou nada. Sem
-  // esta linha, ligar o Pix confirmaria reserva não paga e queimaria o cupom.
+  // "a cobrança foi concluída" não quer dizer "o dinheiro entrou". Na Stripe,
+  // com Pix, a sessão conclui no instante em que o cliente recebe o QR Code, e
+  // o valor já vem certo desde a criação — ou seja, a conferência logo acima
+  // passa perfeitamente numa cobrança que ninguém pagou. Na InfinitePay é pior:
+  // o corpo do webhook nem tem campo de status, e quem responde "pago" é o
+  // payment_check, consultado pelo servidor.
   //
-  // 'no_payment_required' (sessão de valor zero) não existe neste fluxo, mas
-  // também não é dinheiro entrando: só 'paid' confirma.
-  if (session.payment_status !== "paid") {
-    return markAwaitingAsyncPayment(paymentRecord, bookingRecord, session);
+  // Cada adaptador resolve isso à sua maneira e entrega a resposta aqui.
+  if (!pagamento.pago) {
+    return markAwaitingAsyncPayment(paymentRecord, bookingRecord, pagamento);
   }
 
   const expiresAtMs = bookingRecord.expires_at
@@ -377,8 +340,8 @@ export const confirmInternalPayment = async (
     return markRequiresReview(
       paymentRecord,
       bookingRecord,
-      session,
-      "Booking expired before Stripe completion."
+      pagamento,
+      "Booking expired before payment completion."
     );
   }
 
@@ -395,21 +358,20 @@ export const confirmInternalPayment = async (
     return markRequiresReview(
       paymentRecord,
       bookingRecord,
-      session,
+      pagamento,
       "Booking or payment is not in a confirmable state."
     );
   }
 
-  const stripePaymentIntentId = getPaymentIntentId(session);
   const paidAt = new Date().toISOString();
+  const colunasFinais = colunasDoProvedor(pagamento);
 
   const { error: updatePaymentError } = await supabase
     .from("payments")
     .update({
       status: "paid",
       paid_at: paidAt,
-      stripe_checkout_session_id: session.id,
-      stripe_payment_intent_id: stripePaymentIntentId,
+      ...colunasFinais,
     })
     .eq("id", paymentRecord.id);
 
@@ -423,8 +385,7 @@ export const confirmInternalPayment = async (
       status: "confirmed",
       payment_status: "paid",
       confirmed_at: paidAt,
-      stripe_checkout_session_id: session.id,
-      stripe_payment_intent_id: stripePaymentIntentId,
+      ...colunasFinais,
     })
     .eq("id", bookingRecord.id)
     // Só reserva ainda pendente vira confirmada. Se o cron a expirou entre a
@@ -439,14 +400,15 @@ export const confirmInternalPayment = async (
   if (!confirmada?.length) {
     await logEvent("payment_confirm_race", "payment", paymentRecord.id, {
       booking_id: bookingRecord.id,
-      stripe_checkout_session_id: session.id,
+      provider: pagamento.provider,
+      cobranca: pagamento.idCobranca,
       reason: "Booking left the pending state between read and write.",
     });
 
     return markRequiresReview(
       paymentRecord,
       bookingRecord,
-      session,
+      pagamento,
       "Booking left the pending state before confirmation."
     );
   }
@@ -464,8 +426,9 @@ export const confirmInternalPayment = async (
 
   await logEvent("payment_confirmed", "payment", paymentRecord.id, {
     booking_id: bookingRecord.id,
-    stripe_checkout_session_id: session.id,
-    stripe_payment_intent_id: stripePaymentIntentId,
+    provider: pagamento.provider,
+    cobranca: pagamento.idCobranca,
+    transacao: pagamento.idTransacao,
   });
 
   return {

@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { expireOverdueBookings } from "../../../lib/bookings/expireOverdueBookings";
 import { purgeExpiredDocuments } from "../../../lib/bookings/passengerDocuments";
+import { reconcileInfinitePay } from "../../../lib/payments/reconcileInfinitePay";
 import { runDailyNotifications } from "../../../lib/server/notifications";
 import { isServiceRoleConfigured } from "../../../lib/server/secrets";
 
@@ -35,10 +36,17 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       console.error("daily cron: purge de documentos falhou", error);
       return null;
     });
+    // A rede que pega o pagamento cujo webhook se perdeu. Na InfinitePay a
+    // reentrega e subespecificada e o link nao expira, entao "cliente pagou e
+    // o aviso nao chegou" nao e cauda — e um desfecho previsivel.
+    const infinitePay = await reconcileInfinitePay().catch((error) => {
+      console.error("daily cron: reconciliacao InfinitePay falhou", error);
+      return null;
+    });
     const summary = await runDailyNotifications();
     return res
       .status(200)
-      .json({ ok: true, summary, expiredBookings, purgedDocuments });
+      .json({ ok: true, summary, expiredBookings, purgedDocuments, infinitePay });
   } catch (error) {
     console.error("daily cron failed", error);
     return res.status(500).json({ error: "Cron failed" });

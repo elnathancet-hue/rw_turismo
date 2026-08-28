@@ -13,7 +13,13 @@ export type SecretKey =
   // "true" liga o Pix no checkout. Fica no painel, e não em variável de
   // ambiente, porque env na Vercel só passa a valer depois de um novo deploy —
   // e ligar/desligar meio de pagamento é decisão de operação, não de release.
-  | "stripe_pix_enabled";
+  | "stripe_pix_enabled"
+  // InfinitePay: segundo meio de pagamento. O handle e a InfiniteTag (nome de
+  // usuario publico, sem o "$"); o token do webhook nao autentica nada, so
+  // torna a URL nao adivinhavel a partir do dominio.
+  | "infinitepay_handle"
+  | "infinitepay_enabled"
+  | "infinitepay_webhook_token";
 
 const envFallback: Partial<Record<SecretKey, string | undefined>> = {
   stripe_secret_key: process.env.STRIPE_SECRET_KEY,

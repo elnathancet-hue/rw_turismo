@@ -1,8 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import { createInfinitePayCheckout } from "../../../lib/payments/createInfinitePayCheckout";
 import {
   createInternalCheckoutSession,
   InternalCheckoutError,
 } from "../../../lib/payments/createInternalCheckoutSession";
+import { InternalCheckoutError as PreCheckoutError } from "../../../lib/payments/preCheckout";
 import type { CreateCheckoutResult } from "../../../lib/payments/types";
 import { findBookingByAccessToken } from "../../../lib/bookings/guestAccess";
 import { createSupabaseServerClient } from "../../../lib/supabase/server";
@@ -66,17 +68,34 @@ const handler = async (
     // precisa do token de volta nas URLs de retorno da Stripe.
     const isGuest = Boolean(tokenUserId) && tokenUserId !== sessionUserId;
 
-    const result = await createInternalCheckoutSession({
+    // Qual provedor. A escolha vem do navegador e isso é seguro: ela não
+    // decide valor nenhum — o preço continua sendo recalculado no servidor, a
+    // partir da reserva no banco.
+    const provider =
+      getString(req.body?.provider) === "infinitepay" ? "infinitepay" : "stripe";
+
+    const entrada = {
       booking_id: bookingId,
       user_id: ownerUserId,
       // Só o convidado leva o token nas URLs de retorno. Quem está logado volta
-      // pela sessão, e não há motivo para o token dele passear pela Stripe.
+      // pela sessão, e não há motivo para o token dele passear pelo provedor.
       is_guest: isGuest,
-    });
+      provider,
+    } as const;
+
+    const result =
+      provider === "infinitepay"
+        ? await createInfinitePayCheckout(entrada)
+        : await createInternalCheckoutSession(entrada);
 
     return res.status(200).json(result);
   } catch (error) {
-    if (error instanceof InternalCheckoutError) {
+    // Duas classes com o mesmo nome, uma por arquivo: a do caminho da Stripe e
+    // a do pré-checkout compartilhado. Ambas carregam statusCode.
+    if (
+      error instanceof InternalCheckoutError ||
+      error instanceof PreCheckoutError
+    ) {
       return res.status(error.statusCode).json({ error: error.message });
     }
 

@@ -39,6 +39,7 @@ const bookingLabels: Record<BookingStatus, StatusBadge> = {
 // painel ter um lugar só de onde tirar texto de enum.
 const providerLabels: Record<string, string> = {
   stripe: "Cartão (Stripe)",
+  infinitepay: "Cartão/Pix (InfinitePay)",
   manual: "Manual",
 };
 

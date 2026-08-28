@@ -6,7 +6,9 @@ vi.mock("../supabase/admin", () => ({
   createSupabaseAdminClient: () => h.client,
 }));
 
+import { normalizarSessaoStripe } from "./adapters/stripe";
 import { confirmInternalPayment } from "./confirmInternalPayment";
+import type { PagamentoNormalizado } from "./normalized";
 
 type Row = Record<string, unknown> | null;
 
@@ -116,7 +118,7 @@ const makeClient = ({
 const futureIso = () => new Date(Date.now() + 3_600_000).toISOString();
 const pastIso = () => new Date(Date.now() - 3_600_000).toISOString();
 
-const makeSession = (over: Record<string, unknown> = {}): any => ({
+const sessaoStripe = (over: Record<string, unknown> = {}): any => ({
   id: "cs_test_1",
   metadata: {
     source: "internal_booking",
@@ -130,6 +132,31 @@ const makeSession = (over: Record<string, unknown> = {}): any => ({
   // "o dinheiro entrou" — com Pix os dois deixam de ser a mesma coisa.
   payment_status: "paid",
   payment_intent: "pi_1",
+  ...over,
+});
+
+// O que a funcao recebe hoje: o pagamento ja normalizado. Passa pelo adaptador
+// real de proposito — assim estes 9 casos cobrem tambem a traducao do formato
+// da Stripe, e nao so a regra de negocio.
+const makeSession = (over: Record<string, unknown> = {}): PagamentoNormalizado =>
+  normalizarSessaoStripe(sessaoStripe(over), "evt_test_1") as PagamentoNormalizado;
+
+// A mesma cobranca, como a InfinitePay entregaria. Repare que o valor
+// COBRADO e o mesmo: e ele que se compara com a reserva. O "pago" ja vem
+// resolvido pelo payment_check, nunca pelo corpo do webhook.
+const pagamentoInfinitePay = (
+  over: Partial<PagamentoNormalizado> = {}
+): PagamentoNormalizado => ({
+  provider: "infinitepay",
+  paymentId: "p1",
+  bookingId: "b1",
+  userId: null,
+  valorCobradoEmCentavos: 50_000,
+  moeda: "BRL",
+  pago: true,
+  idCobranca: "slug-abc",
+  idTransacao: "tx-123",
+  chaveDoEvento: "infinitepay:tx-123",
   ...over,
 });
 
@@ -317,10 +344,83 @@ describe("confirmInternalPayment", () => {
     ).toBe(false);
   });
 
-  it("metadata não-interna → ignored", async () => {
-    const result = await confirmInternalPayment(
-      makeSession({ metadata: { source: "outro" } })
-    );
-    expect(result.status).toBe("ignored");
+  // A recusa de cobranca que nao e nossa subiu para o adaptador: e ele que
+  // sabe o que e metadata de Stripe. A funcao nem chega a ser chamada.
+  it("metadata não-interna é recusada pelo adaptador, antes da regra", () => {
+    expect(
+      normalizarSessaoStripe(sessaoStripe({ metadata: { source: "outro" } }), "evt_x")
+    ).toBeNull();
+    expect(
+      normalizarSessaoStripe(sessaoStripe({ metadata: null }), "evt_x")
+    ).toBeNull();
+  });
+
+  // A MESMA regra, com o pagamento vindo do outro provedor. E o que prova que
+  // a costura ficou no lugar certo: nenhuma linha de confirmInternalPayment
+  // sabe de quem veio o dinheiro.
+  describe("mesma regra, provedor InfinitePay", () => {
+    it("caminho feliz: confirma reserva e pagamento", async () => {
+      const mock = makeClient({
+        payment: { ...basePayment },
+        booking: { ...baseBooking, expires_at: futureIso() },
+      });
+      h.client = mock.client;
+
+      const result = await confirmInternalPayment(pagamentoInfinitePay());
+
+      expect(result.status).toBe("confirmed");
+      // Grava nas colunas DO PROVEDOR, nunca nas da Stripe: o painel exibe
+      // aquelas com rotulo de Stripe, e o atendente leria um transaction_nsu
+      // como se fosse um payment_intent.
+      const gravou = mock.calls.updates.find(
+        (u) => u.table === "payments" && u.payload.status === "paid"
+      );
+      expect(gravou?.payload.infinitepay_invoice_slug).toBe("slug-abc");
+      expect(gravou?.payload.stripe_checkout_session_id).toBeUndefined();
+    });
+
+    it("valor divergente → requires_review", async () => {
+      const mock = makeClient({
+        payment: { ...basePayment },
+        booking: { ...baseBooking, expires_at: futureIso() },
+      });
+      h.client = mock.client;
+
+      const result = await confirmInternalPayment(
+        pagamentoInfinitePay({ valorCobradoEmCentavos: 49_900 })
+      );
+      expect(result.status).toBe("requires_review");
+    });
+
+    // O cliente pagou juros de parcelamento repassados: o valor COBRADO
+    // continua o da reserva, e e so ele que se compara. Se algum dia alguem
+    // trocar por "valor pago", esta asserção cai.
+    it("juros repassados não derrubam a confirmação", async () => {
+      const mock = makeClient({
+        payment: { ...basePayment },
+        booking: { ...baseBooking, expires_at: futureIso() },
+      });
+      h.client = mock.client;
+
+      const result = await confirmInternalPayment(pagamentoInfinitePay());
+      expect(result.status).toBe("confirmed");
+    });
+
+    it("payment_check disse que não pagou → processing, sem confirmar", async () => {
+      const mock = makeClient({
+        payment: { ...basePayment },
+        booking: { ...baseBooking, coupon_id: "c1", expires_at: futureIso() },
+      });
+      h.client = mock.client;
+
+      const result = await confirmInternalPayment(
+        pagamentoInfinitePay({ pago: false })
+      );
+
+      expect(result.status).toBe("processing");
+      expect(
+        mock.calls.rpc.some((r) => r.name === "increment_coupon_usage")
+      ).toBe(false);
+    });
   });
 });
