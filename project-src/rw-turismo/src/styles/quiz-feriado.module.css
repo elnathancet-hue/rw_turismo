@@ -1,71 +1,62 @@
 /* ==========================================================================
    Quiz "Feriado de 7 de setembro" — rota /quiz-feriado.
 
-   Conceito visual: a pagina e a passagem do tempo subindo a serra. Abertura =
-   a noite do embarque. As 6 perguntas vao clareando o ceu. Resultado = o sol
-   caindo atras da serra na ultima tarde.
+   IDENTIDADE: e uma pagina DE DENTRO do site, nao uma landing a parte. Vale o
+   mesmo desenho das outras telas do app:
 
-   IDENTIDADE: a marca tem duas cores — o azul do circulo da logo (#0000F8, o
-   mesmo do theme-color #1a1aff do app) e o laranja do logotipo, que aqui viram
-   os tokens brand-400/500 (#FB923C / #EA580C) sobre slate-900 (#0F172A). E o
-   que o HeroBanner do site ja faz: fundo escuro, texto branco, botao laranja
-   arredondado por inteiro. O arco noite -> por do sol cai em cima dessas duas
-   cores sem forcar.
+     fundo cinza claro          slate-100  #F1F5F9   (o chao das telas do site)
+     cartao                     branco + border slate-200 + shadow-sm
+     titulo / texto             gray-900 / gray-600   (as cores do Tailwind)
+     acao                       brand-600 #C2410C, rounded-lg, como o Button
+     foco                       outline 2px #C2410C   (igual ao globals.css)
+     tipografia                 a do site — pilha sans padrao do Tailwind,
+                                sem fonte carregada de fora
 
-   O nome e a logo NAO entram em lugar nenhum: secao 7 da espec, bloqueante.
+   O que mudou em relacao a primeira versao: ela era uma pagina escura, com ceu
+   animado da noite ao por do sol e duas fontes proprias (Fraunces + Archivo).
+   Bonito, mas nao se parecia com o sistema — e o pedido foi justamente esse.
 
    Tudo escopado em .pagina de proposito: e um CSS module dentro de um app com
    Tailwind global, e um seletor de elemento solto vazaria para o site inteiro.
    ========================================================================== */
 
-/* Cores do ceu registradas como <color> para o gradiente poder interpolar.
-   Sem @property o navegador troca a cor de uma vez, sem fade: degrada bem. */
-@property --ceu-alto  { syntax:'<color>'; inherits:true; initial-value:#060818 }
-@property --ceu-meio  { syntax:'<color>'; inherits:true; initial-value:#0B1030 }
-@property --ceu-baixo { syntax:'<color>'; inherits:true; initial-value:#131B45 }
-@property --brilho    { syntax:'<color>'; inherits:true; initial-value:#1B2A7A }
-
 .pagina{
-  --noite:#0F172A;          /* slate-900, o mesmo chao do hero do site */
-  --painel:rgba(203,213,225,.05);
-  --painel-forte:rgba(203,213,225,.08);
-  --linha:rgba(203,213,225,.16);
-  --linha-forte:rgba(248,250,252,.44);
+  /* Os mesmos valores que o Tailwind entrega nas outras telas. Ficam como
+     custom property porque este arquivo e CSS puro, nao utilitario. */
+  --fundo:#F1F5F9;          /* slate-100 */
+  --cartao:#FFFFFF;
+  --borda:#E2E8F0;          /* slate-200 */
+  --borda-forte:#CBD5E1;    /* slate-300 */
 
-  --bruma:#CBD5E1;          /* texto principal (slate-300) */
-  --bruma-fraca:#94A3B8;    /* texto de apoio (slate-400) */
-  --areia:#F8FAFC;          /* revelacao, alta enfase (slate-50) */
+  --tinta:#111827;          /* gray-900 — titulo */
+  --tinta-media:#374151;    /* gray-700 — corpo */
+  --tinta-fraca:#6B7280;    /* gray-500 — apoio e legenda */
 
-  --azul:#8A97FF;           /* polo silencio — azul da marca, clareado para
-                               ficar legivel sobre fundo escuro */
-  --brasa:#EA580C;          /* laranja da marca (brand-500) — CTA e polo
-                               movimento */
-  --brasa-clara:#FB923C;    /* brand-400 — laranja em texto pequeno, onde o
-                               brand-500 nao alcanca 4,5:1 sobre o entardecer */
-  --brasa-tinta:#1C0A00;    /* texto sobre o laranja: 5,4:1. Branco sobre
-                               brand-500 da so 3,56:1 e reprovaria */
-  --cinza-foto:#5A6472;     /* placeholder de foto, cinza neutro */
+  --marca:#EA580C;          /* brand-500 — a cor da marca no app */
+  --marca-forte:#C2410C;    /* brand-600 — fundo de botao e anel de foco.
+                               Branco sobre o brand-500 da 3,56:1 e reprovaria
+                               em texto pequeno; sobre o 600 da 4,9:1. E a
+                               mesma cor que o Button do sistema usa no hover. */
+  --marca-fraca:#FFF7ED;    /* brand-50 — realce de fundo */
+  --marca-borda:#FDBA74;
 
-  --serra-longe:#0F1730;
-  --serra-perto:#070A18;
+  --azul:#1D4ED8;           /* polo silencio, no azul da marca */
 
-  --serif:"Fraunces", Georgia, "Times New Roman", serif;
-  --sans:"Archivo", "Segoe UI", system-ui, sans-serif;
-
-  --col:34rem;
-  --curva:12px;             /* cartoes e campos */
-  --curva-botao:999px;      /* botao totalmente arredondado, como no site */
+  --col:40rem;
+  --curva:12px;             /* rounded-xl dos cartoes do site */
+  --curva-campo:8px;        /* rounded-lg dos botoes e campos */
   --entrada:cubic-bezier(.22,1,.36,1);
 
-  transition: --ceu-alto 1.5s ease, --ceu-meio 1.5s ease,
-              --ceu-baixo 1.5s ease, --brilho 1.5s ease;
+  /* Pilha do Tailwind. Nao ha @font-face nem link para fonte externa: o site
+     nao carrega nenhuma, e "mesma tipografia" significa exatamente isso. */
+  --sans:ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+         "Helvetica Neue", Arial, "Noto Sans", sans-serif;
 
   position:relative;
-  color-scheme:dark;
-  background:var(--noite);
-  color:var(--bruma);
-  font:400 1rem/1.62 var(--sans);
-  font-synthesis-weight:none;
+  min-height:100dvh;
+  background:var(--fundo);
+  color:var(--tinta-media);
+  font:400 1rem/1.6 var(--sans);
   -webkit-font-smoothing:antialiased;
   overflow-x:hidden;
 }
@@ -76,154 +67,120 @@
 
 .pagina p{ margin:0 }
 
-/* Um passo de ceu por tela. 0 = abertura, a noite azul do embarque; 8 = o
-   resultado, o sol laranja caindo atras da serra. A rampa vai do azul da
-   marca ao laranja da marca — as duas cores da logo, nas duas pontas. */
-.pagina[data-ceu="0"]{ --ceu-alto:#060818; --ceu-meio:#0B1030; --ceu-baixo:#131B45; --brilho:#1B2A7A }
-.pagina[data-ceu="1"]{ --ceu-alto:#070919; --ceu-meio:#0C1233; --ceu-baixo:#161E4A; --brilho:#223086 }
-.pagina[data-ceu="2"]{ --ceu-alto:#080B1B; --ceu-meio:#0E1436; --ceu-baixo:#19224E; --brilho:#2E338A }
-.pagina[data-ceu="3"]{ --ceu-alto:#090D1D; --ceu-meio:#101739; --ceu-baixo:#1E2551; --brilho:#43357F }
-.pagina[data-ceu="4"]{ --ceu-alto:#0B0F1F; --ceu-meio:#131A3A; --ceu-baixo:#262852; --brilho:#5C3770 }
-.pagina[data-ceu="5"]{ --ceu-alto:#0D1120; --ceu-meio:#171D38; --ceu-baixo:#2F2B4C; --brilho:#76395E }
-.pagina[data-ceu="6"]{ --ceu-alto:#0F1420; --ceu-meio:#1B2035; --ceu-baixo:#382E42; --brilho:#8E4147 }
-.pagina[data-ceu="7"]{ --ceu-alto:#111620; --ceu-meio:#1F2232; --ceu-baixo:#40313A; --brilho:#A04B31 }
-.pagina[data-ceu="8"]{ --ceu-alto:#131820; --ceu-meio:#23252F; --ceu-baixo:#473430; --brilho:#A85A20 }
+/* ---------- topo: so a logo, sem menu ---------- */
 
-/* ---------- ceu e horizonte (chrome ambiente, nao substitui foto) ---------- */
-
-.ceu{
-  position:fixed; inset:0; z-index:0; pointer-events:none;
-  background:
-    radial-gradient(112% 46% at 50% 100%, var(--brilho) 0%, transparent 66%),
-    linear-gradient(180deg, var(--ceu-alto) 0%, var(--ceu-meio) 54%, var(--ceu-baixo) 100%);
+/* Sem Header do site de proposito. Menu numa pagina de captacao e uma porta de
+   saida antes de a pessoa virar lead — cada link ali compete com o quiz. A
+   logo sozinha assina de quem e a pagina e nao leva ninguem embora. */
+.topo{
+  position:relative; z-index:2;
+  display:flex; justify-content:center;
+  padding:calc(1.25rem + env(safe-area-inset-top)) 1.25rem 0;
 }
-/* Gra fina: tira o aspecto de gradiente sintetico. */
-.ceu::after{
-  content:''; position:absolute; inset:0; opacity:.05;
-  background-image:radial-gradient(circle at 1px 1px, #fff 1px, transparent 0);
-  background-size:3px 3px;
-}
-
-/* O ceu e fixo, mas a tela de resultado e longa e rola: sem isto o texto
-   passaria por cima do brilho quente do por do sol a 1,15:1 de contraste.
-   O veu escurece o fundo sob o texto e mantem tudo acima de 4,5:1, sem
-   apagar a cor do fim de tarde. So existe nesta tela. */
-.pagina[data-tela="resultado"] .ceu::before{
-  content:''; position:absolute; inset:0;
-  background:linear-gradient(180deg, rgba(10,13,20,.45) 0%, rgba(10,13,20,.72) 100%);
-}
-
-.horizonte{
-  position:fixed; left:0; right:0; bottom:0; z-index:1;
-  height:min(30vh,230px); pointer-events:none;
-}
-.pagina[data-tela="resultado"] .horizonte{ display:none }
-
-.horizonte svg,
-.serraFim svg{ display:block; width:100%; height:100% }
-.serraLonge{ fill:var(--serra-longe) }
-.serraPerto{ fill:var(--serra-perto) }
-.serraRim{ fill:none; stroke:var(--brilho); stroke-width:1.5; opacity:.6 }
-
-.serraFim{ height:clamp(110px,24vw,200px); margin-top:2.5rem }
+.topo img{ height:38px; width:auto; display:block }
 
 /* ---------- palco ---------- */
 
 .tela{
   position:relative; z-index:2;
   display:grid; align-content:center; justify-items:center;
-  min-height:100dvh;
+  min-height:calc(100dvh - 4.5rem);
   padding:
-    calc(2.25rem + env(safe-area-inset-top)) 1.25rem
+    2rem 1.25rem
     calc(2.5rem + env(safe-area-inset-bottom));
 }
-.telaLonga{ align-content:start; padding-top:calc(3.25rem + env(safe-area-inset-top)) }
+.telaLonga{ align-content:start; padding-top:2rem }
 
-.col{ width:100%; max-width:var(--col); display:flex; flex-direction:column; gap:1.5rem }
+/* O cartao branco: e ele que faz a pagina parecer do site. Mesmo desenho dos
+   blocos de /products/[slug] e /search — borda fina, canto arredondado e
+   sombra discreta. */
+.col{
+  width:100%; max-width:var(--col);
+  display:flex; flex-direction:column; gap:1.5rem;
+  background:var(--cartao);
+  border:1px solid var(--borda);
+  border-radius:var(--curva);
+  box-shadow:0 1px 2px 0 rgb(0 0 0 / .05);
+  padding:1.75rem 1.5rem;
+}
 
 /* `backwards`, nao `both`. Com `both` a animacao inclui `forwards`, e o
    `to{transform:none}` continua valendo depois de terminar — declaracao de
    origem Animation ganha da regra normal do autor, entao os hovers de
    transform ficariam mortos. `backwards` so vale durante o atraso. */
-.entra > *{ animation:sobe .62s var(--entrada) backwards }
-.entra > *:nth-child(2){ animation-delay:.07s }
-.entra > *:nth-child(3){ animation-delay:.14s }
-.entra > *:nth-child(4){ animation-delay:.21s }
-.entra > *:nth-child(5){ animation-delay:.28s }
-.entra > *:nth-child(6){ animation-delay:.35s }
+.entra > *{ animation:sobe .55s var(--entrada) backwards }
+.entra > *:nth-child(2){ animation-delay:.06s }
+.entra > *:nth-child(3){ animation-delay:.12s }
+.entra > *:nth-child(4){ animation-delay:.18s }
+.entra > *:nth-child(5){ animation-delay:.24s }
+.entra > *:nth-child(6){ animation-delay:.30s }
 /* A tela de resultado tem 12 filhos. Sem este teto, do 7o em diante todos
    voltariam ao atraso zero e entrariam ANTES dos que vem acima deles. */
-.entra > *:nth-child(n+7){ animation-delay:.42s }
+.entra > *:nth-child(n+7){ animation-delay:.36s }
 
-@keyframes sobe{ from{ opacity:0; transform:translateY(14px) } to{ opacity:1; transform:none } }
+@keyframes sobe{ from{ opacity:0; transform:translateY(12px) } to{ opacity:1; transform:none } }
 
 /* ---------- tipografia ---------- */
 
 .olho{
-  font:600 .6875rem/1.5 var(--sans);
-  letter-spacing:.17em; text-transform:uppercase;
-  color:var(--brasa-clara);
+  font-size:.6875rem; font-weight:700; line-height:1.5;
+  letter-spacing:.12em; text-transform:uppercase;
+  color:var(--marca-forte);
   display:flex; align-items:center; gap:.6rem;
   margin:0;
 }
-.olho::before{ content:''; width:1.75rem; height:1px; background:currentColor; opacity:.6; flex:none }
+.olho::before{ content:''; width:1.5rem; height:2px; background:currentColor; border-radius:2px; opacity:.75; flex:none }
 
 .pagina h1,
 .pagina h2{
-  font-family:var(--serif);
-  font-weight:600;
-  font-variation-settings:'opsz' 96;
-  line-height:1.11;
-  letter-spacing:-.015em;
+  font-family:var(--sans);
+  font-weight:700;
+  line-height:1.2;
+  letter-spacing:-.02em;
   text-wrap:balance;
-  color:var(--areia);
+  color:var(--tinta);
   margin:0;
 }
-.pagina h1{ font-size:clamp(1.9rem,7.2vw,3rem) }
-.pagina h2{ font-size:clamp(1.4rem,5.4vw,2rem); line-height:1.18 }
-.pergunta{ font-size:clamp(1.3rem,5vw,1.75rem) !important }
+.pagina h1{ font-size:clamp(1.75rem,5.5vw,2.25rem) }
+.pagina h2{ font-size:clamp(1.35rem,4.5vw,1.75rem) }
+.pergunta{ font-size:clamp(1.25rem,4.2vw,1.5rem) !important }
 
-.sub{ margin:0; font-size:1.0625rem; line-height:1.58; color:var(--bruma) }
-.corpo{ display:flex; flex-direction:column; gap:.9rem; color:var(--bruma); text-wrap:pretty }
-.micro{ font-size:.8125rem; line-height:1.5; color:var(--bruma-fraca); margin:0 }
+.sub{ margin:0; font-size:1.0625rem; line-height:1.6; color:var(--tinta-media) }
+.corpo{ display:flex; flex-direction:column; gap:.9rem; color:var(--tinta-media); text-wrap:pretty }
+.micro{ font-size:.8125rem; line-height:1.55; color:var(--tinta-fraca); margin:0 }
 
-/* Sem `opacity`: ela era sobrescrita pelo keyframe nas telas com .entra e nao
-   na tela de quiz, e o mesmo rodape aparecia em dois pesos. O tom ja e
-   discreto por cor e tamanho, como a espec pede. */
 .assinatura{
-  font:500 .75rem/1 var(--sans);
-  letter-spacing:.06em;
-  color:var(--bruma-fraca);
+  font-size:.75rem; font-weight:600; line-height:1;
+  letter-spacing:.05em;
+  color:var(--tinta-fraca);
   margin:.25rem 0 0;
 }
 
 /* ---------- botoes ---------- */
 
+/* Mesmo desenho do Button do sistema (components/ui/Button.tsx): canto
+   rounded-lg, peso semibold, fundo da marca, texto branco. So o tamanho muda —
+   aqui e a acao principal da tela, entao ocupa a largura toda. */
 .acao{
   display:inline-flex; align-items:center; justify-content:center;
-  gap:.55rem; width:100%; min-height:60px;
-  padding:1.0625rem 1.5rem;
-  font:700 .875rem/1.2 var(--sans);
-  letter-spacing:.11em; text-transform:uppercase;
-  color:var(--brasa-tinta);
-  background:var(--brasa);
-  border:0; border-radius:var(--curva-botao);
+  gap:.5rem; width:100%; min-height:52px;
+  padding:.875rem 1.5rem;
+  font:600 1rem/1.2 var(--sans);
+  color:#FFFFFF;
+  background:var(--marca-forte);
+  border:0; border-radius:var(--curva-campo);
   cursor:pointer; text-decoration:none; text-align:center;
-  transition:background .18s, transform .18s var(--entrada), box-shadow .18s;
-  box-shadow:0 10px 30px -14px rgba(234,88,12,.9);
+  transition:background .18s, box-shadow .18s;
 }
-/* No site o botao escurece no hover (orange-500 -> 600), porque la o fundo e
-   claro. Aqui o fundo e escuro, entao a mesma intencao se cumpre clareando
-   para o brand-400 — continua dentro da rampa da marca. */
-.acao:hover{ background:var(--brasa-clara); transform:translateY(-2px); box-shadow:0 16px 36px -14px rgba(251,146,60,.55) }
-.acao:active{ transform:translateY(0) }
+.acao:hover{ background:#9A3412 }  /* brand-700, o proximo degrau da rampa */
+.acao:active{ background:#7C2D12 }
 .seta{ transition:transform .18s var(--entrada); flex:none }
-.acao:hover .seta{ transform:translateX(4px) }
+.acao:hover .seta{ transform:translateX(3px) }
 
-/* O anel de foco do site e laranja (#c2410c). Sobre fundo escuro esse tom
-   some, entao usamos o brand-500, que rende 5,6:1 contra o ceu. */
+/* O mesmo anel do globals.css. Repetido aqui porque o modulo redefine cores e
+   eu quero que o foco continue identico ao do resto do app. */
 .pagina :where(button,a,input,[tabindex]):focus-visible{
-  outline:2px solid var(--brasa); outline-offset:3px;
+  outline:2px solid var(--marca-forte); outline-offset:2px;
 }
 
 /* ---------- perguntas ---------- */
@@ -231,171 +188,193 @@
 .passo{ display:flex; flex-direction:column; gap:.6rem }
 .passoTopo{
   display:flex; align-items:baseline; justify-content:space-between; gap:1rem;
-  font:600 .6875rem/1 var(--sans);
-  letter-spacing:.15em; text-transform:uppercase;
-  color:var(--bruma-fraca);
+  font-size:.75rem; font-weight:600; line-height:1;
+  letter-spacing:.08em; text-transform:uppercase;
+  color:var(--tinta-fraca);
 }
-.passoTopo b{ color:var(--areia); font-weight:600; font-variant-numeric:tabular-nums }
+.passoTopo b{ color:var(--tinta); font-weight:700; font-variant-numeric:tabular-nums }
 .trilho{ display:flex; gap:4px }
 .trilho span{
-  flex:1; height:2px; background:var(--linha); border-radius:2px;
-  transition:background .45s var(--entrada);
+  flex:1; height:4px; background:var(--borda); border-radius:999px;
+  transition:background .4s var(--entrada);
 }
-.trilhoFeito{ background:var(--areia) !important }
+.trilhoFeito{ background:var(--marca) !important }
 
 .opcoes{ display:flex; flex-direction:column; gap:.625rem; margin:0; padding:0; list-style:none }
 
 .opcao{
-  position:relative; display:block; width:100%; min-height:58px;
+  position:relative; display:block; width:100%; min-height:56px;
   text-align:left;
   font:500 1rem/1.42 var(--sans);
-  color:var(--bruma);
-  background:var(--painel);
-  border:1px solid var(--linha);
-  border-radius:var(--curva);
-  padding:1.0625rem 3rem 1.0625rem 1.125rem;
+  color:var(--tinta-media);
+  background:var(--cartao);
+  border:1px solid var(--borda);
+  border-radius:var(--curva-campo);
+  padding:1rem 3rem 1rem 1.125rem;
   cursor:pointer; overflow:hidden;
-  transition:border-color .2s, color .2s, transform .2s var(--entrada);
-  animation:sobe .5s var(--entrada) backwards;
+  transition:border-color .2s, background .2s, color .2s;
+  animation:sobe .45s var(--entrada) backwards;
 }
-.opcao:hover{ border-color:var(--linha-forte); color:var(--areia); transform:translateX(3px) }
+.opcao:hover{ border-color:var(--borda-forte); background:#F8FAFC; color:var(--tinta) }
 /* A tinta de selecao e IGUAL em todas as alternativas de proposito: colorir
    por polo entregaria ao usuario qual delas vale silencio e qual vale
    movimento, e a espec diz que o peso nao aparece visualmente. */
 .opcao::before{
   content:''; position:absolute; inset:0;
-  background:rgba(234,88,12,.16);
+  background:var(--marca-fraca);
   transform:scaleX(0); transform-origin:left;
-  transition:transform .36s var(--entrada);
+  transition:transform .32s var(--entrada);
 }
 .opcaoTexto{ position:relative }
 .marca{
-  position:absolute; top:50%; right:1.125rem; margin-top:-6px;
-  width:11px; height:11px; border:1px solid var(--linha-forte); border-radius:2px;
-  transition:background .22s, border-color .22s, rotate .36s var(--entrada);
+  position:absolute; top:50%; right:1.125rem; margin-top:-9px;
+  width:18px; height:18px; border:1px solid var(--borda-forte); border-radius:999px;
+  transition:background .2s, border-color .2s, box-shadow .2s;
 }
-.escolhida{ border-color:var(--brasa) !important; color:var(--areia) !important }
+.escolhida{ border-color:var(--marca) !important; color:var(--tinta) !important }
 .escolhida::before{ transform:scaleX(1) }
-.escolhida .marca{ background:var(--brasa); border-color:var(--brasa); rotate:45deg }
+.escolhida .marca{
+  background:var(--marca); border-color:var(--marca);
+  box-shadow:inset 0 0 0 3px #FFFFFF;
+}
 
 /* ---------- transicao ---------- */
 
-.calculando{ display:grid; justify-items:center; gap:2.25rem; text-align:center; width:100% }
-.linhas{ position:relative; min-height:5.5rem; display:grid; place-items:center; width:100% }
+.calculando{ display:grid; justify-items:center; gap:2rem; text-align:center; width:100% }
+.linhas{ position:relative; min-height:5rem; display:grid; place-items:center; width:100% }
 .linhas p{
   grid-area:1/1; margin:0;
-  font-family:var(--serif); font-weight:400;
-  font-variation-settings:'opsz' 60;
-  font-size:clamp(1.25rem,5vw,1.6rem); line-height:1.3;
-  color:var(--areia); text-wrap:balance;
-  opacity:0; transform:translateY(10px);
-  transition:opacity .5s ease, transform .5s var(--entrada);
+  font-size:clamp(1.125rem,4vw,1.375rem); font-weight:600; line-height:1.35;
+  color:var(--tinta); text-wrap:balance;
+  opacity:0; transform:translateY(8px);
+  transition:opacity .45s ease, transform .45s var(--entrada);
 }
 .linhaVisivel{ opacity:1 !important; transform:none !important }
-.barra{ width:min(15rem,70%); height:2px; background:var(--linha); border-radius:2px; overflow:hidden }
-.barra i{ display:block; height:100%; width:0; background:linear-gradient(90deg,var(--azul),var(--brasa)) }
+.barra{ width:min(15rem,70%); height:4px; background:var(--borda); border-radius:999px; overflow:hidden }
+.barra i{ display:block; height:100%; width:0; background:linear-gradient(90deg,var(--azul),var(--marca)) }
 .barraCorrendo i{ animation:enche 2.7s linear forwards }
 @keyframes enche{ to{ width:100% } }
 
 /* ---------- formulario ---------- */
 
+/* Mesmo desenho dos campos de components/ui/form.tsx: rotulo pequeno em cima,
+   campo branco com borda slate-300 e canto rounded-lg. */
 .form{ display:flex; flex-direction:column; gap:1.125rem }
-.campo{ display:flex; flex-direction:column; gap:.4rem }
+.campo{ display:flex; flex-direction:column; gap:.375rem }
 .campo label{
-  font:600 .6875rem/1.3 var(--sans);
-  letter-spacing:.11em; text-transform:uppercase; color:var(--bruma-fraca);
+  font-size:.8125rem; font-weight:600; line-height:1.3;
+  color:var(--tinta-media);
 }
-.opcional{ text-transform:none; letter-spacing:0; font-weight:400; opacity:.8 }
+.opcional{ font-weight:400; color:var(--tinta-fraca) }
 .campo input{
-  width:100%; min-height:56px;
-  font:400 1.0625rem/1.3 var(--sans);
-  color:var(--areia);
-  background:var(--painel-forte);
-  border:1px solid var(--linha);
-  border-radius:var(--curva);
-  padding:.9rem 1rem;
-  transition:border-color .2s, background .2s;
+  width:100%; min-height:48px;
+  font:400 1rem/1.3 var(--sans);
+  color:var(--tinta);
+  background:var(--cartao);
+  border:1px solid var(--borda-forte);
+  border-radius:var(--curva-campo);
+  padding:.75rem 1rem;
+  transition:border-color .18s, box-shadow .18s;
 }
-.campo input::placeholder{ color:var(--bruma-fraca); opacity:.55 }
-.campo input:hover{ border-color:var(--linha-forte) }
-.campo input:focus{ outline:none; border-color:var(--areia); background:rgba(203,213,225,.1) }
-/* Precisa existir mesmo com o :where() genérico lá em cima: aquele seletor tem
-   especificidade (0,2,0) e este `outline:none` tem (0,2,1), então sem esta
+.campo input::placeholder{ color:#9CA3AF }
+.campo input:hover{ border-color:#94A3B8 }
+.campo input:focus{ outline:none; border-color:var(--marca); box-shadow:0 0 0 3px rgb(234 88 12 / .15) }
+/* Precisa existir mesmo com o :where() generico la em cima: aquele seletor tem
+   especificidade (0,2,0) e este `outline:none` tem (0,2,1), entao sem esta
    linha o anel de foco de teclado dos 3 campos some. */
-.campo input:focus-visible{ outline:2px solid var(--areia); outline-offset:2px }
-.campoErro input{ border-color:var(--brasa-clara) !important }
-.erro{ font:500 .75rem/1.4 var(--sans); color:var(--brasa-clara); margin:0 }
+.campo input:focus-visible{ outline:2px solid var(--marca-forte); outline-offset:2px }
+.campoErro input{ border-color:#DC2626 !important }
+.erro{ font-size:.8125rem; font-weight:500; line-height:1.4; color:#B91C1C; margin:0 }
 .campoErro .erro{ animation:sobe .3s var(--entrada) backwards }
 
 /* ---------- resultado ---------- */
 
-.revelacao{ width:100%; max-width:var(--col); display:flex; flex-direction:column; gap:1.5rem }
+.revelacao{
+  width:100%; max-width:var(--col);
+  display:flex; flex-direction:column; gap:1.5rem;
+  background:var(--cartao);
+  border:1px solid var(--borda);
+  border-radius:var(--curva);
+  box-shadow:0 1px 2px 0 rgb(0 0 0 / .05);
+  padding:1.75rem 1.5rem;
+}
 
 .leitura{
-  font-family:var(--serif); font-weight:400; font-style:italic;
-  font-variation-settings:'opsz' 40;
-  font-size:1.125rem; line-height:1.55; color:var(--areia);
-  margin:0; padding:.35rem 0 .35rem 1.125rem;
-  border-left:2px solid var(--polo,var(--areia));
+  font-size:1.0625rem; line-height:1.6; color:var(--tinta);
+  margin:0; padding:.25rem 0 .25rem 1.125rem;
+  border-left:3px solid var(--polo,var(--marca));
   text-wrap:pretty;
 }
 
-.bloco{ border-top:1px solid var(--linha); padding-top:1.5rem; display:flex; flex-direction:column; gap:.9rem }
+.bloco{ border-top:1px solid var(--borda); padding-top:1.5rem; display:flex; flex-direction:column; gap:.9rem }
 .bloco h3{
-  font:600 .6875rem/1 var(--sans);
-  letter-spacing:.15em; text-transform:uppercase;
-  color:var(--bruma-fraca); margin:0;
+  font-size:.75rem; font-weight:700; line-height:1;
+  letter-spacing:.1em; text-transform:uppercase;
+  color:var(--tinta-fraca); margin:0;
 }
 .itens{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:.7rem }
-.itens li{ position:relative; padding-left:1.35rem; line-height:1.5 }
-.itens li::before{ content:''; position:absolute; left:0; top:.62em; width:7px; height:1px; background:var(--brasa-clara) }
+.itens li{ position:relative; padding-left:1.5rem; line-height:1.5; color:var(--tinta-media) }
+.itens li::before{
+  content:''; position:absolute; left:0; top:.5em;
+  width:8px; height:8px; border-radius:999px; background:var(--marca);
+}
 
 .preco{
-  background:linear-gradient(180deg, rgba(234,88,12,.16), rgba(234,88,12,.06));
-  border:1px solid rgba(234,88,12,.34);
-  border-radius:var(--curva);
-  padding:1.35rem 1.25rem;
-  display:flex; flex-direction:column; gap:.55rem;
+  background:var(--marca-fraca);
+  border:1px solid var(--marca-borda);
+  border-radius:var(--curva-campo);
+  padding:1.25rem;
+  display:flex; flex-direction:column; gap:.5rem;
 }
 .preco strong{
-  font-family:var(--serif); font-weight:600;
-  font-variation-settings:'opsz' 96;
-  font-size:clamp(1.5rem,6vw,2rem); line-height:1.12;
-  letter-spacing:-.01em; color:var(--areia);
+  font-size:clamp(1.375rem,5vw,1.75rem); font-weight:700; line-height:1.2;
+  letter-spacing:-.02em; color:var(--tinta);
   font-variant-numeric:tabular-nums;
 }
-.preco span{ font-size:.9375rem; line-height:1.5; color:var(--bruma) }
+.preco span{ font-size:.9375rem; line-height:1.5; color:var(--tinta-media) }
 
-.selo{ font-size:.875rem; line-height:1.55; color:var(--bruma-fraca); border-left:1px solid var(--linha); padding-left:1rem }
+.selo{
+  font-size:.875rem; line-height:1.55; color:var(--tinta-fraca);
+  border-left:3px solid var(--borda); padding-left:1rem;
+}
 
-/* Placeholders das 4 fotos reais: cinza, tracejado, com a descricao dentro.
-   Nunca trocar por foto de banco de imagem nem por ilustracao. */
-.fotos{ display:grid; gap:.625rem; grid-template-columns:1fr }
+/* ---------- imagens ---------- */
+
+/* Cenas desenhadas em SVG, no lugar dos retangulos tracejados que estavam aqui
+   esperando as fotos reais. Nao sao fotografia nem banco de imagem: sao
+   simulacoes, para a pagina poder ser avaliada inteira antes de as fotos da
+   agencia existirem. A legenda continua embaixo dizendo QUAL foto entra ali,
+   para a troca ser obvia depois. */
+.fotos{ display:grid; gap:.75rem; grid-template-columns:1fr }
 .foto{
-  position:relative; aspect-ratio:4/3;
-  display:flex; align-items:flex-end;
-  background:var(--cinza-foto);
-  border:1px dashed rgba(255,255,255,.34);
-  border-radius:var(--curva);
-  padding:.875rem; overflow:hidden;
+  position:relative; overflow:hidden;
+  border:1px solid var(--borda);
+  border-radius:var(--curva-campo);
+  background:#E2E8F0;
 }
-.foto::before{
-  content:attr(data-letra);
-  position:absolute; top:.75rem; left:.875rem;
-  font:700 .6875rem/1 var(--sans); letter-spacing:.1em;
-  color:rgba(255,255,255,.92);
-  border:1px solid rgba(255,255,255,.5);
-  border-radius:2px; padding:.3rem .45rem;
-}
-.foto p{ font:500 .8125rem/1.4 var(--sans); color:#F3F5F6; text-shadow:0 1px 8px rgba(0,0,0,.55); margin:0 }
+.fotoArte{ display:block; width:100%; height:auto; aspect-ratio:4/3 }
+.fotosLarga .fotoArte{ aspect-ratio:16/9 }
 
-/* A abertura mostra uma foto so, em faixa larga. Especificidade dupla para
-   nao ser desfeita pela media query de duas colunas abaixo. */
-.fotos.fotosLarga{ grid-template-columns:1fr }
-.fotos.fotosLarga .foto{ aspect-ratio:16/9 }
+/* Legenda por cima da base da imagem, como as capas de pacote do site. */
+.fotoLegenda{
+  position:absolute; left:0; right:0; bottom:0;
+  padding:1.5rem .875rem .75rem;
+  font-size:.8125rem; font-weight:500; line-height:1.35; color:#FFFFFF;
+  background:linear-gradient(180deg, rgb(15 23 42 / 0), rgb(15 23 42 / .78));
+  margin:0;
+}
+
+/* Selo discreto no canto: lembra que a arte e provisoria sem enfeiar a tela.
+   Sai junto com a troca pelas fotos reais. */
+.fotoSelo{
+  position:absolute; top:.625rem; right:.625rem;
+  font-size:.625rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+  color:#334155; background:rgb(255 255 255 / .9);
+  border-radius:999px; padding:.25rem .5rem;
+}
 
 .apoio{ display:flex; flex-direction:column; gap:.6rem }
-.fone{ color:var(--areia); font-weight:600; font-variant-numeric:tabular-nums }
+.fone{ color:var(--tinta); font-weight:700; font-variant-numeric:tabular-nums }
 
 .sr{
   position:absolute; width:1px; height:1px; padding:0; margin:-1px;
@@ -404,18 +383,18 @@
 
 /* ---------- telas largas ---------- */
 
-@media (min-width:520px){
+@media (min-width:560px){
   .fotos{ grid-template-columns:1fr 1fr }
+  .fotosLarga{ grid-template-columns:1fr }
 }
 
 @media (min-width:820px){
-  .pagina{ --col:37rem }
+  .pagina{ --col:42rem }
   .tela{ padding-left:2rem; padding-right:2rem }
-  .horizonte{ height:min(34vh,290px) }
+  .col,
+  .revelacao{ padding:2.25rem 2rem }
   .sub{ font-size:1.125rem }
   .opcao{ font-size:1.0625rem }
-  .revelacao{ max-width:40rem }
-  .fotos{ gap:.75rem }
 }
 
 @media (prefers-reduced-motion:reduce){
@@ -425,7 +404,6 @@
     animation-duration:.01ms !important; animation-iteration-count:1 !important;
     transition-duration:.01ms !important; scroll-behavior:auto !important;
   }
-  .pagina{ transition:none }
   .linhas p{ transition:none }
   /* A barra da transicao continua enchendo no tempo real: ela mede uma espera,
      nao e um efeito vestibular. Cheia no primeiro quadro, os 2,7s seguintes

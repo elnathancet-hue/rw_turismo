@@ -23,14 +23,21 @@ import {
   type Perfil,
   type Peso,
 } from "../lib/quiz/feriado";
+import CenaSimulada, {
+  type LetraFoto,
+} from "../components/quiz/CenaSimulada";
 import estilos from "../styles/quiz-feriado.module.css";
 
 // Quiz de captação para o feriado de 7 de setembro.
 //
-// Página nua de propósito: sem Header e sem Footer, porque os dois carregam a
-// logo — e a seção 7 da espec proíbe nome e logo em qualquer lugar da página.
-// O WhatsAppFloat também é suprimido nesta rota (ver WhatsAppFloat.tsx), já que
-// a mensagem padrão dele cita a agência pelo nome.
+// A página usa a identidade do sistema: fundo cinza, cartão branco, tipografia
+// e botões iguais aos do resto do app. A primeira versão era uma landing escura
+// com céu animado e duas fontes próprias — bonita, mas não parecia do site.
+//
+// A logo assina o topo, e é só ela: sem Header e sem Footer de propósito.
+// Menu numa página de captação é porta de saída antes de a pessoa virar lead —
+// cada link ali compete com o quiz. Pelo mesmo motivo o WhatsAppFloat segue
+// suprimido nesta rota (ver WhatsAppFloat.tsx).
 //
 // A copy e a regra de pontuação moram em lib/quiz/feriado.ts, gerado a partir
 // do quiz-feriado.html na raiz do repositório. Não reescrever copy aqui.
@@ -39,17 +46,9 @@ type Etapa = "abertura" | "quiz" | "transicao" | "captura" | "resultado";
 
 const POLO_COR: Record<Perfil, string> = {
   "relaxar-dominante": "var(--azul)",
-  "aventura-dominante": "var(--brasa)",
-  equilibrio: "var(--areia)",
+  "aventura-dominante": "var(--marca)",
+  equilibrio: "var(--borda-forte)",
 };
-
-// Ícone neutro para a aba. O favicon global do app é a logo da empresa, e ela
-// não pode aparecer aqui — é uma silhueta de serra, não uma marca.
-const ICONE_NEUTRO =
-  "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Crect%20width='32'%20height='32'%20rx='7'%20fill='%230F172A'/%3E%3Cpath%20d='M3%2023h26'%20stroke='%23EA580C'%20stroke-width='2'%20stroke-linecap='round'/%3E%3Cpath%20d='M4%2019l6-6h7l4-4h7'%20stroke='%238A97FF'%20stroke-width='2'%20fill='none'%20stroke-linejoin='round'%20stroke-linecap='round'/%3E%3C/svg%3E";
-
-const FONTES =
-  "https://fonts.googleapis.com/css2?family=Archivo:wght@400..700&family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&display=swap";
 
 const Seta = () => (
   <svg
@@ -69,53 +68,28 @@ const Seta = () => (
   </svg>
 );
 
-// Cuesta de topo chato — a forma real da Ibiapaba, que é uma chapada, não um
-// pico alpino. É chrome ambiente da página, não substitui nenhuma das 4 fotos.
-const Serra = ({ variante }: { variante: "fixa" | "fim" }) => {
-  const fixa = variante === "fixa";
-  return (
-    <svg
-      focusable="false"
-      preserveAspectRatio="none"
-      role="presentation"
-      viewBox={fixa ? "0 0 1440 260" : "0 0 1440 200"}
-    >
-      <path
-        className={estilos.serraLonge}
-        d={
-          fixa
-            ? "M0,260 L0,152 L152,148 L300,152 L318,98 L622,90 L640,124 L902,120 L920,76 L1244,70 L1262,112 L1440,108 L1440,260 Z"
-            : "M0,200 L0,110 L180,106 L320,110 L340,58 L640,50 L660,84 L940,80 L960,40 L1260,34 L1278,74 L1440,70 L1440,200 Z"
-        }
-      />
-      <path
-        className={estilos.serraRim}
-        d={
-          fixa
-            ? "M0,152 L152,148 L300,152 L318,98 L622,90 L640,124 L902,120 L920,76 L1244,70 L1262,112 L1440,108"
-            : "M0,110 L180,106 L320,110 L340,58 L640,50 L660,84 L940,80 L960,40 L1260,34 L1278,74 L1440,70"
-        }
-      />
-      <path
-        className={estilos.serraPerto}
-        d={
-          fixa
-            ? "M0,260 L0,200 L214,196 L242,154 L706,146 L734,182 L1014,178 L1042,136 L1440,130 L1440,260 Z"
-            : "M0,200 L0,152 L240,148 L268,112 L720,104 L748,138 L1030,134 L1058,96 L1440,90 L1440,200 Z"
-        }
-      />
-    </svg>
-  );
-};
-
-const Fotos = ({ letras, larga }: { letras: readonly ("A" | "B" | "C" | "D")[]; larga?: boolean }) => (
+// As 4 fotos da agência ainda não existem. No lugar dos retângulos tracejados
+// que estavam aqui, entra uma cena desenhada — dá para julgar layout e ritmo
+// sem esperar a produção das fotos. A legenda continua dizendo qual foto vai
+// naquele lugar, e o selo "simulação" impede que alguém confunda com a real.
+const Fotos = ({ letras, larga }: { letras: readonly LetraFoto[]; larga?: boolean }) => (
   <div className={`${estilos.fotos}${larga ? ` ${estilos.fotosLarga}` : ""}`}>
     {letras.map((letra) => (
-      <div className={estilos.foto} data-letra={letra} key={letra}>
-        <p>{FOTOS[letra]}</p>
-      </div>
+      <figure className={estilos.foto} key={letra}>
+        <CenaSimulada letra={letra} />
+        <span className={estilos.fotoSelo}>Simulação</span>
+        <figcaption className={estilos.fotoLegenda}>{FOTOS[letra]}</figcaption>
+      </figure>
     ))}
   </div>
+);
+
+// Só a logo, sem navegação. Ver o comentário no topo do arquivo.
+const Topo = () => (
+  <header className={estilos.topo}>
+    {/* eslint-disable-next-line @next/next/no-img-element */}
+    <img alt="RW Turismo" src="/rw-turismo-logo.png" />
+  </header>
 );
 
 const Assinatura = () => <p className={estilos.assinatura}>@rwturismo.pi</p>;
@@ -266,15 +240,6 @@ const QuizFeriado = () => {
     setEtapa("resultado");
   };
 
-  const passoCeu =
-    etapa === "abertura"
-      ? 0
-      : etapa === "quiz"
-      ? indice + 1
-      : etapa === "resultado"
-      ? 8
-      : 7;
-
   const pergunta = PERGUNTAS[indice];
 
   return (
@@ -303,24 +268,13 @@ const QuizFeriado = () => {
           content="6 perguntas rápidas sobre o seu jeito de aproveitar. No fim, a serra que já tem saída certa pro feriado de 7 de setembro."
           property="og:description"
         />
-        {/* Sobrescrevem o favicon e o theme-color do _app, que são da marca. */}
-        <link href={ICONE_NEUTRO} key="icon-32" rel="icon" type="image/svg+xml" />
-        <link href={ICONE_NEUTRO} key="icon-512" rel="icon" type="image/svg+xml" />
-        <link href={ICONE_NEUTRO} key="apple-icon" rel="apple-touch-icon" />
-        <meta content="#0F172A" key="theme-color" name="theme-color" />
-        <link href="https://fonts.googleapis.com" rel="preconnect" />
-        <link crossOrigin="anonymous" href="https://fonts.gstatic.com" rel="preconnect" />
-        <link href={FONTES} rel="stylesheet" />
+        {/* Sem sobrescrever favicon nem theme-color: a página passou a assumir
+            a marca, então os do _app servem. E sem fonte externa — o site não
+            carrega nenhuma, e é essa a tipografia que se quer aqui. */}
       </Head>
 
-      <main className={estilos.pagina} data-ceu={passoCeu} data-tela={etapa}>
-        <div aria-hidden="true" className={estilos.ceu} />
-
-        {etapa !== "resultado" && (
-          <div aria-hidden="true" className={estilos.horizonte}>
-            <Serra variante="fixa" />
-          </div>
-        )}
+      <main className={estilos.pagina} data-tela={etapa}>
+        <Topo />
 
         {etapa === "abertura" && (
           <section className={estilos.tela}>
@@ -637,10 +591,6 @@ const QuizFeriado = () => {
               </div>
 
               <Assinatura />
-
-              <div aria-hidden="true" className={estilos.serraFim}>
-                <Serra variante="fim" />
-              </div>
             </div>
           </section>
         )}
