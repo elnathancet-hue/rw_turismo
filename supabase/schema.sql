@@ -1724,7 +1724,9 @@ create table if not exists public.leads (
   source text not null default 'manual',
   utm jsonb not null default '{}'::jsonb,
   stage_id text not null default 'new',
-  position integer not null default 0,
+  -- bigint, e nao integer: recebe Date.now() em milissegundos (~1,787 trilhao),
+  -- que estoura o teto do integer e faz o Postgres recusar o insert inteiro.
+  position bigint not null default 0,
   waitlist_id uuid references public.waitlist(id) on delete set null,
   user_id uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now(),
