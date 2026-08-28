@@ -1,0 +1,652 @@
+import Head from "next/head";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
+import { submitSiteLead } from "../lib/leads/client";
+import {
+  CIDADE_PADRAO,
+  calcularPerfil,
+  FOTOS,
+  FOTOS_POR_PERFIL,
+  LEITURAS,
+  mascararTelefone,
+  montarLinkWhatsApp,
+  nomeValido,
+  PERFIL_TEXTO,
+  PERGUNTAS,
+  telefoneValido,
+  type Perfil,
+  type Peso,
+} from "../lib/quiz/feriado";
+import estilos from "../styles/quiz-feriado.module.css";
+
+// Quiz de captação para o feriado de 7 de setembro.
+//
+// Página nua de propósito: sem Header e sem Footer, porque os dois carregam a
+// logo — e a seção 7 da espec proíbe nome e logo em qualquer lugar da página.
+// O WhatsAppFloat também é suprimido nesta rota (ver WhatsAppFloat.tsx), já que
+// a mensagem padrão dele cita a agência pelo nome.
+//
+// A copy e a regra de pontuação moram em lib/quiz/feriado.ts, gerado a partir
+// do quiz-feriado.html na raiz do repositório. Não reescrever copy aqui.
+
+type Etapa = "abertura" | "quiz" | "transicao" | "captura" | "resultado";
+
+const POLO_COR: Record<Perfil, string> = {
+  "relaxar-dominante": "var(--azul)",
+  "aventura-dominante": "var(--brasa)",
+  equilibrio: "var(--areia)",
+};
+
+// Ícone neutro para a aba. O favicon global do app é a logo da empresa, e ela
+// não pode aparecer aqui — é uma silhueta de serra, não uma marca.
+const ICONE_NEUTRO =
+  "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Crect%20width='32'%20height='32'%20rx='7'%20fill='%230F172A'/%3E%3Cpath%20d='M3%2023h26'%20stroke='%23EA580C'%20stroke-width='2'%20stroke-linecap='round'/%3E%3Cpath%20d='M4%2019l6-6h7l4-4h7'%20stroke='%238A97FF'%20stroke-width='2'%20fill='none'%20stroke-linejoin='round'%20stroke-linecap='round'/%3E%3C/svg%3E";
+
+const FONTES =
+  "https://fonts.googleapis.com/css2?family=Archivo:wght@400..700&family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&display=swap";
+
+const Seta = () => (
+  <svg
+    aria-hidden="true"
+    className={estilos.seta}
+    fill="none"
+    height="10"
+    viewBox="0 0 15 10"
+    width="15"
+  >
+    <path
+      d="M1 5h12M9 1l4 4-4 4"
+      stroke="currentColor"
+      strokeLinecap="square"
+      strokeWidth="1.6"
+    />
+  </svg>
+);
+
+// Cuesta de topo chato — a forma real da Ibiapaba, que é uma chapada, não um
+// pico alpino. É chrome ambiente da página, não substitui nenhuma das 4 fotos.
+const Serra = ({ variante }: { variante: "fixa" | "fim" }) => {
+  const fixa = variante === "fixa";
+  return (
+    <svg
+      focusable="false"
+      preserveAspectRatio="none"
+      role="presentation"
+      viewBox={fixa ? "0 0 1440 260" : "0 0 1440 200"}
+    >
+      <path
+        className={estilos.serraLonge}
+        d={
+          fixa
+            ? "M0,260 L0,152 L152,148 L300,152 L318,98 L622,90 L640,124 L902,120 L920,76 L1244,70 L1262,112 L1440,108 L1440,260 Z"
+            : "M0,200 L0,110 L180,106 L320,110 L340,58 L640,50 L660,84 L940,80 L960,40 L1260,34 L1278,74 L1440,70 L1440,200 Z"
+        }
+      />
+      <path
+        className={estilos.serraRim}
+        d={
+          fixa
+            ? "M0,152 L152,148 L300,152 L318,98 L622,90 L640,124 L902,120 L920,76 L1244,70 L1262,112 L1440,108"
+            : "M0,110 L180,106 L320,110 L340,58 L640,50 L660,84 L940,80 L960,40 L1260,34 L1278,74 L1440,70"
+        }
+      />
+      <path
+        className={estilos.serraPerto}
+        d={
+          fixa
+            ? "M0,260 L0,200 L214,196 L242,154 L706,146 L734,182 L1014,178 L1042,136 L1440,130 L1440,260 Z"
+            : "M0,200 L0,152 L240,148 L268,112 L720,104 L748,138 L1030,134 L1058,96 L1440,90 L1440,200 Z"
+        }
+      />
+    </svg>
+  );
+};
+
+const Fotos = ({ letras, larga }: { letras: readonly ("A" | "B" | "C" | "D")[]; larga?: boolean }) => (
+  <div className={`${estilos.fotos}${larga ? ` ${estilos.fotosLarga}` : ""}`}>
+    {letras.map((letra) => (
+      <div className={estilos.foto} data-letra={letra} key={letra}>
+        <p>{FOTOS[letra]}</p>
+      </div>
+    ))}
+  </div>
+);
+
+const Assinatura = () => <p className={estilos.assinatura}>@rwturismo.pi</p>;
+
+const QuizFeriado = () => {
+  const [etapa, setEtapa] = useState<Etapa>("abertura");
+  const [indice, setIndice] = useState(0);
+  const [respostas, setRespostas] = useState<Peso[]>([]);
+  const [escolhida, setEscolhida] = useState<number | null>(null);
+  const [travado, setTravado] = useState(false);
+  const [perfil, setPerfil] = useState<Perfil | null>(null);
+  const [linhaAtiva, setLinhaAtiva] = useState(0);
+  const [semMovimento, setSemMovimento] = useState(false);
+
+  const [nome, setNome] = useState("");
+  const [fone, setFone] = useState("");
+  const [cidade, setCidade] = useState("");
+  const [erroNome, setErroNome] = useState("");
+  const [erroFone, setErroFone] = useState("");
+
+  const refPergunta = useRef<HTMLHeadingElement>(null);
+  const refCaptura = useRef<HTMLHeadingElement>(null);
+  const refResultado = useRef<HTMLHeadingElement>(null);
+  const refNome = useRef<HTMLInputElement>(null);
+  const refFone = useRef<HTMLInputElement>(null);
+  const caretFone = useRef<number | null>(null);
+
+  // Num input controlado cujo valor é reescrito pela máscara, o React repinta e
+  // o cursor vai parar no fim. Digitar em sequência não sofre (o cursor já está
+  // no fim), mas quem volta pra corrigir um dígito no meio vê o cursor pular —
+  // e o campo é o do WhatsApp, o dado que a venda inteira depende.
+  useLayoutEffect(() => {
+    if (caretFone.current === null || !refFone.current) return;
+    refFone.current.setSelectionRange(caretFone.current, caretFone.current);
+    caretFone.current = null;
+  }, [fone]);
+
+  useEffect(() => {
+    const consulta = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setSemMovimento(consulta.matches);
+    const aoMudar = (evento: MediaQueryListEvent) => setSemMovimento(evento.matches);
+    consulta.addEventListener("change", aoMudar);
+    return () => consulta.removeEventListener("change", aoMudar);
+  }, []);
+
+  // O fundo do app é claro. Sem pintar o body, o excesso de rolagem no celular
+  // mostra uma faixa branca por baixo da página escura.
+  useEffect(() => {
+    const anterior = document.body.style.backgroundColor;
+    document.body.style.backgroundColor = "#0F172A";
+    return () => {
+      document.body.style.backgroundColor = anterior;
+    };
+  }, []);
+
+  // Sequência da tela de transição: três linhas, uma de cada vez, dentro da
+  // janela de 2 a 3 segundos que a espec pede.
+  useEffect(() => {
+    if (etapa !== "transicao") return undefined;
+
+    const marcas: number[] = [
+      window.setTimeout(() => setLinhaAtiva(1), 40),
+      window.setTimeout(() => setLinhaAtiva(0), 900),
+      window.setTimeout(() => setLinhaAtiva(2), 950),
+      window.setTimeout(() => setLinhaAtiva(0), 1810),
+      window.setTimeout(() => setLinhaAtiva(3), 1860),
+      window.setTimeout(() => setEtapa("captura"), 2750),
+    ];
+
+    return () => marcas.forEach((marca) => window.clearTimeout(marca));
+  }, [etapa]);
+
+  useEffect(() => {
+    if (etapa === "quiz") refPergunta.current?.focus({ preventScroll: true });
+    if (etapa === "captura") refCaptura.current?.focus({ preventScroll: true });
+    if (etapa === "resultado") refResultado.current?.focus({ preventScroll: true });
+    window.scrollTo(0, 0);
+  }, [etapa, indice]);
+
+  const responder = useCallback(
+    (peso: Peso, posicao: number) => {
+      if (travado) return;
+      setTravado(true);
+      setEscolhida(posicao);
+      setRespostas((anteriores) => {
+        const proximas = [...anteriores];
+        proximas[indice] = peso;
+        return proximas;
+      });
+
+      // Avanço automático: sem botão de "próxima". A pausa curta existe só
+      // para a marca de seleção terminar de desenhar.
+      window.setTimeout(
+        () => {
+          setTravado(false);
+          setEscolhida(null);
+          if (indice + 1 < PERGUNTAS.length) setIndice(indice + 1);
+          else setEtapa("transicao");
+        },
+        semMovimento ? 60 : 330
+      );
+    },
+    [indice, semMovimento, travado]
+  );
+
+  const aoEnviar = (evento: FormEvent<HTMLFormElement>) => {
+    evento.preventDefault();
+
+    const okNome = nomeValido(nome);
+    const okFone = telefoneValido(fone);
+
+    setErroNome(okNome ? "" : "Escreva seu nome e o sobrenome.");
+    setErroFone(okFone ? "" : "Digite o DDD e o número, como em (86) 99920-7088.");
+
+    if (!okNome) {
+      refNome.current?.focus();
+      return;
+    }
+    if (!okFone) {
+      refFone.current?.focus();
+      return;
+    }
+
+    const calculado = calcularPerfil(respostas);
+    setPerfil(calculado);
+
+    // O lead entra no CRM AQUI, e não no clique do WhatsApp: quem responde as 6
+    // perguntas e entrega o contato já é lead, mesmo que feche a aba sem tocar
+    // no botão. A UTM da campanha vem junto (captureUtmFromUrl roda no _app).
+    //
+    // Deliberadamente sem await e sem travar a tela: falha de rede não pode
+    // segurar a revelação. O link do WhatsApp continua sendo o caminho
+    // garantido, então uma falha aqui custa o registro, nunca a venda.
+    void submitSiteLead({
+      name: nome.trim(),
+      phone: fone.trim(),
+      interest: "Quiz Feriado 7 de Setembro",
+      message: `Perfil: ${PERFIL_TEXTO[calculado]} · Embarque: ${
+        cidade.trim() || CIDADE_PADRAO
+      }`,
+    }).catch((erro: unknown) => {
+      // Não interrompe nada, mas também não some: sem este aviso, uma falha de
+      // insert (a coluna position estourando o integer, por exemplo) seria
+      // indistinguível de "ninguém preencheu o formulário".
+      console.warn("quiz-feriado: lead não foi gravado no CRM", erro);
+    });
+
+    setEtapa("resultado");
+  };
+
+  const passoCeu =
+    etapa === "abertura"
+      ? 0
+      : etapa === "quiz"
+      ? indice + 1
+      : etapa === "resultado"
+      ? 8
+      : 7;
+
+  const pergunta = PERGUNTAS[indice];
+
+  return (
+    <>
+      <Head>
+        <title>Silêncio ou Adrenalina</title>
+        <meta
+          content="São 6 perguntas rápidas sobre o seu jeito de aproveitar, não sobre destino. No fim, a gente te mostra a serra que já tem saída certa pra esse feriado."
+          name="description"
+        />
+        <meta content="noindex" name="robots" />
+        {/* Sem viewport-fit=cover os env(safe-area-inset-*) do CSS resolvem
+            para 0 e o enquadramento no iPhone difere do standalone. */}
+        <meta
+          content="width=device-width, initial-scale=1, viewport-fit=cover"
+          name="viewport"
+        />
+        {/* O CTA joga a pessoa no WhatsApp e o link acaba colado em conversa:
+            a prévia precisa ser a mesma que o standalone entregava. */}
+        <meta content="website" property="og:type" />
+        <meta
+          content="Descubra se o seu feriado pede silêncio ou adrenalina"
+          property="og:title"
+        />
+        <meta
+          content="6 perguntas rápidas sobre o seu jeito de aproveitar. No fim, a serra que já tem saída certa pro feriado de 7 de setembro."
+          property="og:description"
+        />
+        {/* Sobrescrevem o favicon e o theme-color do _app, que são da marca. */}
+        <link href={ICONE_NEUTRO} key="icon-32" rel="icon" type="image/svg+xml" />
+        <link href={ICONE_NEUTRO} key="icon-512" rel="icon" type="image/svg+xml" />
+        <link href={ICONE_NEUTRO} key="apple-icon" rel="apple-touch-icon" />
+        <meta content="#0F172A" key="theme-color" name="theme-color" />
+        <link href="https://fonts.googleapis.com" rel="preconnect" />
+        <link crossOrigin="anonymous" href="https://fonts.gstatic.com" rel="preconnect" />
+        <link href={FONTES} rel="stylesheet" />
+      </Head>
+
+      <main className={estilos.pagina} data-ceu={passoCeu} data-tela={etapa}>
+        <div aria-hidden="true" className={estilos.ceu} />
+
+        {etapa !== "resultado" && (
+          <div aria-hidden="true" className={estilos.horizonte}>
+            <Serra variante="fixa" />
+          </div>
+        )}
+
+        {etapa === "abertura" && (
+          <section className={estilos.tela}>
+            <div className={`${estilos.col} ${estilos.entra}`}>
+              <p className={estilos.olho}>
+                Feriado de 7 de setembro &middot; Saída já confirmada
+              </p>
+              <h1>
+                Descubra se o seu feriado pede silêncio ou adrenalina, e onde os dois
+                cabem juntos
+              </h1>
+              <p className={estilos.sub}>
+                São 6 perguntas rápidas sobre o seu jeito de aproveitar, não sobre
+                destino. No fim, a gente te mostra a serra que já tem saída certa pra
+                esse feriado, montada pra quem quer parar e pra quem quer se mexer
+              </p>
+              <Fotos larga letras={["A"]} />
+              <button
+                className={estilos.acao}
+                onClick={() => {
+                  setIndice(0);
+                  setRespostas([]);
+                  setEtapa("quiz");
+                }}
+                type="button"
+              >
+                Quero ver meu feriado ideal
+                <Seta />
+              </button>
+              <p className={estilos.micro}>
+                Leva menos de 2 minutos. Sem e-mail, sem pegadinha, sem ninguém ligando
+                sem avisar.
+              </p>
+              <Assinatura />
+            </div>
+          </section>
+        )}
+
+        {etapa === "quiz" && pergunta && (
+          <section className={estilos.tela}>
+            <div className={estilos.col}>
+              <div className={estilos.passo}>
+                <div className={estilos.passoTopo}>
+                  <span>
+                    Pergunta <b>{indice + 1}</b> de 6
+                  </span>
+                </div>
+                <div aria-hidden="true" className={estilos.trilho}>
+                  {PERGUNTAS.map((_, posicao) => (
+                    <span
+                      className={posicao <= indice ? estilos.trilhoFeito : undefined}
+                      key={posicao}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <h2 className={estilos.pergunta} ref={refPergunta} tabIndex={-1}>
+                {pergunta.texto}
+              </h2>
+
+              <ul className={estilos.opcoes}>
+                {pergunta.opcoes.map((opcao, posicao) => (
+                  <li key={`${indice}-${posicao}`}>
+                    <button
+                      className={`${estilos.opcao}${
+                        escolhida === posicao ? ` ${estilos.escolhida}` : ""
+                      }`}
+                      disabled={travado}
+                      onClick={() => responder(opcao.peso, posicao)}
+                      style={{
+                        animationDelay: semMovimento ? "0s" : `${0.05 + posicao * 0.05}s`,
+                      }}
+                      type="button"
+                    >
+                      <span className={estilos.opcaoTexto}>{opcao.texto}</span>
+                      <span aria-hidden="true" className={estilos.marca} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+
+              <Assinatura />
+            </div>
+            <p aria-live="polite" className={estilos.sr} role="status">
+              {`Pergunta ${indice + 1} de 6. ${pergunta.texto}`}
+            </p>
+          </section>
+        )}
+
+        {etapa === "transicao" && (
+          <section aria-label="Calculando o resultado" className={estilos.tela}>
+            <div className={estilos.col}>
+              <div className={estilos.calculando}>
+                <div className={estilos.linhas}>
+                  <p className={linhaAtiva === 1 ? estilos.linhaVisivel : undefined}>
+                    Somando o que pesou mais nas suas respostas
+                  </p>
+                  <p className={linhaAtiva === 2 ? estilos.linhaVisivel : undefined}>
+                    Conferindo a saída de 5 de setembro
+                  </p>
+                  <p className={linhaAtiva === 3 ? estilos.linhaVisivel : undefined}>
+                    Sua leitura está pronta, bora ver
+                  </p>
+                </div>
+                <div className={`${estilos.barra} ${estilos.barraCorrendo}`}>
+                  <i />
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {etapa === "captura" && (
+          <section className={estilos.tela}>
+            <div className={`${estilos.col} ${estilos.entra}`}>
+              <h2 ref={refCaptura} tabIndex={-1}>
+                Sua leitura já está pronta. Falta só um passo pra ver
+              </h2>
+
+              <div className={estilos.corpo}>
+                <p>
+                  As respostas já mostraram se pesou mais silêncio ou movimento no seu
+                  feriado. Agora só falta saber pra quem mandar isso: seu nome, seu
+                  WhatsApp e, se quiser, de onde você embarca.
+                </p>
+                <p>
+                  Se sobrar vaga no ônibus dessa saída, é também por esse número que a
+                  equipe confirma direto com você, sem burocracia.
+                </p>
+              </div>
+
+              <form className={estilos.form} noValidate onSubmit={aoEnviar}>
+                <div
+                  className={`${estilos.campo}${erroNome ? ` ${estilos.campoErro}` : ""}`}
+                >
+                  <label htmlFor="quiz-nome">Seu nome completo</label>
+                  <input
+                    aria-describedby="quiz-nome-erro"
+                    aria-invalid={erroNome ? true : undefined}
+                    autoComplete="name"
+                    id="quiz-nome"
+                    onChange={(evento) => {
+                      setNome(evento.target.value);
+                      if (erroNome && nomeValido(evento.target.value)) setErroNome("");
+                    }}
+                    placeholder="Nome e sobrenome"
+                    ref={refNome}
+                    required
+                    type="text"
+                    value={nome}
+                  />
+                  <p className={estilos.erro} id="quiz-nome-erro" role="alert">
+                    {erroNome}
+                  </p>
+                </div>
+
+                <div
+                  className={`${estilos.campo}${erroFone ? ` ${estilos.campoErro}` : ""}`}
+                >
+                  <label htmlFor="quiz-fone">Seu WhatsApp, com DDD</label>
+                  {/* Sem maxLength de propósito: o navegador cortaria antes do
+                      handler, e colar "+55 86 99920-7088" viraria um número
+                      errado que passa na validação. A máscara já limita. */}
+                  <input
+                    aria-describedby="quiz-fone-erro"
+                    aria-invalid={erroFone ? true : undefined}
+                    autoComplete="tel-national"
+                    id="quiz-fone"
+                    inputMode="numeric"
+                    onChange={(evento) => {
+                      const bruto = evento.target.value;
+                      const posicao = evento.target.selectionStart;
+                      const mascarado = mascararTelefone(bruto);
+                      // Só guarda a posição quando a edição foi no meio: no fim
+                      // do campo o comportamento padrão já está certo.
+                      if (posicao !== null && posicao < bruto.length) {
+                        caretFone.current = Math.max(
+                          0,
+                          posicao + (mascarado.length - bruto.length)
+                        );
+                      }
+                      setFone(mascarado);
+                      if (erroFone && telefoneValido(mascarado)) setErroFone("");
+                    }}
+                    placeholder="(86) 99999-9999"
+                    ref={refFone}
+                    required
+                    type="tel"
+                    value={fone}
+                  />
+                  <p className={estilos.erro} id="quiz-fone-erro" role="alert">
+                    {erroFone}
+                  </p>
+                </div>
+
+                <div className={estilos.campo}>
+                  <label htmlFor="quiz-cidade">
+                    Sua cidade de embarque{" "}
+                    <span className={estilos.opcional}>
+                      (ajuda a confirmar o ponto mais perto de você)
+                    </span>
+                  </label>
+                  <input
+                    autoComplete="address-level2"
+                    id="quiz-cidade"
+                    onChange={(evento) => setCidade(evento.target.value)}
+                    placeholder="Opcional"
+                    type="text"
+                    value={cidade}
+                  />
+                </div>
+
+                <button className={estilos.acao} type="submit">
+                  Revelar meu feriado
+                  <Seta />
+                </button>
+              </form>
+
+              <p className={estilos.micro}>
+                Sem spam, sem venda por telefone sem avisar. Só a confirmação da sua vaga
+                por onde você já usa: o WhatsApp.
+              </p>
+              <Assinatura />
+            </div>
+          </section>
+        )}
+
+        {etapa === "resultado" && perfil && (
+          <section className={`${estilos.tela} ${estilos.telaLonga}`}>
+            <div className={`${estilos.revelacao} ${estilos.entra}`}>
+              <p className={estilos.olho}>Sua leitura</p>
+              <h2 ref={refResultado} tabIndex={-1}>
+                A pausa que você estava pedindo tem endereço: Serra da Ibiapaba
+              </h2>
+              <p className={estilos.sub}>
+                Sítio do Bosco, Lapa e Ubajara, no feriado de 7 de setembro, saindo no
+                sábado à noite e voltando na segunda à tarde
+              </p>
+
+              <p
+                className={estilos.leitura}
+                style={{ ["--polo" as string]: POLO_COR[perfil] }}
+              >
+                {LEITURAS[perfil]}
+              </p>
+
+              <Fotos letras={FOTOS_POR_PERFIL[perfil]} />
+
+              <div className={estilos.corpo}>
+                <p>
+                  Você embarca no sábado à noite, poltrona reclinada, ar ligado, e dorme
+                  com a estrada passando embaixo. Acorda já subindo a serra, o vidro
+                  embaçando, o verde tomando o lugar da cidade.
+                </p>
+                <p>
+                  Ali fica a divisa entre Piauí e Ceará, o pedaço de serra mais perto de
+                  quem sai de Teresina. É nele que o feriado inteiro acontece. Água fria
+                  batendo na pele. Teleférico cortando a mata. E o sol caindo atrás da
+                  serra na última tarde, antes de voltar pra casa.
+                </p>
+              </div>
+
+              <div className={estilos.bloco}>
+                <h3>A viagem por dentro</h3>
+                <ul className={estilos.itens}>
+                  <li>Saída no sábado, 5 de setembro, às 22h30</li>
+                  <li>Retorno na segunda, 7 de setembro, às 17h</li>
+                  <li>2 noites e 3 dias</li>
+                  <li>Translado de ida e volta em ônibus categoria turística, com ar e WC</li>
+                  <li>Hospedagem inclusa</li>
+                  <li>Guia acompanhando o grupo do embarque ao retorno</li>
+                </ul>
+              </div>
+
+              <div className={estilos.bloco}>
+                <div className={estilos.preco}>
+                  <strong>10x de R$ 51,21 no cartão.</strong>
+                  <span>
+                    Cinquenta e um reais e vinte e um centavos por mês pra resolver
+                    hospedagem e translado dessa serra inteira.
+                  </span>
+                </div>
+                <p className={estilos.micro}>
+                  Entradas, passeios e alimentação podem ser cobrados à parte. Isso é
+                  confirmado com você pelo WhatsApp antes de fechar qualquer coisa, sem
+                  letra miúda.
+                </p>
+              </div>
+
+              <p className={estilos.selo}>
+                Mais de 25 anos de estrada, Cadastur, loja física em Teresina, guia
+                acompanhando o grupo do começo ao fim.
+              </p>
+
+              <div className={estilos.apoio}>
+                <a
+                  className={estilos.acao}
+                  href={montarLinkWhatsApp(perfil, nome.trim(), cidade.trim())}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  Quero essa poltrona
+                  <Seta />
+                </a>
+                <p className={estilos.micro}>
+                  Você cai direto no WhatsApp, com a mensagem já escrita. É só conferir e
+                  mandar.
+                </p>
+                <p className={estilos.micro}>
+                  Ou chama direto no <span className={estilos.fone}>86 99920-7088</span>.
+                  Viajar é preciso.
+                </p>
+              </div>
+
+              <Assinatura />
+
+              <div aria-hidden="true" className={estilos.serraFim}>
+                <Serra variante="fim" />
+              </div>
+            </div>
+          </section>
+        )}
+      </main>
+    </>
+  );
+};
+
+export default QuizFeriado;

@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Silêncio ou Adrenalina</title>
+<meta name="description" content="São 6 perguntas rápidas sobre o seu jeito de aproveitar, não sobre destino. No fim, a gente te mostra a serra que já tem saída certa pra esse feriado.">
+<meta name="theme-color" content="#0F172A">
+<meta name="robots" content="noindex">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Descubra se o seu feriado pede silêncio ou adrenalina">
+<meta property="og:description" content="6 perguntas rápidas sobre o seu jeito de aproveitar. No fim, a serra que já tem saída certa pro feriado de 7 de setembro.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- O eixo `ital` precisa ser pedido explicitamente: sem ele a API nao serve
+     face italica nenhuma e o navegador inclina a romana por conta propria,
+     resultado ruim justo no bloco da leitura de perfil. Os eixos SOFT e WONK
+     ficaram de fora de proposito: dobrariam o peso do arquivo de fonte num
+     trafego de anuncio em celular, e o efeito e sutil demais pra pagar isso. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400..700&amp;family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&amp;display=swap">
+<style>
+/* ==========================================================================
+   Quiz "Feriado de 7 de setembro" — arquivo unico, client-side, sem backend.
+
+   Conceito visual: a pagina e a passagem do tempo subindo a serra.
+   Abertura = a noite do embarque. As 6 perguntas vao clareando o ceu.
+   Resultado = o sol caindo atras da serra na ultima tarde.
+   O horizonte e uma cuesta de topo chato, que e a forma real da Ibiapaba —
+   nao um pico alpino. E chrome ambiente, nao substitui nenhuma das 4 fotos.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   IDENTIDADE
+   A marca tem duas cores: o azul do circulo da logo (#0000F8) e o laranja do
+   logotipo (#F85C00), que no app viram os tokens brand-400/500/600/700
+   (#FB923C / #EA580C / #C2410C / #9A3412) sobre fundo slate-900 (#0F172A) —
+   e exatamente o que o HeroBanner do site ja faz: fundo escuro, texto branco,
+   botao laranja arredondado por inteiro.
+   O arco da pagina (noite do embarque -> por do sol na serra) cai em cima
+   dessas duas cores sem forcar: a noite e o azul da marca, o entardecer e o
+   laranja da marca.
+   O nome e a logo NAO entram: secao 7 da espec, regra bloqueante.
+   -------------------------------------------------------------------------- */
+
+/* Cores do ceu registradas como <color> para o gradiente poder interpolar.
+   Sem @property o navegador troca a cor de uma vez, sem fade: degrada bem. */
+@property --ceu-alto  { syntax:'<color>'; inherits:true; initial-value:#060818 }
+@property --ceu-meio  { syntax:'<color>'; inherits:true; initial-value:#0B1030 }
+@property --ceu-baixo { syntax:'<color>'; inherits:true; initial-value:#131B45 }
+@property --brilho    { syntax:'<color>'; inherits:true; initial-value:#1B2A7A }
+
+:root{
+  color-scheme: dark;
+
+  --noite:#0F172A;          /* slate-900, o mesmo chao do hero do site */
+  --painel:rgba(203,213,225,.05);
+  --painel-forte:rgba(203,213,225,.08);
+  --linha:rgba(203,213,225,.16);
+  --linha-forte:rgba(248,250,252,.44);
+
+  --bruma:#CBD5E1;          /* texto principal (slate-300) */
+  --bruma-fraca:#94A3B8;    /* texto de apoio (slate-400) */
+  --areia:#F8FAFC;          /* revelacao, alta enfase (slate-50) */
+
+  --azul:#8A97FF;           /* polo silencio — azul da marca, clareado para
+                               ficar legivel sobre fundo escuro */
+  --brasa:#EA580C;          /* laranja da marca (brand-500) — CTA e polo
+                               movimento */
+  --brasa-clara:#FB923C;    /* brand-400 — laranja em texto pequeno, onde o
+                               brand-500 nao alcanca 4,5:1 sobre o entardecer */
+  --brasa-tinta:#1C0A00;    /* texto sobre o laranja: 5,4:1. Branco sobre
+                               brand-500 da so 3,56:1 e reprovaria */
+  --cinza-foto:#5A6472;     /* placeholder de foto, cinza neutro */
+
+  --serra-longe:#0F1730;
+  --serra-perto:#070A18;
+
+  --serif:"Fraunces", Georgia, "Times New Roman", serif;
+  --sans:"Archivo", "Segoe UI", system-ui, sans-serif;
+
+  --col:34rem;
+  --curva:12px;             /* cartoes e campos */
+  --curva-botao:999px;      /* botao totalmente arredondado, como no site */
+  --entrada:cubic-bezier(.22,1,.36,1);
+
+  transition: --ceu-alto 1.5s ease, --ceu-meio 1.5s ease,
+              --ceu-baixo 1.5s ease, --brilho 1.5s ease;
+}
+
+/* Um passo de ceu por tela. 0 = abertura, a noite azul do embarque; 8 = o
+   resultado, o sol laranja caindo atras da serra. A rampa vai do azul da
+   marca ao laranja da marca — as duas cores da logo, nas duas pontas. */
+:root[data-ceu="0"]{ --ceu-alto:#060818; --ceu-meio:#0B1030; --ceu-baixo:#131B45; --brilho:#1B2A7A }
+:root[data-ceu="1"]{ --ceu-alto:#070919; --ceu-meio:#0C1233; --ceu-baixo:#161E4A; --brilho:#223086 }
+:root[data-ceu="2"]{ --ceu-alto:#080B1B; --ceu-meio:#0E1436; --ceu-baixo:#19224E; --brilho:#2E338A }
+:root[data-ceu="3"]{ --ceu-alto:#090D1D; --ceu-meio:#101739; --ceu-baixo:#1E2551; --brilho:#43357F }
+:root[data-ceu="4"]{ --ceu-alto:#0B0F1F; --ceu-meio:#131A3A; --ceu-baixo:#262852; --brilho:#5C3770 }
+:root[data-ceu="5"]{ --ceu-alto:#0D1120; --ceu-meio:#171D38; --ceu-baixo:#2F2B4C; --brilho:#76395E }
+:root[data-ceu="6"]{ --ceu-alto:#0F1420; --ceu-meio:#1B2035; --ceu-baixo:#382E42; --brilho:#8E4147 }
+:root[data-ceu="7"]{ --ceu-alto:#111620; --ceu-meio:#1F2232; --ceu-baixo:#40313A; --brilho:#A04B31 }
+:root[data-ceu="8"]{ --ceu-alto:#131820; --ceu-meio:#23252F; --ceu-baixo:#473430; --brilho:#A85A20 }
+
+*,*::before,*::after{ box-sizing:border-box }
+
+html{ -webkit-text-size-adjust:100% }
+
+body{
+  margin:0;
+  background:var(--noite);
+  color:var(--bruma);
+  font:400 1rem/1.62 var(--sans);
+  font-synthesis-weight:none;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+
+/* ---------- ceu e horizonte (chrome ambiente) ---------- */
+
+.ceu{
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+  background:
+    radial-gradient(112% 46% at 50% 100%, var(--brilho) 0%, transparent 66%),
+    linear-gradient(180deg, var(--ceu-alto) 0%, var(--ceu-meio) 54%, var(--ceu-baixo) 100%);
+}
+/* Gra fina: tira o aspecto de gradiente sintetico. */
+.ceu::after{
+  content:''; position:absolute; inset:0; opacity:.05;
+  background-image:radial-gradient(circle at 1px 1px, #fff 1px, transparent 0);
+  background-size:3px 3px;
+}
+
+.horizonte{
+  position:fixed; left:0; right:0; bottom:0; z-index:1;
+  height:min(30vh,230px); pointer-events:none;
+}
+.horizonte svg,.serra-fim svg{ display:block; width:100%; height:100% }
+.serra-longe{ fill:var(--serra-longe) }
+.serra-perto{ fill:var(--serra-perto) }
+.serra-rim{ fill:none; stroke:var(--brilho); stroke-width:1.5; opacity:.6 }
+
+body[data-tela="resultado"] .horizonte{ display:none }
+
+/* O ceu e fixo, mas a tela de resultado e longa e rola: sem isto o texto
+   passaria por cima do brilho quente do por do sol a 1,15:1 de contraste.
+   O veu escurece o fundo sob o texto e mantem tudo acima de 4,5:1, sem
+   apagar a cor do fim de tarde. So existe nesta tela. */
+body[data-tela="resultado"] .ceu::before{
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(180deg, rgba(10,13,20,.45) 0%, rgba(10,13,20,.72) 100%);
+}
+
+.serra-fim{ height:clamp(110px,24vw,200px); margin-top:2.5rem }
+
+/* ---------- palco ---------- */
+
+.tela{
+  position:relative; z-index:2;
+  display:none;
+  min-height:100dvh;
+  padding:
+    calc(2.25rem + env(safe-area-inset-top)) 1.25rem
+    calc(2.5rem + env(safe-area-inset-bottom));
+}
+.tela.ativa{ display:grid; align-content:center; justify-items:center }
+.tela[data-longa].ativa{ align-content:start; padding-top:calc(3.25rem + env(safe-area-inset-top)) }
+
+.col{ width:100%; max-width:var(--col); display:flex; flex-direction:column; gap:1.5rem }
+
+/* `backwards`, nao `both`. Com `both` a animacao inclui `forwards`, e o
+   `to{transform:none}` continua valendo depois de terminar — declaracao de
+   origem Animation ganha da regra normal do autor, entao os hovers de
+   transform ficavam mortos e a opacidade do rodape virava 1 so nas telas
+   que tinham .entra. `backwards` so vale durante o atraso e some no fim. */
+.entra > *{ animation:sobe .62s var(--entrada) backwards }
+.entra > *:nth-child(2){ animation-delay:.07s }
+.entra > *:nth-child(3){ animation-delay:.14s }
+.entra > *:nth-child(4){ animation-delay:.21s }
+.entra > *:nth-child(5){ animation-delay:.28s }
+.entra > *:nth-child(6){ animation-delay:.35s }
+/* A tela de resultado tem 12 filhos. Sem este teto, do 7o em diante todos
+   voltariam ao atraso zero e entrariam ANTES dos que vem acima deles. */
+.entra > *:nth-child(n+7){ animation-delay:.42s }
+@keyframes sobe{ from{ opacity:0; transform:translateY(14px) } to{ opacity:1; transform:none } }
+
+/* ---------- tipografia ---------- */
+
+.olho{
+  font:600 .6875rem/1.5 var(--sans);
+  letter-spacing:.17em; text-transform:uppercase;
+  color:var(--brasa-clara);
+  display:flex; align-items:center; gap:.6rem;
+  margin:0;
+}
+.olho::before{ content:''; width:1.75rem; height:1px; background:currentColor; opacity:.6; flex:none }
+
+h1,h2{
+  font-family:var(--serif);
+  font-weight:600;
+  font-variation-settings:'opsz' 96;
+  line-height:1.11;
+  letter-spacing:-.015em;
+  text-wrap:balance;
+  color:var(--areia);
+  margin:0;
+}
+h1{ font-size:clamp(1.9rem,7.2vw,3rem) }
+h2{ font-size:clamp(1.4rem,5.4vw,2rem); line-height:1.18 }
+h2.pergunta{ font-size:clamp(1.3rem,5vw,1.75rem) }
+
+.sub{ margin:0; font-size:1.0625rem; line-height:1.58; color:var(--bruma) }
+p{ margin:0 }
+.corpo{ display:flex; flex-direction:column; gap:.9rem; color:var(--bruma); text-wrap:pretty }
+.micro{ font-size:.8125rem; line-height:1.5; color:var(--bruma-fraca); margin:0 }
+
+/* Sem `opacity` de proposito: a opacidade era sobrescrita pelo keyframe nas
+   telas com .entra e nao na tela de quiz, e o mesmo rodape aparecia em dois
+   pesos. O tom ja e discreto por cor e tamanho, como a espec pede. */
+.assinatura{
+  font:500 .75rem/1 var(--sans);
+  letter-spacing:.06em;
+  color:var(--bruma-fraca);
+  margin:.25rem 0 0;
+}
+
+/* ---------- botoes ---------- */
+
+.acao{
+  display:inline-flex; align-items:center; justify-content:center;
+  gap:.55rem; width:100%; min-height:60px;
+  padding:1.0625rem 1.5rem;
+  font:700 .875rem/1.2 var(--sans);
+  letter-spacing:.11em; text-transform:uppercase;
+  color:var(--brasa-tinta);
+  background:var(--brasa);
+  border:0; border-radius:var(--curva-botao);
+  cursor:pointer; text-decoration:none; text-align:center;
+  transition:background .18s, transform .18s var(--entrada), box-shadow .18s;
+  box-shadow:0 10px 30px -14px rgba(234,88,12,.9);
+}
+/* No site o botao escurece no hover (orange-500 -> 600), porque la o fundo e
+   claro. Aqui o fundo e escuro, entao a mesma intencao se cumpre clareando
+   para o brand-400 — continua dentro da rampa da marca. */
+.acao:hover{ background:var(--brasa-clara); transform:translateY(-2px); box-shadow:0 16px 36px -14px rgba(251,146,60,.55) }
+.acao:active{ transform:translateY(0) }
+.acao .seta{ transition:transform .18s var(--entrada); flex:none }
+.acao:hover .seta{ transform:translateX(4px) }
+
+/* O anel de foco do site e laranja (#c2410c). Sobre fundo escuro esse tom
+   some, entao usamos o brand-500, que rende 5,6:1 contra o ceu — mesma
+   intencao de marca, visivel. */
+:where(button,a,input,[tabindex]):focus-visible{
+  outline:2px solid var(--brasa); outline-offset:3px;
+}
+
+/* ---------- perguntas ---------- */
+
+.passo{ display:flex; flex-direction:column; gap:.6rem }
+.passo-topo{
+  display:flex; align-items:baseline; justify-content:space-between; gap:1rem;
+  font:600 .6875rem/1 var(--sans);
+  letter-spacing:.15em; text-transform:uppercase;
+  color:var(--bruma-fraca);
+}
+.passo-topo b{ color:var(--areia); font-weight:600; font-variant-numeric:tabular-nums }
+.trilho{ display:flex; gap:4px }
+.trilho span{
+  flex:1; height:2px; background:var(--linha); border-radius:2px;
+  transition:background .45s var(--entrada);
+}
+.trilho span.feito{ background:var(--areia) }
+
+.opcoes{ display:flex; flex-direction:column; gap:.625rem; margin:0; padding:0; list-style:none }
+
+.opcao{
+  position:relative; display:block; width:100%; min-height:58px;
+  text-align:left;
+  font:500 1rem/1.42 var(--sans);
+  color:var(--bruma);
+  background:var(--painel);
+  border:1px solid var(--linha);
+  border-radius:var(--curva);
+  padding:1.0625rem 3rem 1.0625rem 1.125rem;
+  cursor:pointer; overflow:hidden;
+  transition:border-color .2s, color .2s, transform .2s var(--entrada);
+  animation:sobe .5s var(--entrada) backwards;
+}
+.opcao:hover{ border-color:var(--linha-forte); color:var(--areia); transform:translateX(3px) }
+/* A tinta de selecao e NEUTRA de proposito: colorir por polo entregaria ao
+   usuario qual alternativa vale silencio e qual vale movimento. */
+.opcao::before{
+  content:''; position:absolute; inset:0;
+  background:rgba(234,88,12,.16);
+  transform:scaleX(0); transform-origin:left;
+  transition:transform .36s var(--entrada);
+}
+.opcao .texto{ position:relative }
+.marca{
+  position:absolute; top:50%; right:1.125rem; margin-top:-6px;
+  width:11px; height:11px; border:1px solid var(--linha-forte); border-radius:2px;
+  transition:background .22s, border-color .22s, rotate .36s var(--entrada);
+}
+.opcao.escolhida{ border-color:var(--brasa); color:var(--areia) }
+.opcao.escolhida::before{ transform:scaleX(1) }
+.opcao.escolhida .marca{ background:var(--brasa); border-color:var(--brasa); rotate:45deg }
+
+/* ---------- transicao ---------- */
+
+.calculando{ display:grid; justify-items:center; gap:2.25rem; text-align:center; width:100% }
+.linhas{ position:relative; min-height:5.5rem; display:grid; place-items:center; width:100% }
+.linhas p{
+  grid-area:1/1; margin:0;
+  font-family:var(--serif); font-weight:400;
+  font-variation-settings:'opsz' 60;
+  font-size:clamp(1.25rem,5vw,1.6rem); line-height:1.3;
+  color:var(--areia); text-wrap:balance;
+  opacity:0; transform:translateY(10px);
+  transition:opacity .5s ease, transform .5s var(--entrada);
+}
+.linhas p.visivel{ opacity:1; transform:none }
+.barra{ width:min(15rem,70%); height:2px; background:var(--linha); border-radius:2px; overflow:hidden }
+.barra i{ display:block; height:100%; width:0; background:linear-gradient(90deg,var(--azul),var(--brasa)) }
+.barra.correndo i{ animation:enche 2.7s linear forwards }
+@keyframes enche{ to{ width:100% } }
+
+/* ---------- formulario ---------- */
+
+.form{ display:flex; flex-direction:column; gap:1.125rem }
+.campo{ display:flex; flex-direction:column; gap:.4rem }
+.campo label{
+  font:600 .6875rem/1.3 var(--sans);
+  letter-spacing:.11em; text-transform:uppercase; color:var(--bruma-fraca);
+}
+.campo label .opt{ text-transform:none; letter-spacing:0; font-weight:400; opacity:.8 }
+.campo input{
+  width:100%; min-height:56px;
+  font:400 1.0625rem/1.3 var(--sans);
+  color:var(--areia);
+  background:var(--painel-forte);
+  border:1px solid var(--linha);
+  border-radius:var(--curva);
+  padding:.9rem 1rem;
+  transition:border-color .2s, background .2s;
+}
+.campo input::placeholder{ color:var(--bruma-fraca); opacity:.55 }
+.campo input:hover{ border-color:var(--linha-forte) }
+.campo input:focus{ outline:none; border-color:var(--areia); background:rgba(203,213,225,.1) }
+.campo input:focus-visible{ outline:2px solid var(--areia); outline-offset:2px }
+.campo[data-erro="1"] input{ border-color:var(--brasa-clara) }
+.erro{ font:500 .75rem/1.4 var(--sans); color:var(--brasa-clara) }
+.campo[data-erro="1"] .erro{ animation:sobe .3s var(--entrada) backwards }
+
+/* ---------- resultado ---------- */
+
+.revelacao{ width:100%; max-width:var(--col); display:flex; flex-direction:column; gap:1.5rem }
+
+.leitura{
+  font-family:var(--serif); font-weight:400; font-style:italic;
+  font-variation-settings:'opsz' 40;
+  font-size:1.125rem; line-height:1.55; color:var(--areia);
+  margin:0; padding:.35rem 0 .35rem 1.125rem;
+  border-left:2px solid var(--polo,var(--areia));
+  text-wrap:pretty;
+}
+
+.bloco{ border-top:1px solid var(--linha); padding-top:1.5rem; display:flex; flex-direction:column; gap:.9rem }
+.bloco h3{
+  font:600 .6875rem/1 var(--sans);
+  letter-spacing:.15em; text-transform:uppercase;
+  color:var(--bruma-fraca); margin:0;
+}
+.itens{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:.7rem }
+.itens li{ position:relative; padding-left:1.35rem; line-height:1.5 }
+.itens li::before{ content:''; position:absolute; left:0; top:.62em; width:7px; height:1px; background:var(--brasa-clara) }
+
+.preco{
+  background:linear-gradient(180deg, rgba(234,88,12,.16), rgba(234,88,12,.06));
+  border:1px solid rgba(234,88,12,.34);
+  border-radius:var(--curva);
+  padding:1.35rem 1.25rem;
+  display:flex; flex-direction:column; gap:.55rem;
+}
+.preco strong{
+  font-family:var(--serif); font-weight:600;
+  font-variation-settings:'opsz' 96;
+  font-size:clamp(1.5rem,6vw,2rem); line-height:1.12;
+  letter-spacing:-.01em; color:var(--areia);
+  font-variant-numeric:tabular-nums;
+}
+.preco span{ font-size:.9375rem; line-height:1.5; color:var(--bruma) }
+
+.selo{ font-size:.875rem; line-height:1.55; color:var(--bruma-fraca); border-left:1px solid var(--linha); padding-left:1rem }
+
+/* Placeholders das 4 fotos reais: cinza, tracejado, com a descricao dentro.
+   Nunca trocar por foto de banco de imagem nem por ilustracao. */
+.fotos{ display:grid; gap:.625rem; grid-template-columns:1fr }
+@media (min-width:520px){ .fotos{ grid-template-columns:1fr 1fr } }
+/* A abertura mostra uma foto so, em faixa larga. Especificidade dupla de
+   proposito, para nao ser desfeita pela media query de duas colunas acima. */
+.fotos.fotos-larga{ grid-template-columns:1fr }
+.fotos.fotos-larga .foto{ aspect-ratio:16/9 }
+.foto{
+  position:relative; aspect-ratio:4/3;
+  display:flex; align-items:flex-end;
+  background:var(--cinza-foto);
+  border:1px dashed rgba(255,255,255,.34);
+  border-radius:var(--curva);
+  padding:.875rem; overflow:hidden;
+}
+.foto::before{
+  content:attr(data-letra);
+  position:absolute; top:.75rem; left:.875rem;
+  font:700 .6875rem/1 var(--sans); letter-spacing:.1em;
+  color:rgba(255,255,255,.92);
+  border:1px solid rgba(255,255,255,.5);
+  border-radius:2px; padding:.3rem .45rem;
+}
+.foto p{ font:500 .8125rem/1.4 var(--sans); color:#F3F5F6; text-shadow:0 1px 8px rgba(0,0,0,.55); margin:0 }
+
+.apoio{ display:flex; flex-direction:column; gap:.6rem }
+.apoio .fone{ color:var(--areia); font-weight:600; font-variant-numeric:tabular-nums }
+
+.sr{
+  position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+  overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0;
+}
+
+/* ---------- telas largas ---------- */
+
+@media (min-width:820px){
+  :root{ --col:37rem }
+  .tela{ padding-left:2rem; padding-right:2rem }
+  .horizonte{ height:min(34vh,290px) }
+  .sub{ font-size:1.125rem }
+  .opcao{ font-size:1.0625rem }
+  .revelacao{ max-width:40rem }
+  .fotos{ gap:.75rem }
+}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:.01ms !important; animation-iteration-count:1 !important;
+    transition-duration:.01ms !important; scroll-behavior:auto !important;
+  }
+  :root{ transition:none }
+  .linhas p{ transition:none }
+  /* A barra de progresso da transicao continua enchendo no tempo real: ela
+     mede uma espera, nao e um efeito vestibular. Sem isto ela apareceria
+     cheia no primeiro quadro e os 2,7s seguintes pareceriam travamento. */
+  .barra.correndo i{ animation-duration:2.7s !important }
+}
+</style>
+</head>
+<body data-tela="abertura">
+
+<div class="ceu" aria-hidden="true"></div>
+
+<div class="horizonte" aria-hidden="true">
+  <svg viewBox="0 0 1440 260" preserveAspectRatio="none" role="presentation" focusable="false">
+    <path class="serra-longe" d="M0,260 L0,152 L152,148 L300,152 L318,98 L622,90 L640,124 L902,120 L920,76 L1244,70 L1262,112 L1440,108 L1440,260 Z"/>
+    <path class="serra-rim" d="M0,152 L152,148 L300,152 L318,98 L622,90 L640,124 L902,120 L920,76 L1244,70 L1262,112 L1440,108"/>
+    <path class="serra-perto" d="M0,260 L0,200 L214,196 L242,154 L706,146 L734,182 L1014,178 L1042,136 L1440,130 L1440,260 Z"/>
+  </svg>
+</div>
+
+<main>
+
+  <!-- ================= 1. ABERTURA ================= -->
+  <section class="tela ativa" id="tela-abertura" aria-labelledby="t-abertura">
+    <div class="col entra">
+      <p class="olho">Feriado de 7 de setembro &middot; Saída já confirmada</p>
+      <h1 id="t-abertura">Descubra se o seu feriado pede silêncio ou adrenalina, e onde os dois cabem juntos</h1>
+      <p class="sub">São 6 perguntas rápidas sobre o seu jeito de aproveitar, não sobre destino. No fim, a gente te mostra a serra que já tem saída certa pra esse feriado, montada pra quem quer parar e pra quem quer se mexer</p>
+      <div class="fotos fotos-larga">
+        <div class="foto" data-letra="A">
+          <p>Balanço/mirante com vista para a serra</p>
+        </div>
+      </div>
+      <button type="button" class="acao" id="btn-comecar">
+        Quero ver meu feriado ideal
+        <svg class="seta" width="15" height="10" viewBox="0 0 15 10" fill="none" aria-hidden="true"><path d="M1 5h12M9 1l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="square"/></svg>
+      </button>
+      <p class="micro">Leva menos de 2 minutos. Sem e-mail, sem pegadinha, sem ninguém ligando sem avisar.</p>
+      <p class="assinatura">@rwturismo.pi</p>
+    </div>
+  </section>
+
+  <!-- ================= 2. PERGUNTAS (1 a 6) ================= -->
+  <section class="tela" id="tela-quiz" aria-labelledby="q-titulo">
+    <div class="col">
+      <div class="passo">
+        <div class="passo-topo">
+          <span>Pergunta <b id="q-numero">1</b> de 6</span>
+        </div>
+        <div class="trilho" id="q-trilho" aria-hidden="true">
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
+      </div>
+      <h2 class="pergunta" id="q-titulo" tabindex="-1"></h2>
+      <ul class="opcoes" id="q-opcoes"></ul>
+      <p class="assinatura">@rwturismo.pi</p>
+    </div>
+    <p class="sr" role="status" aria-live="polite" id="q-anuncio"></p>
+  </section>
+
+  <!-- ================= 3. TRANSIÇÃO ================= -->
+  <section class="tela" id="tela-transicao" aria-label="Calculando o resultado">
+    <div class="col">
+      <div class="calculando">
+        <div class="linhas">
+          <p data-linha="1">Somando o que pesou mais nas suas respostas</p>
+          <p data-linha="2">Conferindo a saída de 5 de setembro</p>
+          <p data-linha="3">Sua leitura está pronta, bora ver</p>
+        </div>
+        <div class="barra" id="barra"><i></i></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 4. CAPTURA ================= -->
+  <section class="tela" id="tela-captura" aria-labelledby="t-captura">
+    <div class="col entra">
+      <h2 id="t-captura" tabindex="-1">Sua leitura já está pronta. Falta só um passo pra ver</h2>
+      <div class="corpo">
+        <p>As respostas já mostraram se pesou mais silêncio ou movimento no seu feriado. Agora só falta saber pra quem mandar isso: seu nome, seu WhatsApp e, se quiser, de onde você embarca.</p>
+        <p>Se sobrar vaga no ônibus dessa saída, é também por esse número que a equipe confirma direto com você, sem burocracia.</p>
+      </div>
+
+      <form class="form" id="form-captura" novalidate>
+        <div class="campo" id="campo-nome">
+          <label for="in-nome">Seu nome completo</label>
+          <input id="in-nome" name="nome" type="text" autocomplete="name"
+                 placeholder="Nome e sobrenome" aria-describedby="erro-nome" required>
+          <p class="erro" id="erro-nome" role="alert"></p>
+        </div>
+
+        <div class="campo" id="campo-fone">
+          <label for="in-fone">Seu WhatsApp, com DDD</label>
+          <!-- Sem maxlength de proposito: o navegador aplica o corte ANTES do
+               handler, e colar "+55 86 99920-7088" (17 caracteres) viraria
+               "(86) 9992-0708" — um numero errado que passa na validacao. A
+               mascara ja limita a 11 digitos depois de tirar o codigo do pais. -->
+          <input id="in-fone" name="whatsapp" type="tel" inputmode="numeric" autocomplete="tel-national"
+                 placeholder="(86) 99999-9999" aria-describedby="erro-fone" required>
+          <p class="erro" id="erro-fone" role="alert"></p>
+        </div>
+
+        <div class="campo" id="campo-cidade">
+          <label for="in-cidade">Sua cidade de embarque <span class="opt">(ajuda a confirmar o ponto mais perto de você)</span></label>
+          <input id="in-cidade" name="cidade" type="text" autocomplete="address-level2"
+                 placeholder="Opcional">
+        </div>
+
+        <button type="submit" class="acao">
+          Revelar meu feriado
+          <svg class="seta" width="15" height="10" viewBox="0 0 15 10" fill="none" aria-hidden="true"><path d="M1 5h12M9 1l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="square"/></svg>
+        </button>
+      </form>
+
+      <p class="micro">Sem spam, sem venda por telefone sem avisar. Só a confirmação da sua vaga por onde você já usa: o WhatsApp.</p>
+      <p class="assinatura">@rwturismo.pi</p>
+    </div>
+  </section>
+
+  <!-- ================= 5. RESULTADO ================= -->
+  <section class="tela" id="tela-resultado" data-longa aria-labelledby="t-resultado">
+    <div class="revelacao entra">
+      <p class="olho">Sua leitura</p>
+      <h2 id="t-resultado" tabindex="-1">A pausa que você estava pedindo tem endereço: Serra da Ibiapaba</h2>
+      <p class="sub">Sítio do Bosco, Lapa e Ubajara, no feriado de 7 de setembro, saindo no sábado à noite e voltando na segunda à tarde</p>
+
+      <p class="leitura" id="r-leitura"></p>
+
+      <div class="fotos" id="r-fotos"></div>
+
+      <div class="corpo">
+        <p>Você embarca no sábado à noite, poltrona reclinada, ar ligado, e dorme com a estrada passando embaixo. Acorda já subindo a serra, o vidro embaçando, o verde tomando o lugar da cidade.</p>
+        <p>Ali fica a divisa entre Piauí e Ceará, o pedaço de serra mais perto de quem sai de Teresina. É nele que o feriado inteiro acontece. Água fria batendo na pele. Teleférico cortando a mata. E o sol caindo atrás da serra na última tarde, antes de voltar pra casa.</p>
+      </div>
+
+      <div class="bloco">
+        <h3>A viagem por dentro</h3>
+        <ul class="itens">
+          <li>Saída no sábado, 5 de setembro, às 22h30</li>
+          <li>Retorno na segunda, 7 de setembro, às 17h</li>
+          <li>2 noites e 3 dias</li>
+          <li>Translado de ida e volta em ônibus categoria turística, com ar e WC</li>
+          <li>Hospedagem inclusa</li>
+          <li>Guia acompanhando o grupo do embarque ao retorno</li>
+        </ul>
+      </div>
+
+      <div class="bloco">
+        <div class="preco">
+          <strong>10x de R$ 51,21 no cartão.</strong>
+          <span>Cinquenta e um reais e vinte e um centavos por mês pra resolver hospedagem e translado dessa serra inteira.</span>
+        </div>
+        <p class="micro">Entradas, passeios e alimentação podem ser cobrados à parte. Isso é confirmado com você pelo WhatsApp antes de fechar qualquer coisa, sem letra miúda.</p>
+      </div>
+
+      <p class="selo">Mais de 25 anos de estrada, Cadastur, loja física em Teresina, guia acompanhando o grupo do começo ao fim.</p>
+
+      <div class="apoio">
+        <a class="acao" id="cta-whatsapp" href="#" target="_blank" rel="noopener noreferrer">
+          Quero essa poltrona
+          <svg class="seta" width="15" height="10" viewBox="0 0 15 10" fill="none" aria-hidden="true"><path d="M1 5h12M9 1l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="square"/></svg>
+        </a>
+        <p class="micro">Você cai direto no WhatsApp, com a mensagem já escrita. É só conferir e mandar.</p>
+        <p class="micro">Ou chama direto no <span class="fone">86 99920-7088</span>. Viajar é preciso.</p>
+      </div>
+
+      <p class="assinatura">@rwturismo.pi</p>
+
+      <div class="serra-fim" aria-hidden="true">
+        <svg viewBox="0 0 1440 200" preserveAspectRatio="none" role="presentation" focusable="false">
+          <path class="serra-longe" d="M0,200 L0,110 L180,106 L320,110 L340,58 L640,50 L660,84 L940,80 L960,40 L1260,34 L1278,74 L1440,70 L1440,200 Z"/>
+          <path class="serra-rim" d="M0,110 L180,106 L320,110 L340,58 L640,50 L660,84 L940,80 L960,40 L1260,34 L1278,74 L1440,70"/>
+          <path class="serra-perto" d="M0,200 L0,152 L240,148 L268,112 L720,104 L748,138 L1030,134 L1058,96 L1440,90 L1440,200 Z"/>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+(function(){
+  'use strict';
+
+  /* =====================================================================
+     DADOS DO QUIZ
+     O peso ('R', 'A', 'R+A', 'neutra') nunca chega ao DOM visivel nem ao
+     texto do botao: fica so aqui e no calculo. Se vazar para o markup, o
+     usuario descobre qual alternativa vale o que.
+     ===================================================================== */
+  var PERGUNTAS = [
+    {
+      texto: 'Bate a vontade de sumir da rotina por uns dias. O que aparece primeiro na sua cabeça?',
+      opcoes: [
+        ['Uma rede balançando, silêncio grosso, ninguém te chamando', 'R'],
+        ['Um teleférico subindo a serra, o vento batendo no rosto', 'A'],
+        ['Água fria de piscina natural, pés na pedra, tempo andando devagar', 'R'],
+        ['Uma trilha te esperando, com uma vista que só existe pra quem sobe até ela', 'A']
+      ]
+    },
+    {
+      texto: 'No feriado, seu corpo pede:',
+      opcoes: [
+        ['Descansar até o despertador perder a função', 'R'],
+        ['Se cansar de um jeito bom', 'A']
+      ]
+    },
+    {
+      texto: 'Se alguém te perguntasse o que você mais precisa agora, o que sairia primeiro?',
+      opcoes: [
+        ['Silêncio', 'R'],
+        ['Adrenalina, nem que seja pouca', 'A'],
+        ['Parar de olhar pro celular', 'R'],
+        ['Sentir o coração acelerar de novo', 'A'],
+        ['Um pouco dos dois, sinceramente', 'R+A']
+      ]
+    },
+    {
+      texto: 'Pensa numa foto que você postaria desse feriado. Ela mostra você:',
+      opcoes: [
+        ['Parada, olhando a paisagem, sem pressa de tirar o celular do bolso', 'R'],
+        ['No meio do movimento: subindo, atravessando, se equilibrando', 'A'],
+        ['Nas duas cenas, numa sequência de stories', 'R+A']
+      ]
+    },
+    {
+      texto: 'Quem te acompanha nesse feriado também entra na conta. Juntos, vocês combinam mais com:',
+      opcoes: [
+        ['Ficar parados no mesmo lugar até alguém ter coragem de levantar', 'R'],
+        ['Ir atrás de cada trilha e mirante que aparecer pela frente', 'A'],
+        ['Alternar: uma hora parado, outra se mexendo', 'R+A'],
+        ['Ainda não decidi quem vem comigo, mas já sei o que eu quero sentir', 'neutra']
+      ]
+    },
+    {
+      texto: 'Se o feriado inteiro tivesse só UM momento de verdade, qual seria:',
+      opcoes: [
+        ['A água fria da piscina natural batendo na pele, sem pressa de sair', 'R'],
+        ['O balanço solto no mirante, os pés soltando do chão por um segundo', 'A'],
+        ['O sol caindo atrás da serra, vendo tudo de uma vez, quieta', 'R']
+      ]
+    }
+  ];
+
+  var LEITURAS = {
+    'relaxar-dominante':  'Suas respostas pediram mais silêncio do que movimento. E essa serra tem exatamente isso: piscina natural de pedra pra ficar parada até decidir sair, e um deck de frente pro entardecer pra não fazer mais nada além de olhar.',
+    'aventura-dominante': 'Suas respostas pediram mais movimento do que pausa. E essa serra tem exatamente isso: teleférico cortando a mata, mirante com balanço solto no ar, um jeito de se cansar que não cansa.',
+    'equilibrio':         'Suas respostas dividiram quase igual entre parar e se mexer. Essa serra foi feita pra isso: piscina natural numa parte do dia, teleférico e mirante na outra, sem forçar escolha.'
+  };
+
+  /* Texto que entra na variavel {perfil} da mensagem de WhatsApp. */
+  var PERFIL_TEXTO = {
+    'relaxar-dominante':  'silêncio',
+    'aventura-dominante': 'adrenalina',
+    'equilibrio':         'os dois, sem escolher só um'
+  };
+
+  var POLO_COR = {
+    'relaxar-dominante':  'var(--azul)',
+    'aventura-dominante': 'var(--brasa)',
+    'equilibrio':         'var(--areia)'
+  };
+
+  /* As 4 fotos previstas. Enquanto os arquivos reais nao chegam, cada slot
+     fica como placeholder cinza com a propria descricao dentro. */
+  var FOTOS = {
+    A: 'Balanço/mirante com vista para a serra',
+    B: 'Restaurante/deck ao entardecer, com vista panorâmica da serra',
+    C: "Piscina natural de pedra com queda d'água",
+    D: 'Teleférico sobre a mata'
+  };
+
+  var FOTOS_POR_PERFIL = {
+    'relaxar-dominante':  ['C', 'B'],
+    'aventura-dominante': ['D', 'A'],
+    'equilibrio':         ['C', 'D']
+  };
+
+  var WHATSAPP = '5586999207088';
+
+  var MOLDE = 'Oi! Fiz o quiz do feriado de 7 de setembro e minha leitura pediu mais {perfil}. '
+            + 'Meu resultado foi a Serra da Ibiapaba, Sítio do Bosco, Lapa e Ubajara, saída dia 5 de setembro. '
+            + 'Meu nome é {nome} e embarco em {cidade}. '
+            + 'Me conta como garanto minha poltrona e como fica o pagamento?';
+
+  /* ===================== ESTADO ===================== */
+
+  var respostas = [];   // um peso por pergunta respondida
+  var indice = 0;       // pergunta atual (0..5)
+  var perfil = null;    // so e preenchido depois das 6 respostas
+
+  var raiz = document.documentElement;
+  var corpo = document.body;
+  var telas = {
+    abertura:  document.getElementById('tela-abertura'),
+    quiz:      document.getElementById('tela-quiz'),
+    transicao: document.getElementById('tela-transicao'),
+    captura:   document.getElementById('tela-captura'),
+    resultado: document.getElementById('tela-resultado')
+  };
+
+  var elNumero  = document.getElementById('q-numero');
+  var elTrilho  = document.getElementById('q-trilho');
+  var elTitulo  = document.getElementById('q-titulo');
+  var elOpcoes  = document.getElementById('q-opcoes');
+  var elAnuncio = document.getElementById('q-anuncio');
+
+  var semMovimento = window.matchMedia
+    ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    : false;
+
+  /* ===================== NAVEGAÇÃO ===================== */
+
+  function mostrar(nome, passoCeu){
+    for (var k in telas){
+      if (Object.prototype.hasOwnProperty.call(telas, k)){
+        telas[k].classList.toggle('ativa', k === nome);
+      }
+    }
+    corpo.setAttribute('data-tela', nome);
+    raiz.setAttribute('data-ceu', String(passoCeu));
+    window.scrollTo(0, 0);
+  }
+
+  function foco(el){
+    if (!el) return;
+    // Espera a tela pintar antes de mover o foco, senao o leitor de tela
+    // anuncia o elemento ainda escondido.
+    window.requestAnimationFrame(function(){ el.focus({ preventScroll: true }); });
+  }
+
+  /* ===================== PERGUNTAS ===================== */
+
+  function renderPergunta(){
+    var p = PERGUNTAS[indice];
+
+    elNumero.textContent = String(indice + 1);
+    elTitulo.textContent = p.texto;
+    elAnuncio.textContent = 'Pergunta ' + (indice + 1) + ' de 6. ' + p.texto;
+
+    var ticks = elTrilho.children;
+    for (var t = 0; t < ticks.length; t++){
+      ticks[t].classList.toggle('feito', t <= indice);
+    }
+
+    elOpcoes.textContent = '';
+    for (var i = 0; i < p.opcoes.length; i++){
+      elOpcoes.appendChild(criarOpcao(p.opcoes[i][0], p.opcoes[i][1], i));
+    }
+  }
+
+  function criarOpcao(texto, peso, i){
+    var li = document.createElement('li');
+
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'opcao';
+    btn.style.animationDelay = semMovimento ? '0s' : (0.05 + i * 0.05) + 's';
+
+    var span = document.createElement('span');
+    span.className = 'texto';
+    span.textContent = texto;
+    btn.appendChild(span);
+
+    var marca = document.createElement('span');
+    marca.className = 'marca';
+    marca.setAttribute('aria-hidden', 'true');
+    btn.appendChild(marca);
+
+    btn.addEventListener('click', function(){ responder(btn, peso); });
+
+    li.appendChild(btn);
+    return li;
+  }
+
+  function responder(btn, peso){
+    if (elOpcoes.getAttribute('data-travado') === '1') return;
+    elOpcoes.setAttribute('data-travado', '1');
+
+    var todos = elOpcoes.querySelectorAll('.opcao');
+    for (var i = 0; i < todos.length; i++){ todos[i].disabled = true; }
+    btn.classList.add('escolhida');
+
+    respostas[indice] = peso;
+
+    // Avanço automático: sem botão de "próxima". A pausa curta existe só
+    // para a marca de seleção terminar de desenhar.
+    window.setTimeout(function(){
+      elOpcoes.removeAttribute('data-travado');
+      indice++;
+      if (indice < PERGUNTAS.length){
+        raiz.setAttribute('data-ceu', String(indice + 1));
+        renderPergunta();
+        foco(elTitulo);
+      } else {
+        iniciarTransicao();
+      }
+    }, semMovimento ? 60 : 330);
+  }
+
+  /* ===================== PONTUAÇÃO ===================== */
+
+  function calcularPerfil(pesos){
+    var totalRelaxar = 0;
+    var totalAventura = 0;
+
+    for (var i = 0; i < pesos.length; i++){
+      var peso = pesos[i];
+      if (peso === 'R'){
+        totalRelaxar += 1;
+      } else if (peso === 'A'){
+        totalAventura += 1;
+      } else if (peso === 'R+A'){
+        totalRelaxar += 0.5;
+        totalAventura += 0.5;
+      }
+      // 'neutra' nao soma nada para nenhum dos dois lados.
+    }
+
+    var diferenca = totalRelaxar - totalAventura;
+
+    if (diferenca >= 0.5)  return 'relaxar-dominante';
+    if (diferenca <= -0.5) return 'aventura-dominante';
+    return 'equilibrio';   // empate exato e diferencas abaixo de 0,5
+  }
+
+  /* ===================== TRANSIÇÃO ===================== */
+
+  function iniciarTransicao(){
+    mostrar('transicao', 7);
+
+    var linhas = telas.transicao.querySelectorAll('.linhas p');
+    var barra = document.getElementById('barra');
+
+    for (var i = 0; i < linhas.length; i++){ linhas[i].classList.remove('visivel'); }
+    barra.classList.remove('correndo');
+    void barra.offsetWidth;          // reinicia a animação da barra
+    barra.classList.add('correndo');
+
+    var temposEntrada = [40, 950, 1860];
+    var temposSaida   = [900, 1810, 2700];
+
+    linhas.forEach(function(linha, i){
+      window.setTimeout(function(){ linha.classList.add('visivel'); }, temposEntrada[i]);
+      if (i < linhas.length - 1){
+        window.setTimeout(function(){ linha.classList.remove('visivel'); }, temposSaida[i]);
+      }
+    });
+
+    window.setTimeout(function(){
+      mostrar('captura', 7);
+      foco(document.getElementById('t-captura'));
+    }, 2750);
+  }
+
+  /* ===================== FORMULÁRIO ===================== */
+
+  function soDigitos(valor){ return (valor || '').replace(/\D/g, ''); }
+
+  function digitosDoTelefone(valor){
+    var d = soDigitos(valor);
+    // Quem digita +55 86 99920-7088 nao pode ser barrado por causa do país.
+    if (d.length > 11 && d.indexOf('55') === 0) d = d.slice(2);
+    return d;
+  }
+
+  function mascaraTelefone(valor){
+    var d = digitosDoTelefone(valor).slice(0, 11);
+    if (d.length === 0) return '';
+    if (d.length <= 2)  return '(' + d;
+    if (d.length <= 6)  return '(' + d.slice(0, 2) + ') ' + d.slice(2);
+    if (d.length <= 10) return '(' + d.slice(0, 2) + ') ' + d.slice(2, 6) + '-' + d.slice(6);
+    return '(' + d.slice(0, 2) + ') ' + d.slice(2, 7) + '-' + d.slice(7);
+  }
+
+  function nomeValido(valor){
+    // Nome + sobrenome: pelo menos um espaço entre duas partes preenchidas.
+    return String(valor || '').trim().split(/\s+/).filter(Boolean).length >= 2;
+  }
+
+  function telefoneValido(valor){
+    // DDD de 2 dígitos + 8 ou 9 dígitos de número.
+    var d = digitosDoTelefone(valor);
+    return d.length === 10 || d.length === 11;
+  }
+
+  function marcarErro(idCampo, input, mensagem){
+    var campo = document.getElementById(idCampo);
+    var alvo  = campo.querySelector('.erro');
+    if (mensagem){
+      campo.setAttribute('data-erro', '1');
+      input.setAttribute('aria-invalid', 'true');
+      alvo.textContent = mensagem;
+    } else {
+      campo.removeAttribute('data-erro');
+      input.removeAttribute('aria-invalid');
+      alvo.textContent = '';
+    }
+  }
+
+  var inNome   = document.getElementById('in-nome');
+  var inFone   = document.getElementById('in-fone');
+  var inCidade = document.getElementById('in-cidade');
+
+  inFone.addEventListener('input', function(){
+    var pos = inFone.selectionStart;
+    var antes = inFone.value.length;
+    inFone.value = mascaraTelefone(inFone.value);
+    // Mantém o cursor no lugar quando a máscara insere separadores.
+    if (pos !== null && pos < antes){
+      var novo = pos + (inFone.value.length - antes);
+      inFone.setSelectionRange(novo, novo);
+    }
+    if (inFone.getAttribute('aria-invalid') && telefoneValido(inFone.value)){
+      marcarErro('campo-fone', inFone, '');
+    }
+  });
+
+  inNome.addEventListener('input', function(){
+    if (inNome.getAttribute('aria-invalid') && nomeValido(inNome.value)){
+      marcarErro('campo-nome', inNome, '');
+    }
+  });
+
+  document.getElementById('form-captura').addEventListener('submit', function(ev){
+    ev.preventDefault();
+
+    var okNome = nomeValido(inNome.value);
+    var okFone = telefoneValido(inFone.value);
+
+    marcarErro('campo-nome', inNome, okNome ? '' : 'Escreva seu nome e o sobrenome.');
+    marcarErro('campo-fone', inFone, okFone ? '' : 'Digite o DDD e o número, como em (86) 99920-7088.');
+
+    if (!okNome){ inNome.focus(); return; }
+    if (!okFone){ inFone.focus(); return; }
+
+    mostrarResultado(inNome.value.trim(), inCidade.value.trim());
+  });
+
+  /* ===================== RESULTADO ===================== */
+
+  function montarLinkWhatsApp(perfilCalculado, nome, cidade){
+    // Uma passada so, com funcao no lugar da string de substituicao. Encadear
+    // tres .replace() com string quebrava de duas formas, as duas reproduzidas:
+    //   - o segundo argumento string interpreta $&, $', $` e $n, entao um nome
+    //     como "Ana $' Silva" duplicava o fim da mensagem;
+    //   - .replace substitui so a PRIMEIRA ocorrencia, entao um nome contendo
+    //     "{cidade}" consumia o lugar do campo seguinte e o placeholder real
+    //     ia literal para o WhatsApp.
+    // A funcao devolve texto cru e o /g resolve tudo antes de qualquer valor
+    // digitado ser reprocessado.
+    var valores = {
+      '{perfil}': PERFIL_TEXTO[perfilCalculado],
+      '{nome}':   nome,
+      '{cidade}': cidade || 'a confirmar'
+    };
+    var mensagem = MOLDE.replace(/\{perfil\}|\{nome\}|\{cidade\}/g, function(chave){
+      return valores[chave];
+    });
+    return 'https://wa.me/' + WHATSAPP + '?text=' + encodeURIComponent(mensagem);
+  }
+
+  function montarFotos(perfilCalculado){
+    var alvo = document.getElementById('r-fotos');
+    alvo.textContent = '';
+    var letras = FOTOS_POR_PERFIL[perfilCalculado];
+    for (var i = 0; i < letras.length; i++){
+      var caixa = document.createElement('div');
+      caixa.className = 'foto';
+      caixa.setAttribute('data-letra', letras[i]);
+      var legenda = document.createElement('p');
+      legenda.textContent = FOTOS[letras[i]];
+      caixa.appendChild(legenda);
+      alvo.appendChild(caixa);
+    }
+  }
+
+  function mostrarResultado(nome, cidade){
+    // Único caminho até a tela de resultado: sai daqui, e só o submit
+    // validado chama esta função. Não existe atalho por link ou hash.
+    perfil = calcularPerfil(respostas);
+
+    var leitura = document.getElementById('r-leitura');
+    leitura.textContent = LEITURAS[perfil];
+    leitura.style.setProperty('--polo', POLO_COR[perfil]);
+
+    montarFotos(perfil);
+
+    document.getElementById('cta-whatsapp').href =
+      montarLinkWhatsApp(perfil, nome, cidade);
+
+    mostrar('resultado', 8);
+    foco(document.getElementById('t-resultado'));
+  }
+
+  /* ===================== ARRANQUE ===================== */
+
+  document.getElementById('btn-comecar').addEventListener('click', function(){
+    indice = 0;
+    respostas = [];
+    renderPergunta();
+    mostrar('quiz', 1);
+    foco(elTitulo);
+  });
+
+  raiz.setAttribute('data-ceu', '0');
+})();
+</script>
+</body>
+</html>

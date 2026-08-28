@@ -49,11 +49,13 @@ gtag('config', '${GA_ID}', { page_location: location.origin + location.pathname 
           </Script>
         </>
       )}
+      {/* As `key` deixam uma página sobrescrever estes itens em vez de duplicar:
+          o quiz de captação troca o favicon da marca por um ícone neutro. */}
       <Head>
-        <link href="/favicon-32.png" rel="icon" type="image/png" sizes="32x32" />
-        <link href="/rw-turismo-icon-512.png" rel="icon" type="image/png" sizes="512x512" />
-        <link href="/apple-touch-icon.png" rel="apple-touch-icon" />
-        <meta content="#1a1aff" name="theme-color" />
+        <link href="/favicon-32.png" key="icon-32" rel="icon" type="image/png" sizes="32x32" />
+        <link href="/rw-turismo-icon-512.png" key="icon-512" rel="icon" type="image/png" sizes="512x512" />
+        <link href="/apple-touch-icon.png" key="apple-icon" rel="apple-touch-icon" />
+        <meta content="#1a1aff" key="theme-color" name="theme-color" />
       </Head>
       <Component {...pageProps} />
       <WhatsAppFloat />

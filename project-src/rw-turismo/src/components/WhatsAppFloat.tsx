@@ -21,6 +21,9 @@ const WhatsAppFloat = () => {
   const widget = useWhatsAppWidget();
 
   if (router.pathname.startsWith("/admin")) return null;
+  // O quiz de captação não pode citar a agência em lugar nenhum da página, e a
+  // mensagem padrão deste botão começa com "Vim pelo site da RW Turismo".
+  if (router.pathname === "/quiz-feriado") return null;
   if (!widget.enabled) return null;
 
   const link = buildWaLink(widget.phone, widget.message);

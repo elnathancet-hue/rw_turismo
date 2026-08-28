@@ -6,6 +6,11 @@ import react from "@vitejs/plugin-react";
 // confirmInternalPayment com client mockado) também rodam nesse ambiente.
 export default defineConfig({
   plugins: [react()],
+  // O tsconfig usa "jsx": "preserve" porque quem compila o app é o Next, que
+  // aplica o runtime automático. Fora do Next, o esbuild do Vitest cairia no
+  // transform clássico e todo teste de componente estouraria com
+  // "React is not defined" — mesmo com o componente correto.
+  esbuild: { jsx: "automatic" },
   test: {
     environment: "jsdom",
     globals: true,
