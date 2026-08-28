@@ -16,9 +16,9 @@ export type LetraFoto = "A" | "B" | "C" | "D";
 
 // Um id por instância. Dois <svg> na mesma página com gradientes de mesmo id
 // fariam o segundo herdar a pintura do primeiro.
-const idsDe = (letra: LetraFoto, sufixos: string[]) =>
+const idsDe = (cena: string, sufixos: string[]) =>
   Object.fromEntries(
-    sufixos.map((s) => [s, `cena-${letra}-${s}`])
+    sufixos.map((s) => [s, `cena-${cena}-${s}`])
   ) as Record<string, string>;
 
 // A — Balanço/mirante com vista para a serra. Meio-dia alto, vale abrindo.
@@ -211,6 +211,136 @@ const CenaD = () => {
       <rect fill={`url(#${id.cabine})`} height="52" rx="10" width="66" x="139" y="102" />
       <rect fill="#DCEAF3" height="22" rx="5" width="46" x="149" y="112" />
       <rect fill="#9A3412" height="5" rx="2" width="66" x="139" y="146" />
+    </svg>
+  );
+};
+
+// Cena de abertura: a serra inteira, não uma das quatro fotos.
+//
+// As outras quatro são atrações específicas — balanço, deck, piscina,
+// teleférico. A abertura precisa de outra coisa: mostrar PARA ONDE se vai,
+// antes de a pessoa saber o que tem lá. Por isso é o amanhecer subindo a
+// Ibiapaba, que é literalmente o que a copy do resultado descreve ("acorda já
+// subindo a serra, o vidro embaçando, o verde tomando o lugar da cidade").
+//
+// A forma é de cuesta — topo chato, escarpa de um lado só. A Ibiapaba é uma
+// chapada, não um pico alpino, e desenhar um triângulo pontudo aqui seria
+// vender uma paisagem que não existe.
+export const CenaAbertura = () => {
+  const id = idsDe("abertura", [
+    "ceu",
+    "sol",
+    "longe",
+    "meio",
+    "perto",
+    "estrada",
+  ]);
+
+  return (
+    <svg className={estilos.fotoArte} role="presentation" viewBox="0 0 800 400">
+      <defs>
+        <linearGradient id={id.ceu} x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="#2B4C7E" />
+          <stop offset="38%" stopColor="#6E8FB8" />
+          <stop offset="68%" stopColor="#DDA57C" />
+          <stop offset="100%" stopColor="#F6D9A8" />
+        </linearGradient>
+        <radialGradient cx="50%" cy="50%" id={id.sol} r="50%">
+          <stop offset="0%" stopColor="#FFF4D6" />
+          <stop offset="45%" stopColor="#FFD9A0" stopOpacity=".55" />
+          <stop offset="100%" stopColor="#FFD9A0" stopOpacity="0" />
+        </radialGradient>
+        {/* Perspectiva atmosférica: quanto mais longe, mais claro e mais azul.
+            É isso que dá profundidade — sem o degradê as cristas viram
+            recortes chapados, um colado no outro. */}
+        <linearGradient id={id.longe} x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="#9FB3CC" />
+          <stop offset="100%" stopColor="#BFCEDC" />
+        </linearGradient>
+        <linearGradient id={id.meio} x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="#5E7C74" />
+          <stop offset="100%" stopColor="#87A092" />
+        </linearGradient>
+        <linearGradient id={id.perto} x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="#3A5A3C" />
+          <stop offset="100%" stopColor="#1E3524" />
+        </linearGradient>
+        <linearGradient id={id.estrada} x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="#B9AFA4" />
+          <stop offset="100%" stopColor="#8A8078" />
+        </linearGradient>
+      </defs>
+
+      <rect fill={`url(#${id.ceu})`} height="400" width="800" />
+      <circle cx="560" cy="212" fill={`url(#${id.sol})`} r="180" />
+      <circle cx="560" cy="214" fill="#FFF1CE" opacity=".95" r="26" />
+
+      {/* Nuvens compridas e finas, na altura do sol nascendo. */}
+      <rect fill="#E8B489" height="7" opacity=".5" rx="4" width="230" x="96" y="150" />
+      <rect fill="#E8B489" height="5" opacity=".38" rx="3" width="160" x="430" y="128" />
+      <rect fill="#F2CBA4" height="6" opacity=".45" rx="3" width="190" x="250" y="182" />
+
+      {/* Crista distante. */}
+      <path
+        d="M0 250 L96 244 L124 206 L286 200 L312 238 L438 232 L470 196 L638 190 L664 232 L800 226 L800 400 L0 400 Z"
+        fill={`url(#${id.longe})`}
+      />
+
+      {/* Névoa do vale: separa os planos melhor que qualquer linha. */}
+      <rect fill="#EFE2D2" height="34" opacity=".55" width="800" y="244" />
+
+      {/* Chapada do meio — o topo chato aparece aqui. */}
+      <path
+        d="M0 400 L0 292 L150 286 L182 254 L392 248 L420 284 L556 278 L588 246 L800 240 L800 400 Z"
+        fill={`url(#${id.meio})`}
+      />
+      <path
+        d="M0 292 L150 286 L182 254 L392 248 L420 284 L556 278 L588 246 L800 240"
+        fill="none"
+        opacity=".5"
+        stroke="#F3D6B4"
+        strokeWidth="2"
+      />
+
+      {/* Encosta em primeiro plano, já verde-escura. */}
+      <path
+        d="M0 400 L0 330 L128 322 L214 340 L352 326 L470 344 L620 328 L800 338 L800 400 Z"
+        fill={`url(#${id.perto})`}
+      />
+
+      {/* A estrada subindo: é o que transforma paisagem em viagem. */}
+      <path
+        d="M330 400 C 352 372, 300 356, 336 340 C 372 326, 452 336, 486 326"
+        fill="none"
+        stroke={`url(#${id.estrada})`}
+        strokeLinecap="round"
+        strokeWidth="26"
+      />
+      <path
+        d="M330 400 C 352 372, 300 356, 336 340 C 372 326, 452 336, 486 326"
+        fill="none"
+        opacity=".55"
+        stroke="#F4EDE4"
+        strokeDasharray="10 16"
+        strokeLinecap="round"
+        strokeWidth="2"
+      />
+
+      {/* Carnaúbas: a silhueta que diz "isto é o Piauí/Ceará", e não uma serra
+          genérica de banco de imagem. */}
+      <g fill="#16281B">
+        <path d="M92 400 L92 332 M92 336 c -22 -12, -34 -4, -40 6 M92 336 c 22 -12, 34 -4, 40 6 M92 344 c -16 -16, -30 -14, -38 -4 M92 344 c 16 -16, 30 -14, 38 -4" opacity="0" />
+        <rect height="70" rx="3" width="7" x="88" y="330" />
+        <ellipse cx="91" cy="330" rx="34" ry="10" />
+        <ellipse cx="76" cy="322" rx="22" ry="8" />
+        <ellipse cx="108" cy="324" rx="20" ry="8" />
+        <rect height="56" rx="3" width="6" x="142" y="344" />
+        <ellipse cx="145" cy="344" rx="26" ry="8" />
+        <ellipse cx="133" cy="338" rx="17" ry="6" />
+        <rect height="48" rx="3" width="5" x="702" y="352" />
+        <ellipse cx="704" cy="352" rx="23" ry="7" />
+        <ellipse cx="716" cy="347" rx="15" ry="6" />
+      </g>
     </svg>
   );
 };

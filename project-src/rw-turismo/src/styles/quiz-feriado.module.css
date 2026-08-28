@@ -355,6 +355,14 @@
 .fotoArte{ display:block; width:100%; height:auto; aspect-ratio:4/3 }
 .fotosLarga .fotoArte{ aspect-ratio:16/9 }
 
+/* A abertura e panoramica: 2/1 deixa a serra se abrir na largura, que e o que
+   a imagem tem para dizer. Em tela estreita volta para 16/9, senao a faixa
+   fica alta demais para o pouco espaco vertical do celular. */
+.fotoAbertura .fotoArte{ aspect-ratio:16/9 }
+@media (min-width:560px){
+  .fotoAbertura .fotoArte{ aspect-ratio:2/1 }
+}
+
 /* Legenda por cima da base da imagem, como as capas de pacote do site. */
 .fotoLegenda{
   position:absolute; left:0; right:0; bottom:0;

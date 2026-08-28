@@ -24,6 +24,7 @@ import {
   type Peso,
 } from "../lib/quiz/feriado";
 import CenaSimulada, {
+  CenaAbertura,
   type LetraFoto,
 } from "../components/quiz/CenaSimulada";
 import estilos from "../styles/quiz-feriado.module.css";
@@ -82,6 +83,18 @@ const Fotos = ({ letras, larga }: { letras: readonly LetraFoto[]; larga?: boolea
       </figure>
     ))}
   </div>
+);
+
+// A abertura mostra PARA ONDE se vai, antes de a pessoa saber o que tem lá —
+// por isso a serra inteira, e não uma das quatro atrações.
+const Abertura = () => (
+  <figure className={`${estilos.foto} ${estilos.fotoAbertura}`}>
+    <CenaAbertura />
+    <span className={estilos.fotoSelo}>Simulação</span>
+    <figcaption className={estilos.fotoLegenda}>
+      Serra da Ibiapaba, na divisa do Piauí com o Ceará
+    </figcaption>
+  </figure>
 );
 
 // Só a logo, sem navegação. Ver o comentário no topo do arquivo.
@@ -291,7 +304,7 @@ const QuizFeriado = () => {
                 destino. No fim, a gente te mostra a serra que já tem saída certa pra
                 esse feriado, montada pra quem quer parar e pra quem quer se mexer
               </p>
-              <Fotos larga letras={["A"]} />
+              <Abertura />
               <button
                 className={estilos.acao}
                 onClick={() => {
