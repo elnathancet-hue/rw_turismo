@@ -66,6 +66,14 @@ const AdminClients = () => {
   return (
     <AdminGuard>
       <AdminLayout
+        action={
+          <Link
+            className="rounded border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50"
+            href="/admin/import/clientes"
+          >
+            Importar planilha
+          </Link>
+        }
         title="Clientes"
         description="Base de clientes: contato, nascimento, documento e histórico de viagens."
       >

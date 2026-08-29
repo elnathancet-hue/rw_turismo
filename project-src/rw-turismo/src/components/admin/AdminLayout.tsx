@@ -82,6 +82,7 @@ const navigation: NavGroup[] = [
       { href: "/admin/crm", label: "CRM", icon: ViewColumnsIcon },
       { href: "/admin/waitlist", label: "Lista de espera", icon: UserPlusIcon },
       { href: "/admin/clients", label: "Clientes", icon: UsersIcon },
+      { href: "/admin/import/clientes", label: "Importar clientes", icon: ArrowUpTrayIcon },
     ],
   },
   {
