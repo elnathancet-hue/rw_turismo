@@ -47,6 +47,14 @@ const AdminDepartures = () => {
   return (
     <AdminGuard>
       <AdminLayout
+        action={
+          <Link
+            className="rounded border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50"
+            href="/admin/import/saidas"
+          >
+            Importar planilha
+          </Link>
+        }
         title="Saídas"
         description="O dia da viagem: check-in, assentos, quartos e transfers de cada turma. (Para criar turmas, use Catálogo → Datas de saída.)"
       >

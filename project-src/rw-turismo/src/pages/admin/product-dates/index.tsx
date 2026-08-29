@@ -56,12 +56,20 @@ const AdminProductDates = () => {
     <AdminGuard>
       <AdminLayout
         action={
-          <Link
-            className="rounded bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600"
-            href="/admin/product-dates/new"
-          >
-            Nova data
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              className="rounded border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50"
+              href="/admin/import/saidas"
+            >
+              Importar planilha
+            </Link>
+            <Link
+              className="rounded bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600"
+              href="/admin/product-dates/new"
+            >
+              Nova data
+            </Link>
+          </div>
         }
         title="Datas de saída"
         description="Cada data é uma turma do produto, com suas próprias vagas e preço. O cliente reserva sempre numa data — e no dia da viagem você a opera em Operação → Saídas."
