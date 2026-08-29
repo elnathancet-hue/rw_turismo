@@ -126,6 +126,7 @@ const AdminDepartureDetail = () => {
           "Telefone",
           "Pagamento",
           "Check-in",
+          "Observação",
         ],
         ...passengers.map((p) => [
           p.full_name,
@@ -138,6 +139,7 @@ const AdminDepartureDetail = () => {
           p.bookings?.customer_phone,
           p.bookings ? paymentStatusBadge(p.bookings.payment_status).label : "",
           p.checked_in_at ? "Sim" : "Não",
+          p.notes ?? "",
         ]),
       ]
     );
@@ -263,6 +265,11 @@ const AdminDepartureDetail = () => {
                       <p className="truncate font-semibold">
                         {passenger.full_name}
                       </p>
+                      {passenger.notes && (
+                        <p className="mt-0.5 text-xs font-medium text-amber-700">
+                          {passenger.notes}
+                        </p>
+                      )}
                       <p className="mt-0.5 truncate text-xs text-gray-500">
                         {[
                           typeLabels[passenger.type] ?? passenger.type,

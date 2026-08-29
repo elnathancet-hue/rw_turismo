@@ -92,6 +92,9 @@ export type ManualPassengerInput = {
   document?: string | null;
   birth_date?: string | null;
   type: "adult" | "child" | "infant";
+  // Pedido ou aviso que a operacao precisa ver no dia. Vem preenchido da
+  // importacao da lista; no cadastro manual e opcional.
+  notes?: string | null;
 };
 
 export type AdminCreateBookingInput = {
@@ -158,6 +161,7 @@ export const adminCreateBooking = async (
         document: p.document?.trim() || null,
         birth_date: p.birth_date || null,
         type: p.type,
+        notes: p.notes?.trim() || null,
       }))
     );
     // Passageiro é complementar — não desfaz a reserva se falhar.

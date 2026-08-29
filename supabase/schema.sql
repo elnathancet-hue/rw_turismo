@@ -2933,3 +2933,13 @@ begin
   raise notice 'admin_confirm_manual_payment passou a aceitar cartao';
 end
 $$;
+
+-- ===================================================================
+-- Observacao por passageiro (migration 20260830000000). Repetido no fim
+-- para que rodar schema.sql num banco antigo tambem aplique.
+-- ===================================================================
+alter table public.passengers
+  add column if not exists notes text;
+
+comment on column public.passengers.notes is
+  'Pedido ou aviso sobre este passageiro, para a operacao ver no dia: preferencia de assento, de quarto, aviso de pagamento. Texto livre. Vem preenchido da importacao da lista, quando a lista traz observacao entre parenteses.';

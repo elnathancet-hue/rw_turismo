@@ -163,6 +163,11 @@ const AdminDepartureRooms = () => {
                       <p className="truncate text-sm font-medium">
                         {passenger.full_name}
                       </p>
+                      {passenger.notes && (
+                        <p className="mt-0.5 text-xs font-medium text-amber-700">
+                          {passenger.notes}
+                        </p>
+                      )}
                       <p className="truncate text-xs text-gray-500">
                         {passenger.bookings
                           ? `reserva de ${passenger.bookings.customer_name}`

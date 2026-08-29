@@ -133,6 +133,7 @@ export type AdminPassenger = {
   checked_in_at?: string | null;
   seat_number?: string | null;
   room_label?: string | null;
+  notes?: string | null;
   document_status?: string | null;
   document_path?: string | null;
   document_uploaded_at?: string | null;

@@ -127,6 +127,15 @@ const AdminImportarPassageiros = () => {
             type: pax.nascimento
               ? passengerTypeOnDeparture(pax.nascimento, saida.start_date)
               : "adult",
+            // O que estava entre parenteses na lista. Junto com o local de
+            // embarque, que e a informacao que diz onde a pessoa sobe.
+            notes:
+              [
+                ...pax.observacoes,
+                pax.embarque ? `Embarque: ${pax.embarque}` : null,
+              ]
+                .filter(Boolean)
+                .join(" · ") || null,
           })),
         }),
       });
@@ -185,11 +194,11 @@ const AdminImportarPassageiros = () => {
               {comObservacao.length > 0 && (
                 <div className="mt-4 rounded border border-amber-200 bg-amber-50 p-4">
                   <p className="text-sm font-semibold text-amber-900">
-                    Anote estes pedidos — eles não foram importados
+                    {comObservacao.length} pedidos foram junto
                   </p>
                   <p className="mt-1 text-xs text-amber-800">
-                    O sistema ainda não tem campo de observação por passageiro,
-                    então o que estava entre parênteses na lista ficou de fora.
+                    Aparecem no check-in, na montagem dos quartos e na relação
+                    exportada, ao lado do nome de quem pediu.
                   </p>
                   <ul className="mt-3 space-y-1 text-sm text-amber-900">
                     {comObservacao.map((pax) => (

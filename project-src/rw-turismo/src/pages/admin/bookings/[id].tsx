@@ -425,6 +425,11 @@ const AdminBookingDetailPage = () => {
                     <p className="text-sm text-gray-500">
                       Documento: {passenger.document ?? "-"}
                     </p>
+                    {passenger.notes && (
+                      <p className="mt-1 text-sm font-medium text-amber-700">
+                        {passenger.notes}
+                      </p>
+                    )}
                     <PassengerDocumentCell
                       onChanged={load}
                       passenger={passenger}
