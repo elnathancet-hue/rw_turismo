@@ -1,4 +1,5 @@
 import {
+  ArrowUpTrayIcon,
   CalendarDaysIcon,
   ClipboardDocumentListIcon,
   CreditCardIcon,
@@ -98,6 +99,7 @@ const navigation: NavGroup[] = [
     items: [
       { href: "/admin/products", label: "Produtos", icon: Squares2X2Icon },
       { href: "/admin/product-dates", label: "Datas de saída", icon: CalendarDaysIcon },
+      { href: "/admin/import/saidas", label: "Importar saídas", icon: ArrowUpTrayIcon },
       { href: "/admin/categories", label: "Categorias", icon: TagIcon },
     ],
   },
