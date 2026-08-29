@@ -16,6 +16,7 @@ import {
   lerPassageiros,
   type PassageiroLido,
 } from "../../../../lib/import/passageiros";
+import { paraNumero } from "../../../../lib/import/valores";
 import { formatDateRangeBR } from "../../../../lib/format";
 
 // Importa a lista de passageiros que a agência já mantém no Word, para dentro
@@ -46,6 +47,10 @@ const AdminImportarPassageiros = () => {
   const [erro, setErro] = useState<string | null>(null);
   const [passageiros, setPassageiros] = useState<PassageiroLido[] | null>(null);
   const [nomeDaReserva, setNomeDaReserva] = useState("Lista importada");
+  // Em branco = usa o preço do pacote. Zero NÃO é opção: a RPC recusa
+  // total_override <= 0 com INVALID_TOTAL, e recusa também total calculado
+  // igual a zero. Era o que fazia esta importação falhar sempre.
+  const [valorTotal, setValorTotal] = useState("");
   const [gravando, setGravando] = useState(false);
   const [pronto, setPronto] = useState<{ quantidade: number } | null>(null);
 
@@ -100,8 +105,24 @@ const AdminImportarPassageiros = () => {
     }
   };
 
+  // Convertido uma vez só: a tela precisa dele para avisar antes do clique, e
+  // a gravação para mandar.
+  const conversaoDoTotal = valorTotal.trim() ? paraNumero(valorTotal) : null;
+  const totalConvertido =
+    conversaoDoTotal && conversaoDoTotal.ok ? conversaoDoTotal.valor : null;
+  const erroDoTotal =
+    conversaoDoTotal && !conversaoDoTotal.ok
+      ? conversaoDoTotal.erro
+      : conversaoDoTotal && conversaoDoTotal.ok && conversaoDoTotal.valor <= 0
+        ? // Zero era o valor que eu mandava antes e que fazia a importação
+          // falhar sempre: a RPC recusa total_override <= 0. Deixar o operador
+          // digitar zero recriaria o bug por outro caminho.
+          "O valor não pode ser zero. Deixe em branco para usar o preço do pacote."
+        : null;
+
   const importar = async () => {
     if (!passageiros || !saida) return;
+    if (erroDoTotal) return;
     setGravando(true);
     setErro(null);
 
@@ -116,10 +137,14 @@ const AdminImportarPassageiros = () => {
           product_date_id: saida.id,
           travelers_count: passageiros.length,
           status: "confirmed",
-          // Zero de propósito: o dinheiro desta lista foi recebido fora do
-          // sistema. Lançar o preço de tabela aqui inventaria receita que o
-          // financeiro nunca viu.
-          total_override: 0,
+          // Em branco vai como null e a reserva assume o preço do pacote ×
+          // quantidade. Zero não existe como opção — a RPC recusa.
+          //
+          // Isto NÃO cria receita recebida: o financeiro conta receita a partir
+          // de pagamentos com status "pago", e esta importação não cria
+          // pagamento nenhum. O valor entra na margem da saída, que é onde ele
+          // deve mesmo aparecer.
+          total_override: totalConvertido,
           passengers: passageiros.map((pax) => ({
             full_name: pax.nome,
             document: pax.documento,
@@ -132,6 +157,7 @@ const AdminImportarPassageiros = () => {
             notes:
               [
                 ...pax.observacoes,
+                pax.telefone ? `Contato: ${pax.telefone}` : null,
                 pax.embarque ? `Embarque: ${pax.embarque}` : null,
               ]
                 .filter(Boolean)
@@ -145,7 +171,16 @@ const AdminImportarPassageiros = () => {
         throw new Error(payload?.error ?? "Não foi possível importar.");
       }
 
-      setPronto({ quantidade: passageiros.length });
+      // A reserva pode ter sido criada — e as vagas descontadas — com os
+      // passageiros falhando. Dizer "importado" nesse caso esconderia uma
+      // saída com 35 lugares a menos e ninguém dentro.
+      if (payload?.passengers_error) {
+        throw new Error(
+          `A reserva foi criada e as ${passageiros.length} vagas foram reservadas, mas NENHUM passageiro entrou: ${payload.passengers_error}. Abra a reserva no painel e cancele antes de tentar de novo.`
+        );
+      }
+
+      setPronto({ quantidade: payload?.passengers_inserted ?? passageiros.length });
     } catch (caught) {
       setErro(
         caught instanceof Error ? caught.message : "Não foi possível importar."
@@ -264,12 +299,32 @@ const AdminImportarPassageiros = () => {
                 </p>
               </div>
 
+              <div className="mt-4 max-w-xs">
+                <Field label="Valor total da lista (opcional)">
+                  <Input
+                    inputMode="decimal"
+                    onChange={(evento) => setValorTotal(evento.target.value)}
+                    placeholder="Em branco = preço do pacote"
+                    value={valorTotal}
+                  />
+                </Field>
+                {erroDoTotal ? (
+                  <p className="mt-1 text-xs text-red-700">{erroDoTotal}</p>
+                ) : (
+                  <p className="mt-1 text-xs text-gray-500">
+                    Se o parceiro vendeu por um valor combinado, escreva aqui. Em
+                    branco, a reserva assume o preço do pacote multiplicado pelos{" "}
+                    {passageiros.length} passageiros.
+                  </p>
+                )}
+              </div>
+
               <p className="mt-4 rounded border bg-gray-50 p-3 text-xs text-gray-600">
-                A reserva entra como <strong>confirmada</strong> e com valor{" "}
-                <strong>zero</strong>: o dinheiro desta lista foi recebido fora
-                do sistema, e lançar o preço de tabela inventaria receita que o
-                financeiro nunca viu. As {passageiros.length} vagas saem do
-                estoque da saída.
+                A reserva entra como <strong>confirmada</strong> e{" "}
+                <strong>sem pagamento registrado</strong> — o dinheiro desta
+                lista foi recebido fora do sistema. Isso não conta como receita
+                no financeiro, que soma pagamentos, mas o valor aparece na
+                margem da saída. As {passageiros.length} vagas saem do estoque.
               </p>
             </div>
 
@@ -347,7 +402,11 @@ const AdminImportarPassageiros = () => {
             </div>
 
             <div className="flex flex-wrap gap-3">
-              <Button loading={gravando} onClick={() => void importar()}>
+              <Button
+                disabled={Boolean(erroDoTotal)}
+                loading={gravando}
+                onClick={() => void importar()}
+              >
                 Importar {passageiros.length} passageiros
               </Button>
               <Button

@@ -198,7 +198,9 @@ const AdminImportarClientes = () => {
                     <td className="px-3 py-2 font-medium">Nascimento</td>
                     <td className="px-3 py-2">Não</td>
                     <td className="px-3 py-2 text-gray-600">
-                      05/09/1990 — alimenta a tela de aniversariantes
+                      05/09/1990 — aparece na tela de aniversariantes. A
+                      mensagem automática de parabéns NÃO é enviada para quem
+                      entra por importação: essas pessoas não consentiram.
                     </td>
                   </tr>
                   <tr>

@@ -2968,3 +2968,16 @@ create index if not exists users_profiles_document_idx
 create index if not exists users_profiles_phone_idx
   on public.users_profiles(phone)
   where phone is not null;
+
+-- ===================================================================
+-- Consentimento de contato (migration 20260901000000). Repetido no fim.
+-- ===================================================================
+-- Consentimento precisa ser dado proprio, nao inferido: filtrar por "tem login"
+-- nao exclui a base importada, porque todo importado com e-mail ganha conta.
+alter table public.users_profiles
+  add column if not exists marketing_opt_in boolean not null default false,
+  add column if not exists contact_origin text;
+
+create index if not exists users_profiles_marketing_idx
+  on public.users_profiles(marketing_opt_in)
+  where marketing_opt_in = true;

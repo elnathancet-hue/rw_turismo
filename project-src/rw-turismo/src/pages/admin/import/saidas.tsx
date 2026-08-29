@@ -173,14 +173,28 @@ const AdminImportarSaidas = () => {
           // o número da planilha por cima faria uma saída que já vendeu 22
           // voltar a oferecer 46 lugares — overbooking, sem erro nenhum
           // aparecer. Só preço e horários entram.
+          const mudancas: Record<string, unknown> = {};
+          if (linha.valores.price_override !== null) {
+            mudancas.price_override = linha.valores.price_override;
+          }
+          if (linha.valores.departure_time !== null) {
+            mudancas.departure_time = linha.valores.departure_time;
+          }
+          if (linha.valores.return_time !== null) {
+            mudancas.return_time = linha.valores.return_time;
+          }
+          if (linha.classificacao === "lixeira") mudancas.deleted_at = null;
+
+          // Nada preenchido e nada a restaurar: não gasta uma escrita para
+          // dizer que nada muda.
+          if (Object.keys(mudancas).length === 0) {
+            puladas += 1;
+            continue;
+          }
+
           const { data, error } = await supabase()
             .from("product_dates")
-            .update({
-              price_override: linha.valores.price_override,
-              departure_time: linha.valores.departure_time,
-              return_time: linha.valores.return_time,
-              ...(linha.classificacao === "lixeira" ? { deleted_at: null } : {}),
-            })
+            .update(mudancas)
             .eq("id", linha.idAlvo)
             // Trava otimista: a prévia é uma foto de minutos atrás. Se alguém
             // mexeu na saída nesse meio-tempo, não gravamos por cima em

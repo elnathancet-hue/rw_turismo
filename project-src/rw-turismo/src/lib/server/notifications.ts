@@ -259,7 +259,10 @@ export const runDailyNotifications = async (): Promise<JobSummary> => {
       db()
         .from("users_profiles")
         .select("name, phone, email, birth_date")
-        .not("birth_date", "is", null),
+        .not("birth_date", "is", null)
+        .eq("marketing_opt_in", true)
+        .eq("role", "customer")
+        .eq("active", true),
     ]);
 
     const people: { name: string; phone: string | null; email: string | null }[] =

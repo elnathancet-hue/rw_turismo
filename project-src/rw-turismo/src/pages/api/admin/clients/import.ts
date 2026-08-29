@@ -154,15 +154,14 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 
           // Nascimento e documento não passam por resolveCustomerUserId: ela
           // cuida de identidade, não de cadastro.
-          if (linha.birth_date || linha.document) {
-            await admin
-              .from("users_profiles")
-              .update({
-                birth_date: linha.birth_date || null,
-                document: linha.document || null,
-              })
-              .eq("email", email);
-          }
+          await admin
+            .from("users_profiles")
+            .update({
+              ...(linha.birth_date ? { birth_date: linha.birth_date } : {}),
+              ...(linha.document ? { document: linha.document } : {}),
+              contact_origin: origem,
+            })
+            .eq("email", email);
         } else {
           // SEM e-mail: entra só na agenda, sem conta de autenticação. É o
           // cliente antigo — a pessoa existe para a equipe encontrar e
@@ -175,6 +174,11 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
             birth_date: linha.birth_date || null,
             document: linha.document || null,
             role: "customer",
+            // Quem chega por planilha NÃO consentiu com nada. Sem isto, o cron
+            // de aniversário passaria a mandar WhatsApp e e-mail de verdade
+            // para uma base que nunca pediu.
+            marketing_opt_in: false,
+            contact_origin: origem,
           });
           if (error) throw error;
         }

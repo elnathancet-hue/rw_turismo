@@ -113,6 +113,15 @@ export type AdminCreateBookingResult = {
   total_amount: number;
   status: string;
   customer_user_id: string;
+  // Quantos passageiros entraram de fato, e o motivo se algum não entrou.
+  //
+  // A reserva NÃO é desfeita quando o insert de passageiro falha — isso é
+  // deliberado no cadastro manual, onde o operador completa depois. Mas quem
+  // chama precisa PODER SABER: numa importação de lista, o passageiro é o
+  // ponto, e devolver "criado com sucesso" sem ninguém dentro faria a tela
+  // mentir com as vagas já descontadas.
+  passengers_inserted: number;
+  passengers_error: string | null;
 };
 
 export const adminCreateBooking = async (
@@ -152,6 +161,9 @@ export const adminCreateBooking = async (
 
   const bookingId = row.booking_id as string;
 
+  let passengersInserted = 0;
+  let passengersError: string | null = null;
+
   const passengers = (input.passengers ?? []).filter((p) => p.full_name?.trim());
   if (passengers.length > 0) {
     const { error: paxError } = await admin.from("passengers").insert(
@@ -164,9 +176,13 @@ export const adminCreateBooking = async (
         notes: p.notes?.trim() || null,
       }))
     );
-    // Passageiro é complementar — não desfaz a reserva se falhar.
+    // Passageiro é complementar — não desfaz a reserva se falhar. Mas o
+    // resultado sobe junto, em vez de morrer num console.error que ninguém lê.
     if (paxError) {
       console.error("Failed to insert manual booking passengers", paxError);
+      passengersError = paxError.message ?? "erro ao gravar passageiros";
+    } else {
+      passengersInserted = passengers.length;
     }
   }
 
@@ -175,6 +191,8 @@ export const adminCreateBooking = async (
     total_amount: Number(row.total_amount),
     status: row.status as string,
     customer_user_id: customerUserId,
+    passengers_inserted: passengersInserted,
+    passengers_error: passengersError,
   };
 };
 
