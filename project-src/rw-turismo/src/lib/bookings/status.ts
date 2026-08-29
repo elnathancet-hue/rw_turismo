@@ -46,6 +46,40 @@ const providerLabels: Record<string, string> = {
 export const paymentProviderLabel = (provider: string | null): string =>
   provider ? providerLabels[provider] ?? provider : "—";
 
+// Os identificadores do provedor, com o rótulo certo.
+//
+// Cada provedor guarda os ids nas colunas dele — reaproveitar as da Stripe
+// funcionaria e faria o atendente ler um transaction_nsu da InfinitePay como se
+// fosse um payment_intent. O preço disso é a tela precisar saber de onde ler,
+// e é o que esta função resolve num lugar só.
+export type IdsDoProvedor = {
+  rotuloCobranca: string;
+  cobranca: string;
+  rotuloTransacao: string;
+  transacao: string;
+};
+
+export const paymentProviderIds = (pagamento: {
+  provider: string | null;
+  stripe_checkout_session_id?: string | null;
+  stripe_payment_intent_id?: string | null;
+  infinitepay_invoice_slug?: string | null;
+  infinitepay_transaction_nsu?: string | null;
+}): IdsDoProvedor =>
+  pagamento.provider === "infinitepay"
+    ? {
+        rotuloCobranca: "Fatura InfinitePay",
+        cobranca: pagamento.infinitepay_invoice_slug ?? "—",
+        rotuloTransacao: "Transação InfinitePay",
+        transacao: pagamento.infinitepay_transaction_nsu ?? "—",
+      }
+    : {
+        rotuloCobranca: "Sessão Stripe",
+        cobranca: pagamento.stripe_checkout_session_id ?? "—",
+        rotuloTransacao: "Cobrança Stripe",
+        transacao: pagamento.stripe_payment_intent_id ?? "—",
+      };
+
 const passengerTypeLabels: Record<string, string> = {
   adult: "Adulto",
   child: "Criança",

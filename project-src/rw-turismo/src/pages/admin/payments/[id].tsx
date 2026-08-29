@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import AdminGuard from "../../../components/admin/AdminGuard";
 import AdminLayout from "../../../components/admin/AdminLayout";
 import {
   bookingStatusBadge,
+  paymentProviderIds,
   paymentProviderLabel,
   paymentStatusBadge,
 } from "../../../lib/bookings/status";
@@ -27,7 +28,13 @@ const formatDateTime = (value: string | null) =>
       }).format(new Date(value))
     : "-";
 
-const Field = ({ label, value }: { label: string; value: string | number }) => (
+const Field = ({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number | ReactNode;
+}) => (
   <div>
     <p className="text-xs uppercase text-gray-500">{label}</p>
     <p className="mt-1 break-words font-medium">{value}</p>
@@ -78,7 +85,9 @@ const AdminPaymentDetailPage = () => {
           <p className="text-sm text-gray-500">Carregando pagamento...</p>
         )}
 
-        {payment && (
+        {payment && (() => {
+          const ids = paymentProviderIds(payment);
+          return (
           <div className="space-y-6">
             {payment.status === "requires_review" && (
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
@@ -105,14 +114,23 @@ const AdminPaymentDetailPage = () => {
                 />
                 <Field label="Moeda" value={payment.currency} />
                 <Field label="Pago em" value={formatDateTime(payment.paid_at)} />
-                <Field
-                  label="Sessão Stripe"
-                  value={payment.stripe_checkout_session_id ?? "-"}
-                />
-                <Field
-                  label="Cobrança Stripe"
-                  value={payment.stripe_payment_intent_id ?? "-"}
-                />
+                <Field label={ids.rotuloCobranca} value={ids.cobranca} />
+                <Field label={ids.rotuloTransacao} value={ids.transacao} />
+                {payment.receipt_url && (
+                  <Field
+                    label="Comprovante"
+                    value={
+                      <a
+                        className="font-semibold text-orange-600 hover:text-orange-700"
+                        href={payment.receipt_url}
+                        rel="noopener noreferrer"
+                        target="_blank"
+                      >
+                        Abrir comprovante
+                      </a>
+                    }
+                  />
+                )}
                 <Field label="Criado em" value={formatDateTime(payment.created_at)} />
               </div>
             </section>
@@ -181,7 +199,8 @@ const AdminPaymentDetailPage = () => {
               </div>
             </section>
           </div>
-        )}
+          );
+        })()}
       </AdminLayout>
     </AdminGuard>
   );

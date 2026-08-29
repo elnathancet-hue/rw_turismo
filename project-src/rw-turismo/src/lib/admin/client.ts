@@ -103,6 +103,10 @@ export type AdminPayment = {
   notes?: string | null;
   stripe_checkout_session_id: string | null;
   stripe_payment_intent_id: string | null;
+  infinitepay_invoice_slug?: string | null;
+  infinitepay_transaction_nsu?: string | null;
+  checkout_url?: string | null;
+  receipt_url?: string | null;
   paid_at: string | null;
   created_at: string;
   updated_at: string;

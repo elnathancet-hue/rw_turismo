@@ -5,6 +5,7 @@ import AdminLayout from "../../../components/admin/AdminLayout";
 import AdminListState from "../../../components/admin/AdminListState";
 import StatusPill from "../../../components/StatusPill";
 import {
+  paymentProviderIds,
   paymentProviderLabel,
   paymentStatusBadge,
 } from "../../../lib/bookings/status";
@@ -121,8 +122,7 @@ const AdminPayments = () => {
                 <th className="px-4 py-3">Valor</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Forma</th>
-                <th className="px-4 py-3">Sessão Stripe</th>
-                <th className="px-4 py-3">Cobrança Stripe</th>
+                <th className="px-4 py-3">Cobrança</th>
                 <th className="px-4 py-3">Pago em</th>
                 <th className="px-4 py-3">Criado</th>
               </tr>
@@ -169,10 +169,7 @@ const AdminPayments = () => {
                     {paymentProviderLabel(payment.provider)}
                   </td>
                   <td className="px-4 py-3 font-mono text-xs">
-                    {payment.stripe_checkout_session_id ?? "-"}
-                  </td>
-                  <td className="px-4 py-3 font-mono text-xs">
-                    {payment.stripe_payment_intent_id ?? "-"}
+                    {paymentProviderIds(payment).cobranca}
                   </td>
                   <td className="px-4 py-3">
                     {formatDateTime(payment.paid_at)}

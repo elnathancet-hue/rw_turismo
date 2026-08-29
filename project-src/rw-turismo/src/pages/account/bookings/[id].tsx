@@ -10,6 +10,7 @@ import Footer from "../../../components/Footer";
 import Header from "../../../components/Header";
 import useSupabaseSession from "../../../hooks/useSupabaseSession";
 import { fetchBookingForViewer } from "../../../lib/bookings/viewerAccess";
+import type { ProvedorDisponivel } from "../../api/payments/providers";
 import {
   isBookingExpired,
   isExpiredPendingBooking,
@@ -46,6 +47,9 @@ const BookingDetails = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [headerSearch, setHeaderSearch] = useState("");
   const [passengers, setPassengers] = useState<PassengerDocument[]>([]);
+  // Quais meios de pagamento oferecer. Vem do servidor porque o que liga e
+  // desliga cada provedor é segredo do painel de integrações.
+  const [provedores, setProvedores] = useState<ProvedorDisponivel[]>([]);
 
   // Uma única forma de reler a reserva, usada pelo carregamento inicial e pelos
   // três pontos que atualizam depois (expiração, "atualizar status", retorno do
@@ -87,6 +91,24 @@ const BookingDetails = () => {
     void carregar();
   }, [accessToken, fetchBooking, isAuthenticated, isLoading, id, router]);
 
+  useEffect(() => {
+    let cancelado = false;
+
+    fetch("/api/payments/providers")
+      .then((resposta) => (resposta.ok ? resposta.json() : { providers: [] }))
+      .then((dados) => {
+        if (!cancelado) setProvedores(dados.providers ?? []);
+      })
+      // Falha aqui não pode tirar o botão de pagar da tela: sem resposta, a
+      // lista fica vazia e o botão único (que não manda provedor nenhum) volta
+      // ao comportamento de sempre — Stripe.
+      .catch(() => {});
+
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
   // Live tick so the payment countdown updates.
   useEffect(() => {
     const timer = setInterval(() => setNowTick(Date.now()), 1000);
@@ -126,7 +148,7 @@ const BookingDetails = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [booking, hasTriedExpire]);
 
-  const handlePayNow = async () => {
+  const handlePayNow = async (provider?: "stripe" | "infinitepay") => {
     if (!booking || !isPayablePendingBooking(booking)) return;
 
     setCheckoutError(null);
@@ -138,7 +160,14 @@ const BookingDetails = () => {
         headers: { "Content-Type": "application/json" },
         // O token vai junto: sem sessão, é ele que prova a posse da reserva
         // para o servidor abrir a cobrança.
-        body: JSON.stringify({ booking_id: booking.id, access_token: accessToken }),
+        body: JSON.stringify({
+          booking_id: booking.id,
+          access_token: accessToken,
+          // Omitido quando há um provedor só: a rota cai no padrão (Stripe).
+          // A escolha vir do navegador é seguro — ela não decide valor nenhum,
+          // o preço continua sendo recalculado no servidor.
+          provider,
+        }),
       });
       const payload = await response.json();
 
@@ -249,18 +278,41 @@ const BookingDetails = () => {
 
               {payable ? (
                 <div className="flex flex-wrap gap-3">
-                  <button
-                    className="rounded bg-orange-600 px-6 py-2.5 font-semibold text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-orange-300"
-                    disabled={isCreatingCheckout || documentosPendentes > 0}
-                    onClick={handlePayNow}
-                    type="button"
-                  >
-                    {isCreatingCheckout
-                      ? "Abrindo pagamento…"
-                      : booking.stripe_checkout_session_id
-                        ? "Tentar pagamento novamente"
-                        : "Pagar agora"}
-                  </button>
+                  {provedores.length > 1 ? (
+                    <div className="flex w-full flex-col gap-2">
+                      {provedores.map((provedor) => (
+                        <button
+                          className="flex w-full flex-col items-start rounded border border-orange-600 px-6 py-3 text-left font-semibold text-orange-700 hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-60 first:bg-orange-600 first:text-white first:hover:bg-orange-700"
+                          disabled={isCreatingCheckout || documentosPendentes > 0}
+                          key={provedor.id}
+                          onClick={() => handlePayNow(provedor.id)}
+                          type="button"
+                        >
+                          <span>
+                            {isCreatingCheckout
+                              ? "Abrindo pagamento…"
+                              : provedor.titulo}
+                          </span>
+                          <span className="text-sm font-normal opacity-80">
+                            {provedor.descricao}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <button
+                      className="rounded bg-orange-600 px-6 py-2.5 font-semibold text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-orange-300"
+                      disabled={isCreatingCheckout || documentosPendentes > 0}
+                      onClick={() => handlePayNow(provedores[0]?.id)}
+                      type="button"
+                    >
+                      {isCreatingCheckout
+                        ? "Abrindo pagamento…"
+                        : booking.stripe_checkout_session_id
+                          ? "Tentar pagamento novamente"
+                          : "Pagar agora"}
+                    </button>
+                  )}
                   {isProcessingPayment(booking) && (
                     <button
                       className="rounded border px-6 py-2.5 font-semibold hover:bg-gray-50"
