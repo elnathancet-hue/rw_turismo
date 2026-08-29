@@ -76,6 +76,20 @@ export const ensureUserProfile = async (
       ? user.user_metadata.picture
       : null;
 
+  // ANTES DE CRIAR, ADOTAR.
+  //
+  // A agência pode ter cadastrado esta pessoa antes (importação de planilha,
+  // venda no balcão) num perfil sem dono. Inserir outro bateria no unique de
+  // e-mail — e o erro se repetiria em toda tentativa de login, trancando a
+  // pessoa para fora do site permanentemente.
+  //
+  // A função no banco só age sobre a linha cujo e-mail é o do próprio token, e
+  // só quando ela não tem dono. Ver a migration adotar_perfil_sem_login.
+  const { data: adotado } = await (client as any).rpc("adotar_perfil_sem_login");
+  if (adotado) {
+    return (Array.isArray(adotado) ? adotado[0] : adotado) as UserProfile;
+  }
+
   const { data, error } = await profilesTable(client)
     .insert({
       user_id: user.id,
@@ -88,6 +102,19 @@ export const ensureUserProfile = async (
     .single();
 
   if (error) {
+    // 23505 = o e-mail já está em outro perfil. Pode ser corrida (duas abas
+    // criando o perfil ao mesmo tempo) ou um perfil que a adoção não alcançou
+    // — por exemplo um de equipe. Reler antes de desistir evita transformar
+    // uma corrida banal num bloqueio definitivo.
+    if ((error as { code?: string }).code === "23505") {
+      const recuperado = await getUserProfile(client, user.id);
+      if (recuperado) return recuperado;
+
+      throw new Error(
+        "Já existe um cadastro com este e-mail na agência. Fale com a gente para liberar o seu acesso."
+      );
+    }
+
     throw error;
   }
 

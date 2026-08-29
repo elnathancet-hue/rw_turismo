@@ -48,6 +48,7 @@ const NewManualBooking = () => {
 
   // Cliente
   const [customerUserId, setCustomerUserId] = useState<string | null>(null);
+  const [customerProfileId, setCustomerProfileId] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -127,6 +128,9 @@ const NewManualBooking = () => {
 
   const selectClient = (client: AdminClient) => {
     setCustomerUserId(client.user_id);
+    // A ficha, e não só a conta: o contato importado tem user_id vazio, e sem
+    // este id o servidor criaria uma segunda ficha da mesma pessoa.
+    setCustomerProfileId(client.id);
     setCustomerName(client.name ?? "");
     setCustomerEmail(client.email ?? "");
     setCustomerPhone(client.phone ?? "");
@@ -136,6 +140,7 @@ const NewManualBooking = () => {
 
   const clearClient = () => {
     setCustomerUserId(null);
+    setCustomerProfileId(null);
     setCustomerName("");
     setCustomerEmail("");
     setCustomerPhone("");
@@ -171,6 +176,7 @@ const NewManualBooking = () => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             customer_user_id: customerUserId,
+            customer_profile_id: customerProfileId,
             customer_name: customerName,
             customer_email: customerEmail,
             customer_phone: customerPhone || null,

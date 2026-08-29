@@ -23,6 +23,10 @@ export class CustomerAccountError extends Error {
 
 export type CustomerInput = {
   user_id?: string | null;
+  // Ficha que a agência já tem desta pessoa, quando ela foi escolhida numa
+  // lista. Importa para o contato SEM login: sem este id, dar um e-mail a ele
+  // criaria uma segunda ficha e a primeira ficaria órfã para sempre.
+  profile_id?: string | null;
   name: string;
   email: string;
   phone?: string | null;
@@ -41,13 +45,20 @@ const ensureProfile = async (
 
   if (existing) return;
 
-  await admin.from("users_profiles").insert({
+  const { error } = await admin.from("users_profiles").insert({
     user_id: userId,
     name: customer.name || null,
     email: customer.email,
     phone: customer.phone,
     role: "customer",
   });
+
+  if (error) {
+    throw new CustomerAccountError(
+      `Não foi possível criar o cadastro do cliente: ${error.message}`,
+      500
+    );
+  }
 };
 
 // Fallback para o caso raro de existir auth.users SEM users_profiles (ex.: o
@@ -97,13 +108,75 @@ export const resolveCustomerUserId = async (
     throw new CustomerAccountError("E-mail do cliente é obrigatório.", 400);
   }
 
-  // Caminho normal: o perfil tem e-mail único e indexado.
-  const { data: existing } = await admin
-    .from("users_profiles")
-    .select("user_id")
-    .eq("email", email)
-    .maybeSingle();
-  if (existing?.user_id) return existing.user_id;
+  // Ficha escolhida na tela tem prioridade sobre a busca por e-mail: é o único
+  // jeito de alcançar o contato que ainda não tem e-mail nenhum.
+  let existing: { id: string; user_id: string | null } | null = null;
+
+  if (input.profile_id) {
+    const { data } = await admin
+      .from("users_profiles")
+      .select("id, user_id, role")
+      .eq("id", input.profile_id)
+      .maybeSingle();
+
+    // Só ficha de cliente: promover um perfil de equipe por aqui daria a ele
+    // uma conta que ninguém pediu.
+    if (data && data.role === "customer") {
+      if (data.user_id) return data.user_id;
+      existing = data;
+    }
+  }
+
+  if (!existing) {
+    // Caminho normal: o perfil tem e-mail único e indexado.
+    const { data } = await admin
+      .from("users_profiles")
+      .select("id, user_id")
+      .eq("email", email)
+      .maybeSingle();
+    if (data?.user_id) return data.user_id;
+    existing = data ?? null;
+  }
+
+  // Perfil SEM dono com este e-mail: é alguém que a agência cadastrou e que
+  // nunca fez login. Criar um perfil novo bateria no unique de e-mail; criar
+  // só a conta deixaria a pessoa com duas fichas. O certo é dar dono ao que já
+  // existe — o service role passa pelo trigger que barra troca de user_id.
+  if (existing?.id) {
+    const { data: contaNova, error: erroDaConta } =
+      await admin.auth.admin.createUser({
+        email,
+        email_confirm: true,
+        user_metadata: { name },
+      });
+
+    const idDaConta =
+      contaNova?.user?.id ??
+      (erroDaConta ? await findAuthUserByEmail(admin, email) : null);
+
+    if (!idDaConta) {
+      throw new CustomerAccountError(
+        "Não foi possível criar o acesso deste cliente.",
+        502
+      );
+    }
+
+    const { error: erroAoAdotar } = await admin
+      .from("users_profiles")
+      .update({
+        user_id: idDaConta,
+        // O e-mail entra junto: a ficha escolhida na tela pode não ter nenhum,
+        // e é este o momento em que ela ganha um.
+        email,
+        ...(phone ? { phone } : {}),
+      })
+      .eq("id", existing.id)
+      .is("user_id", null);
+
+    if (erroAoAdotar) throw erroAoAdotar;
+
+    return idDaConta;
+  }
 
   const { data: created, error: createError } = await admin.auth.admin.createUser({
     email,

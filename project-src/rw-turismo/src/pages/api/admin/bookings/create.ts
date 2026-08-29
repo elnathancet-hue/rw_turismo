@@ -33,6 +33,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       admin_id: admin.userId,
       customer: {
         user_id: getString(body.customer_user_id) || null,
+        profile_id: getString(body.customer_profile_id) || null,
         name: getString(body.customer_name),
         email: getString(body.customer_email),
         phone: getString(body.customer_phone) || null,

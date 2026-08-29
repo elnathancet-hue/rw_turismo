@@ -112,7 +112,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       if (linha.idAlvo) {
         const { data } = await admin
           .from("users_profiles")
-          .select("id, name, email, phone, birth_date, document, role")
+          .select("id, name, email, phone, birth_date, document, role, user_id")
           .eq("id", linha.idAlvo)
           .maybeSingle();
         existente = data;
@@ -123,7 +123,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       if (!existente && email) {
         const { data } = await admin
           .from("users_profiles")
-          .select("id, name, email, phone, birth_date, document, role")
+          .select("id, name, email, phone, birth_date, document, role, user_id")
           .eq("email", email)
           .maybeSingle();
         existente = data;
@@ -196,10 +196,33 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       // é o estrago mais comum de importação de cadastro.
       const mudancas: Record<string, string> = {};
       if (nome) mudancas.name = nome;
-      // Completar o e-mail de quem não tinha é o único caso em que a
-      // importação pode dar login a alguém. A conta em si não é criada aqui —
-      // ela nasce quando a pessoa entrar pelo site com esse endereço.
-      if (email && !existente.email) mudancas.email = email;
+      // E-MAIL E CONTA ANDAM JUNTOS.
+      //
+      // Gravar o e-mail num perfil sem dono deixava a pessoa travada: ela não
+      // tem login, e ao tentar criar um o perfil novo bateria no unique de
+      // e-mail — a cada tentativa, para sempre. Então quando a planilha traz o
+      // e-mail de quem ainda não tem conta, a conta é criada aqui e o perfil
+      // ganha dono no mesmo movimento.
+      if (email && !existente.email) {
+        if (existente.user_id) {
+          mudancas.email = email;
+        } else {
+          const idDaConta = await resolveCustomerUserId(admin, {
+            user_id: null,
+            name: nome,
+            email,
+            phone: linha.phone,
+          });
+          // resolveCustomerUserId já adota o perfil órfão pelo e-mail. Se por
+          // algum motivo ele tiver adotado OUTRA linha, não sobrescrevemos —
+          // o update é condicionado a continuar sem dono.
+          await admin
+            .from("users_profiles")
+            .update({ user_id: idDaConta, email })
+            .eq("id", existente.id)
+            .is("user_id", null);
+        }
+      }
       if (linha.phone) mudancas.phone = linha.phone;
       if (linha.birth_date) mudancas.birth_date = linha.birth_date;
       if (linha.document) mudancas.document = linha.document;
