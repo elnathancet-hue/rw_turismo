@@ -232,114 +232,116 @@ export const CenaAbertura = () => {
     "sol",
     "longe",
     "meio",
-    "perto",
-    "estrada",
+    "agua",
+    "borda",
   ]);
 
   return (
     <svg className={estilos.fotoArte} role="presentation" viewBox="0 0 800 400">
       <defs>
         <linearGradient id={id.ceu} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="#2B4C7E" />
-          <stop offset="38%" stopColor="#6E8FB8" />
-          <stop offset="68%" stopColor="#DDA57C" />
-          <stop offset="100%" stopColor="#F6D9A8" />
+          <stop offset="0%" stopColor="#3E5A8C" />
+          <stop offset="34%" stopColor="#9A7FA6" />
+          <stop offset="62%" stopColor="#E0906B" />
+          <stop offset="100%" stopColor="#F7CE94" />
         </linearGradient>
         <radialGradient cx="50%" cy="50%" id={id.sol} r="50%">
-          <stop offset="0%" stopColor="#FFF4D6" />
-          <stop offset="45%" stopColor="#FFD9A0" stopOpacity=".55" />
-          <stop offset="100%" stopColor="#FFD9A0" stopOpacity="0" />
+          <stop offset="0%" stopColor="#FFF3D0" />
+          <stop offset="45%" stopColor="#FFC98A" stopOpacity=".5" />
+          <stop offset="100%" stopColor="#FFC98A" stopOpacity="0" />
         </radialGradient>
-        {/* Perspectiva atmosférica: quanto mais longe, mais claro e mais azul.
-            É isso que dá profundidade — sem o degradê as cristas viram
-            recortes chapados, um colado no outro. */}
+        {/* Perspectiva atmosférica: quanto mais longe, mais claro e mais
+            azulado. Sem isso as cristas viram recortes chapados. */}
         <linearGradient id={id.longe} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="#9FB3CC" />
-          <stop offset="100%" stopColor="#BFCEDC" />
+          <stop offset="0%" stopColor="#7C7FA0" />
+          <stop offset="100%" stopColor="#9FA3BC" />
         </linearGradient>
         <linearGradient id={id.meio} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="#5E7C74" />
-          <stop offset="100%" stopColor="#87A092" />
+          <stop offset="0%" stopColor="#4A5F63" />
+          <stop offset="100%" stopColor="#31474A" />
         </linearGradient>
-        <linearGradient id={id.perto} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="#3A5A3C" />
-          <stop offset="100%" stopColor="#1E3524" />
+        <linearGradient id={id.agua} x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="#7FCBD4" />
+          <stop offset="55%" stopColor="#3E96AC" />
+          <stop offset="100%" stopColor="#276C86" />
         </linearGradient>
-        <linearGradient id={id.estrada} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="#B9AFA4" />
-          <stop offset="100%" stopColor="#8A8078" />
+        <linearGradient id={id.borda} x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="#D9CBB4" />
+          <stop offset="100%" stopColor="#B3A188" />
         </linearGradient>
       </defs>
 
       <rect fill={`url(#${id.ceu})`} height="400" width="800" />
-      <circle cx="560" cy="212" fill={`url(#${id.sol})`} r="180" />
-      <circle cx="560" cy="214" fill="#FFF1CE" opacity=".95" r="26" />
+      <circle cx="548" cy="196" fill={`url(#${id.sol})`} r="170" />
+      <circle cx="548" cy="198" fill="#FFEFC2" r="30" />
 
-      {/* Nuvens compridas e finas, na altura do sol nascendo. */}
-      <rect fill="#E8B489" height="7" opacity=".5" rx="4" width="230" x="96" y="150" />
-      <rect fill="#E8B489" height="5" opacity=".38" rx="3" width="160" x="430" y="128" />
-      <rect fill="#F2CBA4" height="6" opacity=".45" rx="3" width="190" x="250" y="182" />
+      {/* Nuvens compridas cortando o poente. */}
+      <rect fill="#E9A67F" height="6" opacity=".5" rx="3" width="216" x="80" y="140" />
+      <rect fill="#F0BE95" height="5" opacity=".4" rx="3" width="150" x="430" y="120" />
 
-      {/* Crista distante. */}
+      {/* Cristas de topo chato: a Ibiapaba é chapada, não pico alpino. */}
       <path
-        d="M0 250 L96 244 L124 206 L286 200 L312 238 L438 232 L470 196 L638 190 L664 232 L800 226 L800 400 L0 400 Z"
+        d="M0 236 L104 230 L132 196 L292 190 L318 228 L446 222 L478 190 L648 184 L674 226 L800 220 L800 300 L0 300 Z"
         fill={`url(#${id.longe})`}
       />
-
-      {/* Névoa do vale: separa os planos melhor que qualquer linha. */}
-      <rect fill="#EFE2D2" height="34" opacity=".55" width="800" y="244" />
-
-      {/* Chapada do meio — o topo chato aparece aqui. */}
+      <rect fill="#F0DFC8" height="26" opacity=".45" width="800" y="230" />
       <path
-        d="M0 400 L0 292 L150 286 L182 254 L392 248 L420 284 L556 278 L588 246 L800 240 L800 400 Z"
+        d="M0 300 L0 268 L156 262 L188 236 L400 230 L428 262 L566 256 L598 232 L800 226 L800 300 Z"
         fill={`url(#${id.meio})`}
       />
-      <path
-        d="M0 292 L150 286 L182 254 L392 248 L420 284 L556 278 L588 246 L800 240"
-        fill="none"
-        opacity=".5"
-        stroke="#F3D6B4"
-        strokeWidth="2"
-      />
 
-      {/* Encosta em primeiro plano, já verde-escura. */}
+      {/* Borda da piscina e a água refletindo o pôr do sol. */}
+      <rect fill={`url(#${id.borda})`} height="22" width="800" y="292" />
+      <path d="M0 314 L800 314 L800 400 L0 400 Z" fill={`url(#${id.agua})`} />
+      <ellipse cx="548" cy="352" fill="#FFE3A8" opacity=".45" rx="60" ry="12" />
       <path
-        d="M0 400 L0 330 L128 322 L214 340 L352 326 L470 344 L620 328 L800 338 L800 400 Z"
-        fill={`url(#${id.perto})`}
-      />
-
-      {/* A estrada subindo: é o que transforma paisagem em viagem. */}
-      <path
-        d="M330 400 C 352 372, 300 356, 336 340 C 372 326, 452 336, 486 326"
-        fill="none"
-        stroke={`url(#${id.estrada})`}
+        d="M60 336 h120 M300 330 h90 M640 344 h108 M180 372 h150"
+        opacity=".38"
+        stroke="#DFF6F7"
         strokeLinecap="round"
-        strokeWidth="26"
-      />
-      <path
-        d="M330 400 C 352 372, 300 356, 336 340 C 372 326, 452 336, 486 326"
-        fill="none"
-        opacity=".55"
-        stroke="#F4EDE4"
-        strokeDasharray="10 16"
-        strokeLinecap="round"
-        strokeWidth="2"
+        strokeWidth="4"
       />
 
-      {/* Carnaúbas: a silhueta que diz "isto é o Piauí/Ceará", e não uma serra
-          genérica de banco de imagem. */}
-      <g fill="#16281B">
-        <path d="M92 400 L92 332 M92 336 c -22 -12, -34 -4, -40 6 M92 336 c 22 -12, 34 -4, 40 6 M92 344 c -16 -16, -30 -14, -38 -4 M92 344 c 16 -16, 30 -14, 38 -4" opacity="0" />
-        <rect height="70" rx="3" width="7" x="88" y="330" />
-        <ellipse cx="91" cy="330" rx="34" ry="10" />
-        <ellipse cx="76" cy="322" rx="22" ry="8" />
-        <ellipse cx="108" cy="324" rx="20" ry="8" />
-        <rect height="56" rx="3" width="6" x="142" y="344" />
-        <ellipse cx="145" cy="344" rx="26" ry="8" />
-        <ellipse cx="133" cy="338" rx="17" ry="6" />
-        <rect height="48" rx="3" width="5" x="702" y="352" />
-        <ellipse cx="704" cy="352" rx="23" ry="7" />
-        <ellipse cx="716" cy="347" rx="15" ry="6" />
+      {/* A pessoa boiando: cabeça, tronco e joelhos fora d'água, de costas
+          para quem olha. Sem rosto de propósito — a cena tem que servir para
+          qualquer pessoa que esteja lendo. */}
+      <g>
+        <ellipse cx="300" cy="346" fill="#1F5C70" opacity=".3" rx="96" ry="20" />
+        {/* boia */}
+        <ellipse cx="300" cy="340" fill="#F3F6F4" rx="74" ry="24" />
+        <ellipse cx="300" cy="338" fill={`url(#${id.agua})`} rx="46" ry="13" />
+        <path d="M226 340 a74 24 0 0 1 148 0" fill="none" stroke="#E15D4A" strokeWidth="7" />
+        {/* cabeça e ombros */}
+        <circle cx="300" cy="312" fill="#8A6141" r="17" />
+        <path d="M283 306 a17 17 0 0 1 34 0 z" fill="#2E2119" />
+        <path d="M272 330 h56" stroke="#8A6141" strokeLinecap="round" strokeWidth="9" />
+        {/* joelhos, um de cada lado */}
+        <ellipse cx="352" cy="330" fill="#8A6141" rx="13" ry="9" />
+        <ellipse cx="374" cy="336" fill="#8A6141" rx="11" ry="8" />
+      </g>
+
+      {/* Vegetação de borda, para a piscina não flutuar no nada. */}
+      <g fill="#20372C">
+        <rect height="34" rx="3" width="6" x="86" y="262" />
+        <ellipse cx="89" cy="262" rx="30" ry="9" />
+        <ellipse cx="74" cy="255" rx="19" ry="7" />
+        <rect height="28" rx="3" width="5" x="722" y="268" />
+        <ellipse cx="724" cy="268" rx="25" ry="8" />
+        <ellipse cx="736" cy="262" rx="16" ry="6" />
+      </g>
+
+      {/* Logo da RW dentro da imagem: é o que assina a cena quando ela circula
+          fora do site — print, story, compartilhamento no WhatsApp. */}
+      <g>
+        <rect fill="#FFFFFF" height="38" opacity=".92" rx="19" width="128" x="24" y="338" />
+        <image
+          height="24"
+          href="/rw-turismo-logo.png"
+          preserveAspectRatio="xMidYMid meet"
+          width="104"
+          x="36"
+          y="345"
+        />
       </g>
     </svg>
   );

@@ -14,29 +14,29 @@ export type Pergunta = { texto: string; opcoes: Opcao[] };
 
 export const PERGUNTAS: Pergunta[] = [
   {
-    texto: "Bate a vontade de sumir da rotina por uns dias. O que aparece primeiro na sua cabeça?",
+    texto: "Que cenário vem à sua mente quando você tem vontade de \"sumir\" da rotina por alguns dias?",
     opcoes: [
-      { texto: "Uma rede balançando, silêncio grosso, ninguém te chamando", peso: "R" },
-      { texto: "Um teleférico subindo a serra, o vento batendo no rosto", peso: "A" },
-      { texto: "Água fria de piscina natural, pés na pedra, tempo andando devagar", peso: "R" },
-      { texto: "Uma trilha te esperando, com uma vista que só existe pra quem sobe até ela", peso: "A" },
+      { texto: "Uma rede balançando, silêncio com a natureza e uma vista incrível", peso: "R" },
+      { texto: "Uma aventura com lugares históricos e atividades radicais", peso: "A" },
+      { texto: "Água fria de piscina natural, bons restaurantes pra comer bem", peso: "R" },
+      { texto: "Trilha, atividades e uma programação para se movimentar", peso: "A" },
     ],
   },
   {
     texto: "No feriado, seu corpo pede:",
     opcoes: [
       { texto: "Descansar até o despertador perder a função", peso: "R" },
-      { texto: "Se cansar de um jeito bom", peso: "A" },
+      { texto: "Gastar muita energia e descansar a mente", peso: "A" },
     ],
   },
   {
-    texto: "Se alguém te perguntasse o que você mais precisa agora, o que sairia primeiro?",
+    texto: "Se alguém te perguntasse: o que você mais precisa AGORA, o que seria?",
     opcoes: [
       { texto: "Silêncio", peso: "R" },
       { texto: "Adrenalina, nem que seja pouca", peso: "A" },
       { texto: "Parar de olhar pro celular", peso: "R" },
       { texto: "Sentir o coração acelerar de novo", peso: "A" },
-      { texto: "Um pouco dos dois, sinceramente", peso: "R+A" },
+      { texto: "Sinceramente, um pouco de tudo.", peso: "R+A" },
     ],
   },
   {
@@ -48,29 +48,60 @@ export const PERGUNTAS: Pergunta[] = [
     ],
   },
   {
-    texto: "Quem te acompanha nesse feriado também entra na conta. Juntos, vocês combinam mais com:",
+    texto: "Nesse feriado eu pretendo:",
     opcoes: [
-      { texto: "Ficar parados no mesmo lugar até alguém ter coragem de levantar", peso: "R" },
-      { texto: "Ir atrás de cada trilha e mirante que aparecer pela frente", peso: "A" },
-      { texto: "Alternar: uma hora parado, outra se mexendo", peso: "R+A" },
-      { texto: "Ainda não decidi quem vem comigo, mas já sei o que eu quero sentir", peso: "neutra" },
+      { texto: "Viajar só, pra curtir um tempo comigo ou conhecer pessoas novas", peso: "neutra" },
+      { texto: "Viajar com meu amor, ter nosso feriado juntos sem preocupações", peso: "neutra" },
+      { texto: "Viajar com minha família, onde meus filhos possam aproveitar bastante", peso: "neutra" },
+      { texto: "Ainda não decidi quem vem comigo, mas sei que desejo muito viajar", peso: "neutra" },
     ],
   },
   {
     texto: "Se o feriado inteiro tivesse só UM momento de verdade, qual seria:",
     opcoes: [
-      { texto: "A água fria da piscina natural batendo na pele, sem pressa de sair", peso: "R" },
-      { texto: "O balanço solto no mirante, os pés soltando do chão por um segundo", peso: "A" },
-      { texto: "O sol caindo atrás da serra, vendo tudo de uma vez, quieta", peso: "R" },
+      { texto: "Descansar bem, aproveitar cada segundo relaxando", peso: "R" },
+      { texto: "Estar em lugares lindos para renovar as energias (e as fotos do Instagram)", peso: "R+A" },
+      { texto: "Muita diversão e emoção, me movimentando bastante", peso: "A" },
     ],
   },
 ];
 
-export const LEITURAS: Record<Perfil, string> = {
-  "relaxar-dominante": "Suas respostas pediram mais silêncio do que movimento. E essa serra tem exatamente isso: piscina natural de pedra pra ficar parada até decidir sair, e um deck de frente pro entardecer pra não fazer mais nada além de olhar.",
-  "aventura-dominante": "Suas respostas pediram mais movimento do que pausa. E essa serra tem exatamente isso: teleférico cortando a mata, mirante com balanço solto no ar, um jeito de se cansar que não cansa.",
-  "equilibrio": "Suas respostas dividiram quase igual entre parar e se mexer. Essa serra foi feita pra isso: piscina natural numa parte do dia, teleférico e mirante na outra, sem forçar escolha."
+// Onde a pessoa cai na régua Descanso ←→ Aventura, em porcentagem da largura.
+// É a personalização visível do resultado: o texto abaixo é o mesmo para todo
+// mundo, e o que muda de pessoa para pessoa é o nome no título e este ponto.
+export const POSICAO_NA_REGUA: Record<Perfil, number> = {
+  "relaxar-dominante": 18,
+  equilibrio: 50,
+  "aventura-dominante": 82,
 };
+
+export const ROTULO_DA_REGUA: Record<Perfil, string> = {
+  "relaxar-dominante": "Mais descanso",
+  equilibrio: "Descanso e aventura, na mesma medida",
+  "aventura-dominante": "Mais aventura",
+};
+
+// O parágrafo de abertura do resultado. Igual para os três perfis: o que
+// personaliza é o nome e a posição na régua.
+export const LEITURA_PADRAO =
+  "Você quer sair da rotina e aproveitar o feriado de verdade, mas sem voltar precisando descansar do feriado. Este é um destino que mistura natureza, descanso e experiências diferentes, com movimento na medida certa.";
+
+// Os quatro motivos do bloco "Por que essa viagem combina com você?".
+export const MOTIVOS: string[] = [
+  "Paisagens, serra e experiências ao ar livre para realmente mudar de cenário.",
+  "Aventura na medida: teleférico, mirantes e passeios que deixam o feriado interessante.",
+  "Tempo para desacelerar: são 2 dias e 1 noite para sair da rotina sem precisar tirar vários dias de folga.",
+  "Pouca preocupação com organização: transporte, hospedagem e acompanhamento já fazem parte da viagem.",
+];
+
+// O que a viagem inclui, na ordem em que o cliente lê.
+export const A_VIAGEM: string[] = [
+  "Saída sábado, 5 de setembro",
+  "Retorno segunda, 7 de setembro",
+  "Transporte em ônibus categoria turística, com ar e WC",
+  "Hospedagem e transporte inclusos no pacote",
+  "Guia exclusivo acompanhando o grupo",
+];
 
 // Texto que entra na variavel {perfil} da mensagem de WhatsApp.
 export const PERFIL_TEXTO: Record<Perfil, string> = {

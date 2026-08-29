@@ -5,7 +5,8 @@ import {
   digitosDoTelefone,
   FOTOS,
   FOTOS_POR_PERFIL,
-  LEITURAS,
+  POSICAO_NA_REGUA,
+  ROTULO_DA_REGUA,
   mascararTelefone,
   montarLinkWhatsApp,
   montarMensagem,
@@ -24,8 +25,11 @@ describe("tabela de pesos das perguntas", () => {
     { R: 1, A: 1 },
     { R: 2, A: 2, "R+A": 1 },
     { R: 1, A: 1, "R+A": 1 },
-    { R: 1, A: 1, "R+A": 1, neutra: 1 },
-    { R: 2, A: 1 },
+    // Pergunta 5 nao pontua: as opcoes dizem com QUEM se viaja, e isso nao
+    // torna ninguem mais "descanso" ou mais "aventura". E segmentacao de
+    // venda, nao medicao de perfil.
+    { neutra: 4 },
+    { R: 1, "R+A": 1, A: 1 },
   ];
 
   it("são 6 perguntas", () => {
@@ -117,7 +121,9 @@ describe("varredura de todas as respostas possíveis", () => {
     const contagem: Record<string, number> = {};
     for (const respostas of combinacoes) {
       const perfil = calcularPerfil(respostas);
-      expect(LEITURAS[perfil]).toBeTruthy();
+      expect(POSICAO_NA_REGUA[perfil]).toBeGreaterThanOrEqual(0);
+      expect(POSICAO_NA_REGUA[perfil]).toBeLessThanOrEqual(100);
+      expect(ROTULO_DA_REGUA[perfil]).toBeTruthy();
       contagem[perfil] = (contagem[perfil] ?? 0) + 1;
     }
 

@@ -13,7 +13,11 @@ import {
   calcularPerfil,
   FOTOS,
   FOTOS_POR_PERFIL,
-  LEITURAS,
+  A_VIAGEM,
+  LEITURA_PADRAO,
+  MOTIVOS,
+  POSICAO_NA_REGUA,
+  ROTULO_DA_REGUA,
   mascararTelefone,
   montarLinkWhatsApp,
   nomeValido,
@@ -92,7 +96,7 @@ const Abertura = () => (
     <CenaAbertura />
     <span className={estilos.fotoSelo}>Simulação</span>
     <figcaption className={estilos.fotoLegenda}>
-      Serra da Ibiapaba, na divisa do Piauí com o Ceará
+      Piscina com vista da Serra da Ibiapaba, no fim da tarde
     </figcaption>
   </figure>
 );
@@ -255,6 +259,10 @@ const QuizFeriado = () => {
 
   const pergunta = PERGUNTAS[indice];
 
+  // Só o primeiro nome no título: "Maria, suas respostas..." soa como conversa;
+  // o nome completo soaria como cadastro.
+  const primeiroNome = nome.trim().split(" ").filter(Boolean)[0] ?? "";
+
   return (
     <>
       <Head>
@@ -296,13 +304,12 @@ const QuizFeriado = () => {
                 Feriado de 7 de setembro &middot; Saída já confirmada
               </p>
               <h1>
-                Descubra se o seu feriado pede silêncio ou adrenalina, e onde os dois
-                cabem juntos
+                Qual destino combina com você e com seu bolso no feriado 7 de
+                setembro?
               </h1>
               <p className={estilos.sub}>
-                São 6 perguntas rápidas sobre o seu jeito de aproveitar, não sobre
-                destino. No fim, a gente te mostra a serra que já tem saída certa pra
-                esse feriado, montada pra quem quer parar e pra quem quer se mexer
+                Responda essas perguntas rápidas e descubra qual experiência você
+                ainda pode viver sem preocupações neste feriadão.
               </p>
               <Abertura />
               <button
@@ -314,14 +321,13 @@ const QuizFeriado = () => {
                 }}
                 type="button"
               >
-                Quero ver meu feriado ideal
+                Começar o teste
                 <Seta />
               </button>
               <p className={estilos.micro}>
                 Leva menos de 2 minutos. Sem e-mail, sem pegadinha, sem ninguém ligando
                 sem avisar.
               </p>
-              <Assinatura />
             </div>
           </section>
         )}
@@ -369,8 +375,6 @@ const QuizFeriado = () => {
                   </li>
                 ))}
               </ul>
-
-              <Assinatura />
             </div>
             <p aria-live="polite" className={estilos.sr} role="status">
               {`Pergunta ${indice + 1} de 6. ${pergunta.texto}`}
@@ -407,18 +411,6 @@ const QuizFeriado = () => {
               <h2 ref={refCaptura} tabIndex={-1}>
                 Sua leitura já está pronta. Falta só um passo pra ver
               </h2>
-
-              <div className={estilos.corpo}>
-                <p>
-                  As respostas já mostraram se pesou mais silêncio ou movimento no seu
-                  feriado. Agora só falta saber pra quem mandar isso: seu nome, seu
-                  WhatsApp e, se quiser, de onde você embarca.
-                </p>
-                <p>
-                  Se sobrar vaga no ônibus dessa saída, é também por esse número que a
-                  equipe confirma direto com você, sem burocracia.
-                </p>
-              </div>
 
               <form className={estilos.form} noValidate onSubmit={aoEnviar}>
                 <div
@@ -511,7 +503,6 @@ const QuizFeriado = () => {
                 Sem spam, sem venda por telefone sem avisar. Só a confirmação da sua vaga
                 por onde você já usa: o WhatsApp.
               </p>
-              <Assinatura />
             </div>
           </section>
         )}
@@ -521,61 +512,55 @@ const QuizFeriado = () => {
             <div className={`${estilos.revelacao} ${estilos.entra}`}>
               <p className={estilos.olho}>Sua leitura</p>
               <h2 ref={refResultado} tabIndex={-1}>
-                A pausa que você estava pedindo tem endereço: Serra da Ibiapaba
+                {primeiroNome ? `${primeiroNome}, suas` : "Suas"} respostas mostram
+                que a Serra da Ibiapaba combina com o feriado que você quer viver.
               </h2>
-              <p className={estilos.sub}>
-                Sítio do Bosco, Lapa e Ubajara, no feriado de 7 de setembro, saindo no
-                sábado à noite e voltando na segunda à tarde
-              </p>
 
-              <p
-                className={estilos.leitura}
-                style={{ ["--polo" as string]: POLO_COR[perfil] }}
-              >
-                {LEITURAS[perfil]}
-              </p>
+              <p className={estilos.sub}>{LEITURA_PADRAO}</p>
 
-              <Fotos letras={FOTOS_POR_PERFIL[perfil]} />
-
-              <div className={estilos.corpo}>
-                <p>
-                  Você embarca no sábado à noite, poltrona reclinada, ar ligado, e dorme
-                  com a estrada passando embaixo. Acorda já subindo a serra, o vidro
-                  embaçando, o verde tomando o lugar da cidade.
-                </p>
-                <p>
-                  Ali fica a divisa entre Piauí e Ceará, o pedaço de serra mais perto de
-                  quem sai de Teresina. É nele que o feriado inteiro acontece. Água fria
-                  batendo na pele. Teleférico cortando a mata. E o sol caindo atrás da
-                  serra na última tarde, antes de voltar pra casa.
+              {/* A régua é o que personaliza o resultado visualmente: o texto
+                  acima é o mesmo para todo mundo, e o ponto abaixo é o que muda
+                  conforme as respostas. */}
+              <div className={estilos.regua}>
+                <div className={estilos.reguaTrilho}>
+                  <span
+                    className={estilos.reguaMarca}
+                    style={{ left: `${POSICAO_NA_REGUA[perfil]}%` }}
+                  >
+                    <span aria-hidden="true">😍</span>
+                  </span>
+                </div>
+                <div className={estilos.reguaPontas}>
+                  <span>Descanso</span>
+                  <span>Aventura</span>
+                </div>
+                <p aria-live="polite" className={estilos.reguaRotulo}>
+                  {ROTULO_DA_REGUA[perfil]}
                 </p>
               </div>
 
               <div className={estilos.bloco}>
-                <h3>A viagem por dentro</h3>
-                <ul className={estilos.itens}>
-                  <li>Saída no sábado, 5 de setembro, às 22h30</li>
-                  <li>Retorno na segunda, 7 de setembro, às 17h</li>
-                  <li>2 noites e 3 dias</li>
-                  <li>Translado de ida e volta em ônibus categoria turística, com ar e WC</li>
-                  <li>Hospedagem inclusa</li>
-                  <li>Guia acompanhando o grupo do embarque ao retorno</li>
+                <h3>Por que essa viagem combina com você?</h3>
+                <ul className={estilos.motivos}>
+                  {MOTIVOS.map((motivo) => (
+                    <li key={motivo}>{motivo}</li>
+                  ))}
                 </ul>
               </div>
 
+              <Fotos letras={FOTOS_POR_PERFIL[perfil]} />
+
               <div className={estilos.bloco}>
-                <div className={estilos.preco}>
-                  <strong>10x de R$ 51,21 no cartão.</strong>
-                  <span>
-                    Cinquenta e um reais e vinte e um centavos por mês pra resolver
-                    hospedagem e translado dessa serra inteira.
-                  </span>
-                </div>
-                <p className={estilos.micro}>
-                  Entradas, passeios e alimentação podem ser cobrados à parte. Isso é
-                  confirmado com você pelo WhatsApp antes de fechar qualquer coisa, sem
-                  letra miúda.
+                <h3>Seu destino</h3>
+                <p className={estilos.destino}>Serra da Ibiapaba</p>
+                <p className={estilos.destinoSub}>
+                  Sítio do Bosco + Lapa + Ubajara
                 </p>
+                <ul className={estilos.itens}>
+                  {A_VIAGEM.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
               </div>
 
               <p className={estilos.selo}>
@@ -590,7 +575,7 @@ const QuizFeriado = () => {
                   rel="noopener noreferrer"
                   target="_blank"
                 >
-                  Quero essa poltrona
+                  QUERO conhecer a viagem
                   <Seta />
                 </a>
                 <p className={estilos.micro}>
@@ -607,6 +592,7 @@ const QuizFeriado = () => {
             </div>
           </section>
         )}
+
       </main>
     </>
   );

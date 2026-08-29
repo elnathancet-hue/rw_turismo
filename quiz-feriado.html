@@ -468,15 +468,15 @@ p{ margin:0 }
   <section class="tela ativa" id="tela-abertura" aria-labelledby="t-abertura">
     <div class="col entra">
       <p class="olho">Feriado de 7 de setembro &middot; Saída já confirmada</p>
-      <h1 id="t-abertura">Descubra se o seu feriado pede silêncio ou adrenalina, e onde os dois cabem juntos</h1>
-      <p class="sub">São 6 perguntas rápidas sobre o seu jeito de aproveitar, não sobre destino. No fim, a gente te mostra a serra que já tem saída certa pra esse feriado, montada pra quem quer parar e pra quem quer se mexer</p>
+      <h1 id="t-abertura">Qual destino combina com você e com seu bolso no feriado 7 de setembro?</h1>
+      <p class="sub">Responda essas perguntas rápidas e descubra qual experiência você ainda pode viver sem preocupações neste feriadão.</p>
       <div class="fotos fotos-larga">
         <div class="foto" data-letra="A">
           <p>Balanço/mirante com vista para a serra</p>
         </div>
       </div>
       <button type="button" class="acao" id="btn-comecar">
-        Quero ver meu feriado ideal
+        Começar o teste
         <svg class="seta" width="15" height="10" viewBox="0 0 15 10" fill="none" aria-hidden="true"><path d="M1 5h12M9 1l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="square"/></svg>
       </button>
       <p class="micro">Leva menos de 2 minutos. Sem e-mail, sem pegadinha, sem ninguém ligando sem avisar.</p>
@@ -601,7 +601,7 @@ p{ margin:0 }
 
       <div class="apoio">
         <a class="acao" id="cta-whatsapp" href="#" target="_blank" rel="noopener noreferrer">
-          Quero essa poltrona
+          QUERO conhecer a viagem
           <svg class="seta" width="15" height="10" viewBox="0 0 15 10" fill="none" aria-hidden="true"><path d="M1 5h12M9 1l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="square"/></svg>
         </a>
         <p class="micro">Você cai direto no WhatsApp, com a mensagem já escrita. É só conferir e mandar.</p>
@@ -634,29 +634,29 @@ p{ margin:0 }
      ===================================================================== */
   var PERGUNTAS = [
     {
-      texto: 'Bate a vontade de sumir da rotina por uns dias. O que aparece primeiro na sua cabeça?',
+      texto: 'Que cenário vem à sua mente quando você tem vontade de "sumir" da rotina por alguns dias?',
       opcoes: [
-        ['Uma rede balançando, silêncio grosso, ninguém te chamando', 'R'],
-        ['Um teleférico subindo a serra, o vento batendo no rosto', 'A'],
-        ['Água fria de piscina natural, pés na pedra, tempo andando devagar', 'R'],
-        ['Uma trilha te esperando, com uma vista que só existe pra quem sobe até ela', 'A']
+        ['Uma rede balançando, silêncio com a natureza e uma vista incrível', 'R'],
+        ['Uma aventura com lugares históricos e atividades radicais', 'A'],
+        ['Água fria de piscina natural, bons restaurantes pra comer bem', 'R'],
+        ['Trilha, atividades e uma programação para se movimentar', 'A']
       ]
     },
     {
       texto: 'No feriado, seu corpo pede:',
       opcoes: [
         ['Descansar até o despertador perder a função', 'R'],
-        ['Se cansar de um jeito bom', 'A']
+        ['Gastar muita energia e descansar a mente', 'A']
       ]
     },
     {
-      texto: 'Se alguém te perguntasse o que você mais precisa agora, o que sairia primeiro?',
+      texto: 'Se alguém te perguntasse: o que você mais precisa AGORA, o que seria?',
       opcoes: [
         ['Silêncio', 'R'],
         ['Adrenalina, nem que seja pouca', 'A'],
         ['Parar de olhar pro celular', 'R'],
         ['Sentir o coração acelerar de novo', 'A'],
-        ['Um pouco dos dois, sinceramente', 'R+A']
+        ['Sinceramente, um pouco de tudo.', 'R+A']
       ]
     },
     {
@@ -668,20 +668,20 @@ p{ margin:0 }
       ]
     },
     {
-      texto: 'Quem te acompanha nesse feriado também entra na conta. Juntos, vocês combinam mais com:',
+      texto: 'Nesse feriado eu pretendo:',
       opcoes: [
-        ['Ficar parados no mesmo lugar até alguém ter coragem de levantar', 'R'],
-        ['Ir atrás de cada trilha e mirante que aparecer pela frente', 'A'],
-        ['Alternar: uma hora parado, outra se mexendo', 'R+A'],
-        ['Ainda não decidi quem vem comigo, mas já sei o que eu quero sentir', 'neutra']
+        ['Viajar só, pra curtir um tempo comigo ou conhecer pessoas novas', 'R'],
+        ['Viajar com meu amor, ter nosso feriado juntos sem preocupações', 'A'],
+        ['Viajar com minha família, onde meus filhos possam aproveitar bastante', 'R+A'],
+        ['Ainda não decidi quem vem comigo, mas sei que desejo muito viajar', 'neutra']
       ]
     },
     {
       texto: 'Se o feriado inteiro tivesse só UM momento de verdade, qual seria:',
       opcoes: [
-        ['A água fria da piscina natural batendo na pele, sem pressa de sair', 'R'],
-        ['O balanço solto no mirante, os pés soltando do chão por um segundo', 'A'],
-        ['O sol caindo atrás da serra, vendo tudo de uma vez, quieta', 'R']
+        ['Descansar bem, aproveitar cada segundo relaxando', 'R'],
+        ['Estar em lugares lindos para renovar as energias (e as fotos do Instagram)', 'A'],
+        ['Muita diversão e emoção, me movimentando bastante', 'R']
       ]
     }
   ];
@@ -1050,5 +1050,23 @@ p{ margin:0 }
   raiz.setAttribute('data-ceu', '0');
 })();
 </script>
+
+<!-- Copy do resultado, revisada em 2026-08-29 (correcoes por imagem).
+     O paragrafo agora e o mesmo para os 3 perfis: o que personaliza e o nome
+     no titulo e a posicao na regua Descanso <-> Aventura. -->
+<div hidden data-copy="resultado-2026-08-29">
+  <p>suas respostas mostram que a Serra da Ibiapaba combina com o feriado que você quer viver.</p>
+  <p>Você quer sair da rotina e aproveitar o feriado de verdade, mas sem voltar precisando descansar do feriado. Este é um destino que mistura natureza, descanso e experiências diferentes, com movimento na medida certa.</p>
+  <p>Por que essa viagem combina com você?</p>
+  <p>Paisagens, serra e experiências ao ar livre para realmente mudar de cenário.</p>
+  <p>Aventura na medida: teleférico, mirantes e passeios que deixam o feriado interessante.</p>
+  <p>Tempo para desacelerar: são 2 dias e 1 noite para sair da rotina sem precisar tirar vários dias de folga.</p>
+  <p>Pouca preocupação com organização: transporte, hospedagem e acompanhamento já fazem parte da viagem.</p>
+  <p>Descanso e aventura, na mesma medida</p>
+  <p>Sítio do Bosco + Lapa + Ubajara</p>
+  <p>Transporte em ônibus categoria turística, com ar e WC</p>
+  <p>Hospedagem e transporte inclusos no pacote</p>
+  <p>Guia exclusivo acompanhando o grupo</p>
+</div>
 </body>
 </html>

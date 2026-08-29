@@ -75,7 +75,12 @@ const exigirCopyAprovada = (tela: string, raiz: HTMLElement) => {
   const blocos = blocosDe(raiz);
   expect(blocos.length).toBeGreaterThan(0);
   for (const bloco of blocos) {
-    if (!STANDALONE.includes(bloco)) {
+    // O título do resultado é personalizado ("Marina, suas respostas...") e
+    // nunca vai existir como literal em arquivo nenhum. A parte que precisa
+    // estar aprovada é a que vem depois do nome — o resto é o nome que a
+    // própria pessoa digitou.
+    const semNome = bloco.replace(/^[^,]{1,40}, /, "");
+    if (!STANDALONE.includes(bloco) && !STANDALONE.includes(semNome)) {
       throw new Error(
         `Copy da tela "${tela}" não existe no quiz-feriado.html aprovado:\n  ${bloco}`
       );
@@ -83,8 +88,15 @@ const exigirCopyAprovada = (tela: string, raiz: HTMLElement) => {
   }
 };
 
-// "@rwturismo.pi" é a única menção permitida (seção 7). Tirando ela do texto,
-// qualquer sobra de "rw turismo" / "rwturismo" é vazamento de marca.
+// A regra mudou em 2026-08-29, por decisão do cliente: a página passou a ser
+// assinada pela marca — logo no topo, logo dentro da imagem de abertura e a
+// assinatura no resultado. A antiga "seção 7", que proibia nome e logo em
+// qualquer lugar, não vale mais.
+//
+// O que continua guardado é outra coisa, e mais concreta: a marca aparece como
+// IMAGEM, e não como texto solto no meio do conteúdo. Nome da agência escrito
+// à mão dentro de um SVG (foi o que aconteceu aqui uma vez) cria uma marca
+// falsa, com outra fonte, e ainda entra no texto da página como se fosse copy.
 const semAssinatura = (texto: string): string => texto.split("@rwturismo.pi").join(" ");
 
 const responderTudo = (escolha: (total: number) => number) => {
@@ -138,8 +150,10 @@ afterEach(() => {
 
 describe("o arquivo de referência", () => {
   it("é o standalone aprovado, com a copy dentro", () => {
-    expect(STANDALONE).toContain("Descubra se o seu feriado pede silêncio ou adrenalina");
-    expect(STANDALONE).toContain("A pausa que você estava pedindo tem endereço");
+    expect(STANDALONE).toContain("Qual destino combina com você e com seu bolso");
+    expect(STANDALONE).toContain(
+      "a Serra da Ibiapaba combina com o feriado que você quer viver"
+    );
   });
 });
 
@@ -148,13 +162,13 @@ describe("paridade de copy com o standalone aprovado", () => {
     const { container } = render(<QuizFeriado />);
     exigirCopyAprovada("abertura", container);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
-      "Descubra se o seu feriado pede silêncio ou adrenalina, e onde os dois cabem juntos"
+      "Qual destino combina com você e com seu bolso no feriado 7 de setembro?"
     );
   });
 
   it("cada uma das 6 perguntas só mostra copy aprovada", () => {
     const { container } = render(<QuizFeriado />);
-    fireEvent.click(screen.getByRole("button", { name: /quero ver meu feriado ideal/i }));
+    fireEvent.click(screen.getByRole("button", { name: /começar o teste/i }));
 
     for (let pergunta = 0; pergunta < PERGUNTAS.length; pergunta++) {
       exigirCopyAprovada(`pergunta ${pergunta + 1}`, container);
@@ -175,7 +189,7 @@ describe("paridade de copy com o standalone aprovado", () => {
 
   it("captura e resultado só mostram copy aprovada", () => {
     const { container } = render(<QuizFeriado />);
-    fireEvent.click(screen.getByRole("button", { name: /quero ver meu feriado ideal/i }));
+    fireEvent.click(screen.getByRole("button", { name: /começar o teste/i }));
     responderTudo(() => 0);
     passarPelaTransicao();
 
@@ -189,14 +203,14 @@ describe("paridade de copy com o standalone aprovado", () => {
 });
 
 describe("regras bloqueantes na página renderizada", () => {
-  it("o nome da agência nunca aparece, em nenhuma tela", () => {
+  it("a marca aparece como logo, nunca como texto solto", () => {
     const { container } = render(<QuizFeriado />);
     const visto: string[] = [];
 
     const anotar = () => visto.push(container.textContent ?? "");
 
     anotar();
-    fireEvent.click(screen.getByRole("button", { name: /quero ver meu feriado ideal/i }));
+    fireEvent.click(screen.getByRole("button", { name: /começar o teste/i }));
     responderTudo(() => 0);
     anotar();
     passarPelaTransicao();
@@ -213,41 +227,42 @@ describe("regras bloqueantes na página renderizada", () => {
 
   it("a única cifra exibida é a parcela aprovada", () => {
     const { container } = render(<QuizFeriado />);
-    fireEvent.click(screen.getByRole("button", { name: /quero ver meu feriado ideal/i }));
+    fireEvent.click(screen.getByRole("button", { name: /começar o teste/i }));
     responderTudo(() => 0);
     passarPelaTransicao();
     preencher("Marina Costa Lima", "86999207088");
     fireEvent.click(screen.getByRole("button", { name: /revelar meu feriado/i }));
 
     const cifras = (container.textContent ?? "").match(/R\$\s?[\d.,]+/g) ?? [];
-    // Array.from em vez de espalhar o Set: o target do tsconfig é es5.
-    expect(Array.from(new Set(cifras))).toEqual(["R$ 51,21"]);
+    // NENHUMA cifra na página, de propósito: enquanto a cobrança não parcelar
+    // de verdade, anunciar "10x de R$ X" aqui é prometer o que não se cumpre.
+    expect(cifras).toEqual([]);
   });
 
-  it("a assinatura aparece nas telas de conteúdo e não na transição", () => {
+  it("a assinatura aparece só no resultado", () => {
     const { container } = render(<QuizFeriado />);
     const contar = () => (container.textContent ?? "").split("@rwturismo.pi").length - 1;
 
-    expect(contar()).toBe(1); // abertura
-    fireEvent.click(screen.getByRole("button", { name: /quero ver meu feriado ideal/i }));
-    expect(contar()).toBe(1); // bloco de perguntas
+    expect(contar()).toBe(0); // abertura: quem assina é a logo do topo
+    fireEvent.click(screen.getByRole("button", { name: /começar o teste/i }));
+    expect(contar()).toBe(0); // bloco de perguntas
 
     responderTudo(() => 0);
-    expect(contar()).toBe(0); // transição: só as três linhas, como a espec manda
+    expect(contar()).toBe(0); // transição
 
     passarPelaTransicao();
-    expect(contar()).toBe(1); // captura
+    expect(contar()).toBe(0); // captura
 
     preencher("Marina Costa Lima", "86999207088");
     fireEvent.click(screen.getByRole("button", { name: /revelar meu feriado/i }));
-    expect(contar()).toBe(1); // resultado
+    expect(contar()).toBe(1); // resultado: a única tela que assina
   });
 });
 
 describe("o portão da captura", () => {
   const chegarNaCaptura = () => {
     render(<QuizFeriado />);
-    fireEvent.click(screen.getByRole("button", { name: /quero ver meu feriado ideal/i }));
+    fireEvent.click(screen.getByRole("button", { name: /começar o teste/i }));
     responderTudo(() => 0);
     passarPelaTransicao();
   };
@@ -256,7 +271,7 @@ describe("o portão da captura", () => {
     chegarNaCaptura();
     fireEvent.click(screen.getByRole("button", { name: /revelar meu feriado/i }));
 
-    expect(screen.queryByText(/tem endereço: Serra da Ibiapaba/i)).toBeNull();
+    expect(screen.queryByText(/combina com o feriado que você quer viver/i)).toBeNull();
     expect(screen.getByText("Escreva seu nome e o sobrenome.")).toBeInTheDocument();
     expect(enviarLead).not.toHaveBeenCalled();
   });
@@ -266,7 +281,7 @@ describe("o portão da captura", () => {
     preencher("Marina", "86999207088");
     fireEvent.click(screen.getByRole("button", { name: /revelar meu feriado/i }));
 
-    expect(screen.queryByText(/tem endereço: Serra da Ibiapaba/i)).toBeNull();
+    expect(screen.queryByText(/combina com o feriado que você quer viver/i)).toBeNull();
     expect(enviarLead).not.toHaveBeenCalled();
   });
 
@@ -275,7 +290,7 @@ describe("o portão da captura", () => {
     preencher("Marina Costa Lima", "8699920");
     fireEvent.click(screen.getByRole("button", { name: /revelar meu feriado/i }));
 
-    expect(screen.queryByText(/tem endereço: Serra da Ibiapaba/i)).toBeNull();
+    expect(screen.queryByText(/combina com o feriado que você quer viver/i)).toBeNull();
     expect(enviarLead).not.toHaveBeenCalled();
   });
 
@@ -293,14 +308,14 @@ describe("o portão da captura", () => {
     preencher("Marina Costa Lima", "86999207088");
     fireEvent.click(screen.getByRole("button", { name: /revelar meu feriado/i }));
 
-    expect(screen.getByText(/tem endereço: Serra da Ibiapaba/i)).toBeInTheDocument();
+    expect(screen.getByText(/combina com o feriado que você quer viver/i)).toBeInTheDocument();
   });
 });
 
 describe("o lead no CRM", () => {
   const concluir = (cidade = "Teresina") => {
     render(<QuizFeriado />);
-    fireEvent.click(screen.getByRole("button", { name: /quero ver meu feriado ideal/i }));
+    fireEvent.click(screen.getByRole("button", { name: /começar o teste/i }));
     // Índice 1 em toda pergunta puxa para o lado da aventura.
     responderTudo((total) => Math.min(1, total - 1));
     passarPelaTransicao();
@@ -334,20 +349,20 @@ describe("o lead no CRM", () => {
   it("se o CRM falhar, o resultado aparece do mesmo jeito", () => {
     enviarLead.mockRejectedValue(new Error("supabase fora do ar"));
     concluir();
-    expect(screen.getByText(/tem endereço: Serra da Ibiapaba/i)).toBeInTheDocument();
+    expect(screen.getByText(/combina com o feriado que você quer viver/i)).toBeInTheDocument();
   });
 });
 
 describe("o CTA do WhatsApp", () => {
   it("abre em nova aba com a mensagem do perfil calculado", () => {
     render(<QuizFeriado />);
-    fireEvent.click(screen.getByRole("button", { name: /quero ver meu feriado ideal/i }));
+    fireEvent.click(screen.getByRole("button", { name: /começar o teste/i }));
     responderTudo(() => 0);
     passarPelaTransicao();
     preencher("Marina Costa Lima", "86999207088", "Teresina");
     fireEvent.click(screen.getByRole("button", { name: /revelar meu feriado/i }));
 
-    const cta = screen.getByRole("link", { name: /quero essa poltrona/i });
+    const cta = screen.getByRole("link", { name: /quero conhecer a viagem/i });
     expect(cta).toHaveAttribute("target", "_blank");
     expect(cta).toHaveAttribute("rel", "noopener noreferrer");
 
