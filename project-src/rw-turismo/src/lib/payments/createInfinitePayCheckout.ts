@@ -105,6 +105,25 @@ export const createInfinitePayCheckout = async (
     throw erro;
   }
 
+  // Sem identificar a fatura, NAO abrimos a cobrança.
+  //
+  // O slug é a única defesa contra replay: sem ele gravado, o webhook não teria
+  // como recusar um aviso que aponte para outra fatura, e alguém poderia pagar
+  // R$ 1,00 numa cobrança própria e reapresentar aquela prova aqui.
+  //
+  // Recusar neste ponto é barato: ninguém pagou nada ainda, e o erro aparece
+  // para a operação em vez de virar fraude silenciosa mais tarde.
+  if (!link.slug) {
+    console.error("infinitepay: link criado sem slug identificável", {
+      url: link.url,
+      resposta: link.respostaBruta,
+    });
+    throw new InternalCheckoutError(
+      "Não foi possível abrir a cobrança com segurança. Tente pagar pelo cartão ou fale com a gente.",
+      502
+    );
+  }
+
   // Grava a fatura ANTES de devolver a URL ao cliente.
   //
   // É esta linha que sustenta a defesa contra replay: o webhook não tem

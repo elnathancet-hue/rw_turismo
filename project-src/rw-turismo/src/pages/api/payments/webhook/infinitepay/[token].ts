@@ -98,7 +98,28 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   // ele responde "pago" e uma reserva de centenas de reais é confirmada por
   // R$ 1,00. O slug que gravamos ao criar a cobrança é o que fecha essa porta.
   const slugEsperado = texto(pagamentoNoBanco.infinitepay_invoice_slug);
-  if (slugEsperado && slugRecebido && slugRecebido !== slugEsperado) {
+
+  // Fecha na ausência, e não só na divergência.
+  //
+  // Antes, um pagamento sem slug gravado caía no slug que o PRÓPRIO aviso
+  // trouxe — ou seja, a defesa contra replay se desligava sozinha exatamente
+  // no caso em que ela não tinha como funcionar. Como a criação da cobrança
+  // agora recusa abrir sem slug, chegar aqui sem ele significa dado corrompido
+  // ou aviso forjado. Nos dois casos, não confirma.
+  if (!slugEsperado) {
+    console.error("infinitepay webhook para cobrança sem fatura gravada", {
+      orderNsu,
+    });
+    await supabase.from("system_logs").insert({
+      action: "infinitepay_sem_slug_gravado",
+      entity: "payment",
+      entity_id: pagamentoNoBanco.id,
+      metadata: { slug_recebido: slugRecebido },
+    });
+    return res.status(200).json({ received: true, ignored: "sem fatura gravada" });
+  }
+
+  if (slugRecebido && slugRecebido !== slugEsperado) {
     console.error("infinitepay webhook com fatura divergente", {
       orderNsu,
       slugEsperado,
@@ -113,11 +134,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     return res.status(200).json({ received: true, ignored: "fatura divergente" });
   }
 
-  const slug = slugEsperado || slugRecebido;
-  if (!slug) {
-    console.warn("infinitepay webhook sem slug e sem slug gravado", { orderNsu });
-    return res.status(200).json({ received: true, ignored: "sem fatura" });
-  }
+  const slug = slugEsperado;
 
   // Trava de idempotência pela TRANSAÇÃO, não pelo pedido: order_nsu é o mesmo
   // nas duas cobranças de um pagamento em dobro, e a trava confundiria "pagou
