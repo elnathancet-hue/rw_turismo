@@ -1,12 +1,13 @@
 import Link from "next/link";
 
-type TabKey = "checkin" | "seats" | "rooms" | "transfers";
+type TabKey = "checkin" | "seats" | "rooms" | "transfers" | "importar";
 
 const tabs: { key: TabKey; label: string; suffix: string }[] = [
   { key: "checkin", label: "Check-in & Pax", suffix: "" },
   { key: "seats", label: "Assentos", suffix: "/seats" },
   { key: "rooms", label: "Quartos", suffix: "/rooms" },
   { key: "transfers", label: "Transfers", suffix: "/transfers" },
+  { key: "importar", label: "Importar lista", suffix: "/importar" },
 ];
 
 const DepartureTabs = ({ id, active }: { id: string; active: TabKey }) => (
