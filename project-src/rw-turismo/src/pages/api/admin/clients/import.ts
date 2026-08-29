@@ -20,13 +20,18 @@ import { createSupabaseAdminClient } from "../../../../lib/supabase/admin";
 
 type LinhaParaGravar = {
   numeroNoArquivo: number;
-  email: string;
+  // Vazio quando a pessoa não tem e-mail: entra como contato, sem login.
+  email: string | null;
   name: string;
   phone: string | null;
   birth_date: string | null;
   document: string | null;
   // "novo" cria; "existente" só atualiza o que a planilha traz preenchido.
   acao: "criar" | "atualizar";
+  // Quem a conferência identificou como sendo esta pessoa. A tela compara só os
+  // dígitos de documento e telefone, coisa que o banco não faz por igualdade —
+  // por isso o id vem de lá em vez de ser procurado de novo aqui.
+  idAlvo?: string | null;
 };
 
 type Resultado = {
@@ -92,22 +97,37 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     const email = texto(linha.email).toLowerCase();
     const nome = texto(linha.name);
 
-    if (!email || !nome) {
+    if (!nome) {
       resultado.falhas.push({
         numeroNoArquivo: linha.numeroNoArquivo,
         email,
-        motivo: "e-mail ou nome vazio",
+        motivo: "nome vazio",
       });
       continue;
     }
 
     try {
-      // Revalidação: o estado de agora manda, não o da conferência.
-      const { data: existente } = await admin
-        .from("users_profiles")
-        .select("id, name, phone, birth_date, document, role")
-        .eq("email", email)
-        .maybeSingle();
+      let existente: any = null;
+
+      if (linha.idAlvo) {
+        const { data } = await admin
+          .from("users_profiles")
+          .select("id, name, email, phone, birth_date, document, role")
+          .eq("id", linha.idAlvo)
+          .maybeSingle();
+        existente = data;
+      }
+
+      // Mesmo para linha nova: alguem pode ter se cadastrado sozinho no site
+      // com este e-mail entre a conferencia e o clique.
+      if (!existente && email) {
+        const { data } = await admin
+          .from("users_profiles")
+          .select("id, name, email, phone, birth_date, document, role")
+          .eq("email", email)
+          .maybeSingle();
+        existente = data;
+      }
 
       // Nunca mexer em conta de equipe por importação de cliente. Um e-mail de
       // funcionário numa planilha de mala direta sobrescreveria o cadastro dele
@@ -122,25 +142,41 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       }
 
       if (!existente) {
-        // Cria a conta e o perfil. É a mesma função que a reserva manual e o
-        // checkout do site usam — sem senha, com o e-mail já confirmado.
-        await resolveCustomerUserId(admin, {
-          user_id: null,
-          name: nome,
-          email,
-          phone: linha.phone,
-        });
+        if (email) {
+          // COM e-mail: cria a conta de login também. É a mesma função que a
+          // reserva manual e o checkout usam — sem senha, e-mail já confirmado.
+          await resolveCustomerUserId(admin, {
+            user_id: null,
+            name: nome,
+            email,
+            phone: linha.phone,
+          });
 
-        // Nascimento e documento não passam por resolveCustomerUserId: ela
-        // cuida de identidade, não de cadastro.
-        if (linha.birth_date || linha.document) {
-          await admin
-            .from("users_profiles")
-            .update({
-              birth_date: linha.birth_date || null,
-              document: linha.document || null,
-            })
-            .eq("email", email);
+          // Nascimento e documento não passam por resolveCustomerUserId: ela
+          // cuida de identidade, não de cadastro.
+          if (linha.birth_date || linha.document) {
+            await admin
+              .from("users_profiles")
+              .update({
+                birth_date: linha.birth_date || null,
+                document: linha.document || null,
+              })
+              .eq("email", email);
+          }
+        } else {
+          // SEM e-mail: entra só na agenda, sem conta de autenticação. É o
+          // cliente antigo — a pessoa existe para a equipe encontrar e
+          // reconhecer, e não enxerga nada no site porque não tem login.
+          const { error } = await admin.from("users_profiles").insert({
+            user_id: null,
+            name: nome,
+            email: null,
+            phone: linha.phone,
+            birth_date: linha.birth_date || null,
+            document: linha.document || null,
+            role: "customer",
+          });
+          if (error) throw error;
         }
 
         resultado.criados += 1;
@@ -156,6 +192,10 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       // é o estrago mais comum de importação de cadastro.
       const mudancas: Record<string, string> = {};
       if (nome) mudancas.name = nome;
+      // Completar o e-mail de quem não tinha é o único caso em que a
+      // importação pode dar login a alguém. A conta em si não é criada aqui —
+      // ela nasce quando a pessoa entrar pelo site com esse endereço.
+      if (email && !existente.email) mudancas.email = email;
       if (linha.phone) mudancas.phone = linha.phone;
       if (linha.birth_date) mudancas.birth_date = linha.birth_date;
       if (linha.document) mudancas.document = linha.document;

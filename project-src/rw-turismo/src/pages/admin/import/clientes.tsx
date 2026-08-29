@@ -99,6 +99,7 @@ const AdminImportarClientes = () => {
       .map((linha) => ({
         numeroNoArquivo: linha.numeroNoArquivo,
         ...linha.valores!,
+        idAlvo: linha.idAlvo ?? null,
         acao: linha.classificacao === "novo" ? "criar" : "atualizar",
       }));
 
@@ -174,11 +175,11 @@ const AdminImportarClientes = () => {
                 <tbody className="divide-y">
                   <tr>
                     <td className="px-3 py-2 font-medium">E-mail</td>
-                    <td className="px-3 py-2">Sim</td>
+                    <td className="px-3 py-2">Não</td>
                     <td className="px-3 py-2 text-gray-600">
-                      É o que identifica a pessoa. Sem e-mail o sistema não
-                      consegue criar o cliente — a linha fica de fora e aparece
-                      na lista de erros.
+                      Quem tem e-mail ganha acesso ao site para acompanhar a
+                      reserva. <strong>Quem não tem entra do mesmo jeito</strong>,
+                      só na agenda da agência — é o caso do cliente antigo.
                     </td>
                   </tr>
                   <tr>
@@ -203,7 +204,10 @@ const AdminImportarClientes = () => {
                   <tr>
                     <td className="px-3 py-2 font-medium">Documento</td>
                     <td className="px-3 py-2">Não</td>
-                    <td className="px-3 py-2 text-gray-600">CPF ou RG</td>
+                    <td className="px-3 py-2 text-gray-600">
+                      CPF ou RG. Para quem não tem e-mail, é o documento (ou o
+                      telefone) que evita cadastrar a mesma pessoa duas vezes.
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -212,6 +216,13 @@ const AdminImportarClientes = () => {
             <p className="mt-4 rounded border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
               É a mesma estrutura do CSV que a tela de Clientes já exporta, então
               dá para exportar, corrigir na planilha e trazer de volta.
+            </p>
+            <p className="mt-2 rounded border bg-gray-50 p-3 text-xs text-gray-600">
+              <strong>Cliente não precisa de login.</strong> Sem e-mail a pessoa
+              entra como contato: aparece na busca, nos aniversariantes e nas
+              listas, mas não enxerga nada no site. Quando ela comprar, o e-mail
+              é pedido na hora — que é quando ele passa a fazer falta de verdade,
+              para o voucher chegar.
             </p>
 
             <input
@@ -299,7 +310,16 @@ const AdminImportarClientes = () => {
                 <ul className="mt-4 space-y-2 text-sm">
                   {comMudanca.slice(0, 20).map((linha) => (
                     <li key={linha.numeroNoArquivo}>
-                      <strong>{linha.valores?.email}</strong>
+                      <strong>
+                        {linha.valores?.email ||
+                          linha.valores?.name ||
+                          "sem e-mail"}
+                      </strong>
+                      {linha.chave && (
+                        <span className="ml-2 text-xs text-gray-500">
+                          (encontrado pelo {linha.chave})
+                        </span>
+                      )}
                       <ul className="ml-4 text-xs text-gray-600">
                         {linha.mudancas?.map((mudanca) => (
                           <li key={mudanca.campo}>

@@ -2943,3 +2943,28 @@ alter table public.passengers
 
 comment on column public.passengers.notes is
   'Pedido ou aviso sobre este passageiro, para a operacao ver no dia: preferencia de assento, de quarto, aviso de pagamento. Texto livre. Vem preenchido da importacao da lista, quando a lista traz observacao entre parenteses.';
+
+-- ===================================================================
+-- Cliente sem login (migration 20260831000000). Repetido no fim para que
+-- rodar schema.sql num banco antigo tambem aplique.
+-- ===================================================================
+-- "Cliente" e "usuario" nao sao a mesma coisa: login e o que uma PARTE dos
+-- clientes usa, nao o que define um cliente. Cliente antigo, venda no balcao e
+-- lista de parceiro entram sem conta e sem e-mail.
+--
+-- Seguro porque as policies comparam user_id = auth.uid(): com nulo a
+-- comparacao e nula, entao o contato sem login fica invisivel para o site e
+-- visivel so para a equipe. Nenhuma policy muda.
+alter table public.users_profiles
+  alter column user_id drop not null;
+
+comment on column public.users_profiles.user_id is
+  'Conta de autenticacao, quando existe. NULO para cliente que a agencia cadastrou mas que nunca fez login. Sem conta, a pessoa nao enxerga nada no site e nao pode ser dona de uma reserva.';
+
+create index if not exists users_profiles_document_idx
+  on public.users_profiles(document)
+  where document is not null;
+
+create index if not exists users_profiles_phone_idx
+  on public.users_profiles(phone)
+  where phone is not null;

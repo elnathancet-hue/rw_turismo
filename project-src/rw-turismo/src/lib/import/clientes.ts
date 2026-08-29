@@ -3,17 +3,23 @@ import { paraDataISO } from "./valores";
 
 // Importação de clientes por planilha.
 //
-// A CHAVE É O E-MAIL, e não por escolha de estilo: é a única com garantia do
-// banco (`users_profiles_email_key`, único, mais o check que recusa maiúscula).
-// O documento não serve — é texto puro, sem unique e sem formato, e boa parte
-// da base legada tem CPF com e sem pontuação, ou nenhum.
+// CLIENTE NÃO PRECISA DE LOGIN. Quem tem e-mail ganha uma conta e pode
+// acompanhar a reserva pelo site; quem não tem entra só na agenda da agência —
+// nome, telefone, CPF, aniversário —, que é o que a equipe usa para encontrar e
+// reconhecer a pessoa. A base antiga é quase toda assim.
 //
-// E-mail também é o que permite a pessoa existir: todo cliente precisa de uma
-// conta de autenticação, e ela é criada a partir do e-mail. Linha sem e-mail
-// não vira cliente — vira erro, com a linha listada para o operador completar.
+// A CHAVE MUDA CONFORME O QUE A LINHA TEM, nesta ordem:
+//   1. e-mail   — a única com garantia do banco (unique + check de minúscula)
+//   2. documento — só os dígitos, para "072.074.233-14" e "07207423314" serem
+//                  a mesma pessoa
+//   3. telefone — só os dígitos
+//
+// Quem não tem nenhum dos três é sempre tratado como novo: sem identificador,
+// não há como afirmar que é a mesma pessoa. Nome igual não serve — a base tem
+// homônimo, e juntar dois clientes diferentes é pior que ter dois cadastros.
 
 export const COLUNAS_CLIENTES = [
-  { campo: "email", titulo: "E-mail", obrigatoria: true, sinonimos: ["e-mail", "email", "e mail", "endereco de e-mail"] },
+  { campo: "email", titulo: "E-mail", obrigatoria: false, sinonimos: ["e-mail", "email", "e mail", "endereco de e-mail"] },
   { campo: "nome", titulo: "Nome", obrigatoria: true, sinonimos: ["nome", "nome completo", "cliente", "nome do cliente"] },
   { campo: "telefone", titulo: "Telefone", obrigatoria: false, sinonimos: ["telefone", "celular", "whatsapp", "contato", "fone"] },
   { campo: "nascimento", titulo: "Nascimento", obrigatoria: false, sinonimos: ["nascimento", "data de nascimento", "aniversario", "dn"] },
@@ -48,7 +54,8 @@ export type ClienteConhecido = {
 };
 
 export type ValoresDoCliente = {
-  email: string;
+  // Vazio quando a pessoa não tem e-mail: ela entra como contato, sem login.
+  email: string | null;
   name: string;
   phone: string | null;
   birth_date: string | null;
@@ -60,6 +67,9 @@ export type ClassificacaoDeCliente = "novo" | "existente" | "erro" | "ignorada";
 export type LinhaDeCliente = {
   numeroNoArquivo: number;
   classificacao: ClassificacaoDeCliente;
+  // Como esta linha foi identificada — vai para a tela, porque casar por
+  // telefone merece um olhar diferente de casar por e-mail.
+  chave?: "e-mail" | "documento" | "telefone" | "sem identificador";
   valores?: ValoresDoCliente;
   idAlvo?: string;
   // O que mudaria se o operador escolher atualizar. Só os campos que a planilha
@@ -84,13 +94,24 @@ export const classificarClientes = (
   mapa: Partial<Record<CampoCliente, number>>,
   conhecidos: ClienteConhecido[]
 ): LinhaDeCliente[] => {
+  // Três índices, porque a chave depende do que a linha tem.
   const porEmail = new Map<string, ClienteConhecido>();
+  const porDocumento = new Map<string, ClienteConhecido>();
+  const porTelefone = new Map<string, ClienteConhecido>();
+
   for (const cliente of conhecidos) {
     if (cliente.email) porEmail.set(cliente.email.toLowerCase(), cliente);
+
+    // Só os dígitos: "072.074.233-14" e "07207423314" são a mesma pessoa.
+    const documento = cliente.document ? soDigitos(cliente.document) : "";
+    if (documento) porDocumento.set(documento, cliente);
+
+    const telefone = cliente.phone ? soDigitos(cliente.phone) : "";
+    if (telefone) porTelefone.set(telefone, cliente);
   }
 
-  // Mesmo e-mail duas vezes no arquivo: a segunda linha sobrescreveria a
-  // primeira sem ninguém ver. Melhor apontar antes.
+  // O mesmo identificador duas vezes no arquivo: a segunda linha sobrescreveria
+  // a primeira sem ninguém ver. Melhor apontar antes.
   const vistosNoArquivo = new Set<string>();
 
   return planilha.linhas.map((linha, posicao) => {
@@ -106,9 +127,7 @@ export const classificarClientes = (
     const email = celula(linha, mapa.email).toLowerCase();
     const nome = celula(linha, mapa.nome);
 
-    if (!email) {
-      erros.push("falta o e-mail — sem ele não dá para criar o cliente");
-    } else if (!pareceEmail(email)) {
+    if (email && !pareceEmail(email)) {
       erros.push(`e-mail inválido: "${email}"`);
     }
 
@@ -135,26 +154,54 @@ export const classificarClientes = (
       return { numeroNoArquivo, classificacao: "erro", erros };
     }
 
-    if (vistosNoArquivo.has(email)) {
+    const documentoDigitos = documento ? soDigitos(documento) : "";
+
+    // A ordem importa: e-mail é a única chave com garantia do banco, documento
+    // vem depois e telefone por último — telefone de casa é compartilhado por
+    // uma família inteira, então casar por ele é o mais frágil dos três.
+    const identificador = email || documentoDigitos || telefone || "";
+
+    if (identificador && vistosNoArquivo.has(identificador)) {
       return {
         numeroNoArquivo,
         classificacao: "erro",
-        erros: [`o e-mail ${email} aparece mais de uma vez nesta planilha`],
+        erros: [
+          `esta pessoa aparece mais de uma vez na planilha (${identificador})`,
+        ],
       };
     }
-    vistosNoArquivo.add(email);
+    if (identificador) vistosNoArquivo.add(identificador);
 
     const valores: ValoresDoCliente = {
-      email,
+      email: email || null,
       name: nome,
       phone: telefone,
       birth_date: nascimento,
       document: documento,
     };
 
-    const existente = porEmail.get(email);
+    const porEmailAchado = email ? porEmail.get(email) : undefined;
+    const porDocumentoAchado = documentoDigitos
+      ? porDocumento.get(documentoDigitos)
+      : undefined;
+    const porTelefoneAchado = telefone ? porTelefone.get(telefone) : undefined;
+
+    const existente = porEmailAchado ?? porDocumentoAchado ?? porTelefoneAchado;
+    const chave: LinhaDeCliente["chave"] = porEmailAchado
+      ? "e-mail"
+      : porDocumentoAchado
+        ? "documento"
+        : porTelefoneAchado
+          ? "telefone"
+          : identificador
+            ? undefined
+            : "sem identificador";
+
     if (!existente) {
-      return { numeroNoArquivo, classificacao: "novo", valores, erros: [] };
+      // Sem nenhum identificador, esta pessoa entra sempre como nova: não há
+      // como afirmar que é a mesma de um cadastro que já existe. Nome igual não
+      // serve — juntar dois clientes diferentes é pior que ter dois cadastros.
+      return { numeroNoArquivo, classificacao: "novo", chave, valores, erros: [] };
     }
 
     // Só conta como mudança o campo que a planilha traz PREENCHIDO e que está
@@ -176,9 +223,12 @@ export const classificarClientes = (
     comparar("Nascimento", existente.birth_date, valores.birth_date);
     comparar("Documento", existente.document, valores.document);
 
+    comparar("E-mail", existente.email, valores.email);
+
     return {
       numeroNoArquivo,
       classificacao: "existente",
+      chave,
       valores,
       idAlvo: existente.id,
       mudancas,
