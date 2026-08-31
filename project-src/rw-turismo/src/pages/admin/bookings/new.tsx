@@ -260,12 +260,22 @@ const NewManualBooking = () => {
           <section className="rounded-lg border bg-white p-5 shadow-sm">
             <h2 className="font-semibold">Cliente</h2>
             <p className="mt-1 text-sm text-gray-500">
-              Busque um cliente existente ou preencha os dados — uma conta é
-              criada automaticamente para a reserva aparecer em “Minhas
-              reservas”.
+              Busque antes de digitar. O cliente antigo costuma estar na base
+              pelo telefone ou pelo CPF, mesmo sem e-mail — e preencher sem
+              buscar cria uma segunda ficha da mesma pessoa. Se não encontrar,
+              pode preencher: a conta é criada automaticamente para a reserva
+              aparecer em “Minhas reservas”.
             </p>
 
-            {customerUserId ? (
+            {/* customerProfileId, e não customerUserId.
+                O contato importado tem user_id vazio — então, com o gate
+                anterior, escolher a ficha dele na busca NÃO mostrava
+                confirmação nenhuma. O vínculo funcionava por baixo, mas quem
+                atendia via a tela igual a antes, achava que não tinha pegado, e
+                digitava tudo de novo. A tarja existe para dizer "está
+                vinculado"; ela precisa aparecer justamente no caso em que
+                duplicar é mais fácil. */}
+            {customerProfileId || customerUserId ? (
               <div className="mt-3 flex items-center justify-between rounded border border-green-200 bg-green-50 px-3 py-2 text-sm">
                 <span>
                   Cliente vinculado:{" "}
@@ -290,7 +300,7 @@ const NewManualBooking = () => {
                         searchClients();
                       }
                     }}
-                    placeholder="Nome ou e-mail…"
+                    placeholder="Nome, telefone, CPF ou e-mail…"
                     value={clientQuery}
                   />
                 </Field>

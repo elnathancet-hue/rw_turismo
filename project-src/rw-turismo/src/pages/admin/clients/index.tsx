@@ -88,7 +88,7 @@ const AdminClients = () => {
             <Input
               className="mt-0"
               onChange={(event) => setSearchInput(event.target.value)}
-              placeholder="Nome ou e-mail…"
+              placeholder="Nome, telefone, CPF ou e-mail…"
               type="search"
               value={searchInput}
             />

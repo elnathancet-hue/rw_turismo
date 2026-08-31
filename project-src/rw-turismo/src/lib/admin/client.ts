@@ -833,9 +833,30 @@ export const searchAdminClients = async (
     .order("created_at", { ascending: false })
     .range((page - 1) * limit, page * limit - 1);
 
+  // Nome, e-mail, TELEFONE e CPF.
+  //
+  // Só nome e e-mail não servia para a base antiga: o contato importado entra
+  // sem e-mail, e o único dado que ele informa por telefone é o telefone. Quem
+  // atendia digitava o número, não achava nada, concluía "não está cadastrado"
+  // e preenchia a ficha na mão — nascia a segunda ficha da mesma pessoa.
+  //
+  // A busca por dígito usa phone_digits/document_digits (colunas geradas, ver a
+  // migration 20260905). Sem elas não funcionaria: a planilha grava o telefone
+  // só com dígitos, o checkout grava como o cliente digitou, e "(11) 98888-7777"
+  // nunca casaria com "11988887777" num ilike.
   const term = (q.search ?? "").replace(/[(),%]/g, " ").trim();
   if (term) {
-    query = query.or(`name.ilike.%${term}%,email.ilike.%${term}%`);
+    const filtros = [`name.ilike.%${term}%`, `email.ilike.%${term}%`];
+
+    // Piso de 4 dígitos: com menos que isso um número solto varre a base
+    // inteira e devolve ruído em vez de ajudar.
+    const digitos = term.replace(/[^0-9]/g, "");
+    if (digitos.length >= 4) {
+      filtros.push(`phone_digits.ilike.%${digitos}%`);
+      filtros.push(`document_digits.ilike.%${digitos}%`);
+    }
+
+    query = query.or(filtros.join(","));
   }
 
   const { data, error, count } = await query;
