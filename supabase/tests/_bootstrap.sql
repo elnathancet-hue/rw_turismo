@@ -39,6 +39,18 @@ create or replace function auth.jwt() returns jsonb language sql stable as $$
   select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb;
 $$;
 
+-- Sem estes grants o stub não reproduz o Supabase de verdade: lá, `anon` e
+-- `authenticated` têm USAGE no schema auth e EXECUTE nessas duas funções — é o
+-- que permite uma policy escrever `auth.uid()` direto no USING/WITH CHECK.
+--
+-- Faltando isso, qualquer policy que chame auth.uid() sem passar por um helper
+-- SECURITY DEFINER estoura "permission denied for schema auth", e o insert é
+-- recusado pelo motivo ERRADO. O teste ficaria verde acreditando ter provado
+-- uma regra de negócio quando só provou uma falta de grant.
+grant usage on schema auth to anon, authenticated, service_role;
+grant execute on function auth.uid() to anon, authenticated, service_role;
+grant execute on function auth.jwt() to anon, authenticated, service_role;
+
 -- ----- storage (stub) ------------------------------------------------------
 create schema if not exists storage;
 
@@ -71,6 +83,9 @@ returns text[]
 language sql
 immutable
 as $$ select string_to_array(name, '/') $$;
+
+grant usage on schema storage to anon, authenticated, service_role;
+grant execute on function storage.foldername(text) to anon, authenticated, service_role;
 
 -- pgTAP
 create extension if not exists pgtap;
