@@ -4,6 +4,7 @@ import { Dispatch, SetStateAction, useEffect } from "react";
 import { signOutFromSupabase } from "../lib/auth/client";
 import useSiteMenu from "../hooks/useSiteMenu";
 import { menuIconComponent } from "../lib/content/menuIcons";
+import { eLinkInterno, hrefSeguro } from "../lib/security/url";
 import useSupabaseSession from "../hooks/useSupabaseSession";
 
 type Props = {
@@ -73,10 +74,23 @@ const Drawer = ({ children, isOpen, setIsOpen }: Props) => {
                       <span className="truncate">{item.label}</span>
                     </>
                   );
-                  return item.url.startsWith("/") ? (
+                  // Mesmo endereço do menu do topo, mesma checagem de esquema
+                  // (ver Header.tsx e lib/security/url.ts).
+                  const href = hrefSeguro(item.url);
+                  if (!href) {
+                    return (
+                      <span
+                        className="drawer-item flex items-center gap-2"
+                        key={item.id}
+                      >
+                        {content}
+                      </span>
+                    );
+                  }
+                  return eLinkInterno(item.url) ? (
                     <Link
                       className="drawer-item flex items-center gap-2"
-                      href={item.url}
+                      href={href}
                       key={item.id}
                       onClick={() => setIsOpen(false)}
                     >
@@ -85,7 +99,7 @@ const Drawer = ({ children, isOpen, setIsOpen }: Props) => {
                   ) : (
                     <a
                       className="drawer-item flex items-center gap-2"
-                      href={item.url}
+                      href={href}
                       key={item.id}
                       onClick={() => setIsOpen(false)}
                       rel="noopener noreferrer"

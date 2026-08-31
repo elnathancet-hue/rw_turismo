@@ -8,7 +8,11 @@ import { Field, Input } from "../../components/ui/form";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
 import { formatDateTimeBR } from "../../lib/format";
 
-type SecretRow = { key: string; value: string; updated_at: string };
+// Sem o campo `value`. A tela nunca precisou do segredo inteiro — só dos 4
+// últimos caracteres, que a RPC listar_integracoes() devolve já recortados.
+// Antes, stripe_secret_key, resend_api_key e uazapi_token vinham completos para
+// o navegador e ficavam no estado do React.
+type SecretRow = { key: string; ultimos4: string; updated_at: string };
 type TestResult = { ok: boolean; skipped?: boolean; error?: string };
 
 type GroupDef = {
@@ -130,9 +134,8 @@ const AdminIntegracoes = () => {
     setLoadError(null);
     const supabase = createSupabaseBrowserClient() as any;
     try {
-      const { data, error } = await supabase
-        .from("integration_secrets")
-        .select("key, value, updated_at");
+      // RPC, e não select na tabela: assim o segredo não sai do banco.
+      const { data, error } = await supabase.rpc("listar_integracoes");
       if (error) throw error;
       const map: Record<string, SecretRow> = {};
       for (const row of (data ?? []) as SecretRow[]) map[row.key] = row;
@@ -224,7 +227,7 @@ const AdminIntegracoes = () => {
   };
 
   const mask = (row?: SecretRow) =>
-    row ? `••••${row.value.slice(-4)}` : null;
+    row ? `••••${row.ultimos4 ?? ""}` : null;
 
   return (
     <AdminGuard>

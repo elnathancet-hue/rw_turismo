@@ -2,11 +2,18 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getFooterSettings } from "../lib/content/client";
 import { defaultFooter, type FooterSettings } from "../lib/content/footer";
+import { eLinkInterno, hrefSeguro } from "../lib/security/url";
 
+// Mesma checagem de esquema do menu do topo: o endereço vem do banco (papel
+// `conteudo`) e `startsWith("/")` sozinho deixava passar `javascript:`.
+// Ver lib/security/url.ts.
 const FooterLinkItem = ({ label, url }: { label: string; url: string }) => {
-  if (url.startsWith("/") || url.startsWith("#")) {
+  const href = hrefSeguro(url);
+  if (!href) return <span>{label}</span>;
+
+  if (eLinkInterno(url)) {
     return (
-      <Link className="hover:text-orange-600" href={url}>
+      <Link className="hover:text-orange-600" href={href}>
         {label}
       </Link>
     );
@@ -14,7 +21,7 @@ const FooterLinkItem = ({ label, url }: { label: string; url: string }) => {
   return (
     <a
       className="hover:text-orange-600"
-      href={url}
+      href={href}
       rel="noopener noreferrer"
       target="_blank"
     >

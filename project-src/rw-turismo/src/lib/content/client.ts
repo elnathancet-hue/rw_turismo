@@ -122,9 +122,14 @@ export const saveAdminPage = async (value: Partial<Page>) => {
 export const deleteAdminPage = async (id: string) =>
   unwrap(await db().from("pages").delete().eq("id", id));
 
+// RPC, e nao insert direto: a tabela tem unique(email), entao o codigo de erro
+// 23505 distinguia "ja existe" de "inserido" e qualquer visitante podia
+// perguntar "este e-mail e assinante?" um por um. A funcao no banco responde
+// igual nos dois casos.
 export const subscribeNewsletter = async (email: string, source = "home") =>
-  unwrap(await db().from("newsletter_subscribers").insert({
-    email: email.trim().toLowerCase(),
-    source,
-    active: true,
-  }));
+  unwrap(
+    await db().rpc("assinar_newsletter", {
+      p_email: email.trim().toLowerCase(),
+      p_source: source,
+    })
+  );

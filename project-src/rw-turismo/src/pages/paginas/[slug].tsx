@@ -10,45 +10,64 @@ import PageBlocks from "../../components/PageBlocks";
 import { getPublishedPageBySlug } from "../../lib/content/server";
 import type { Page } from "../../lib/content/types";
 
-// HTML colado, isolado num iframe (o CSS/JS da landing não conflita com o do
-// site) com altura ajustada ao conteúdo.
+// Script de medição injetado DENTRO do HTML colado.
+//
+// Com `sandbox` sem `allow-same-origin`, o iframe passa a ter origem opaca — é
+// justamente isso que tira dele o acesso a cookie e localStorage do site. O
+// preço é que o pai também não enxerga mais o `contentDocument`, que era como a
+// altura era medida. A medida passa a vir de dentro, por postMessage.
+const MEDIDOR = `<script>(function(){
+  var ultima = 0;
+  function medir(){
+    var h = Math.max(
+      document.documentElement ? document.documentElement.scrollHeight : 0,
+      document.body ? document.body.scrollHeight : 0
+    );
+    if (h > 0 && h !== ultima) {
+      ultima = h;
+      parent.postMessage({ tipo: "rw-altura", altura: h }, "*");
+    }
+  }
+  window.addEventListener("load", medir);
+  window.addEventListener("resize", medir);
+  [100, 500, 1500, 3000].forEach(function(ms){ setTimeout(medir, ms); });
+  if (window.ResizeObserver && document.body) {
+    new ResizeObserver(medir).observe(document.body);
+  }
+})();<\/script>`;
+
+// HTML colado, isolado num iframe com origem própria.
+//
+// O `sandbox` NÃO é detalhe de estilo: sem ele, `srcdoc` herda a origem do pai,
+// e o "isolamento" que este componente promete não existe — script na landing
+// leria a sessão de quem estivesse visitando o site, inclusive a de um admin.
+// `allow-scripts` mantém pixels e scripts da landing funcionando; a ausência de
+// `allow-same-origin` é o que corta o acesso à origem do site.
 const HtmlEmbed = ({ html, title }: { html: string; title: string }) => {
   const frameRef = useRef<HTMLIFrameElement | null>(null);
   const [height, setHeight] = useState(800);
 
   useEffect(() => {
-    const measure = () => {
-      const doc = frameRef.current?.contentDocument;
-      if (!doc) return;
-      const next = Math.max(
-        doc.documentElement?.scrollHeight ?? 0,
-        doc.body?.scrollHeight ?? 0
-      );
-      if (next > 0) setHeight(next);
+    const aoReceber = (evento: MessageEvent) => {
+      // Só mensagens deste iframe. Sem esta checagem, qualquer aba ou script de
+      // terceiro poderia redimensionar o quadro.
+      if (evento.source !== frameRef.current?.contentWindow) return;
+      const dado = evento.data as { tipo?: string; altura?: unknown };
+      if (dado?.tipo !== "rw-altura") return;
+      const altura = Number(dado.altura);
+      if (Number.isFinite(altura) && altura > 0) setHeight(altura);
     };
-    // Imagens/fonts/scripts mudam a altura depois do load — mede de novo.
-    const timers = [500, 1500, 3000].map((ms) => setTimeout(measure, ms));
-    window.addEventListener("resize", measure);
-    return () => {
-      timers.forEach(clearTimeout);
-      window.removeEventListener("resize", measure);
-    };
+
+    window.addEventListener("message", aoReceber);
+    return () => window.removeEventListener("message", aoReceber);
   }, [html]);
 
   return (
     <iframe
       className="block w-full border-0"
-      onLoad={() => {
-        const doc = frameRef.current?.contentDocument;
-        if (!doc) return;
-        const next = Math.max(
-          doc.documentElement?.scrollHeight ?? 0,
-          doc.body?.scrollHeight ?? 0
-        );
-        if (next > 0) setHeight(next);
-      }}
       ref={frameRef}
-      srcDoc={html}
+      sandbox="allow-scripts allow-forms allow-popups"
+      srcDoc={`${html}${MEDIDOR}`}
       style={{ height }}
       title={title}
     />
@@ -148,6 +167,19 @@ export const getServerSideProps = async ({
     // Modo HTML sem menu/rodapé: serve o HTML colado EXATAMENTE como está
     // (mesma técnica do robots.txt) — reprodução perfeita, scripts e pixels
     // rodando, zero interferência do site.
+    //
+    // ATENÇÃO — RISCO RESIDUAL CONHECIDO. Isto é um documento de topo servido na
+    // ORIGEM DO SITE: não há iframe para isolar, e portanto script daqui alcança
+    // cookie e localStorage de quem visitar. Depois da auditoria de 2026-08-30 a
+    // escrita de custom_html passou a exigir admin (trigger
+    // pages_protect_custom_html), então isto deixou de ser escalonamento de
+    // privilégio — mas continua sendo "admin cola um template de terceiro e o
+    // template roda com poder total no domínio".
+    //
+    // O conserto de verdade é servir este modo de um domínio separado. É decisão
+    // de infraestrutura, não de código, e por isso não foi feita aqui. Aplicar
+    // `CSP: sandbox` daria isolamento, mas quebraria landings que usam
+    // localStorage — o que seria uma regressão silenciosa em página publicada.
     if (page.custom_html && !page.custom_html_chrome) {
       res.setHeader("Content-Type", "text/html; charset=utf-8");
       res.write(page.custom_html);

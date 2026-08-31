@@ -1,24 +1,17 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { testEmailConnection } from "../../../lib/server/email";
+import { requireAdmin } from "../../../lib/server/adminAuth";
 import { isServiceRoleConfigured, getSecrets } from "../../../lib/server/secrets";
 import { testWhatsAppConnection } from "../../../lib/server/whatsapp";
-import { createSupabaseServerClient } from "../../../lib/supabase/server";
 
 // Status e teste das integrações — somente admin (verificado no servidor).
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
-  const supabase = createSupabaseServerClient({ req, res }) as any;
-  const { data: userData } = await supabase.auth.getUser();
-  if (!userData?.user) {
-    return res.status(401).json({ error: "Autenticação necessária." });
-  }
-  const { data: profile } = await supabase
-    .from("users_profiles")
-    .select("role")
-    .eq("user_id", userData.user.id)
-    .maybeSingle();
-  if (profile?.role !== "admin") {
-    return res.status(403).json({ error: "Acesso restrito." });
-  }
+  // Antes, esta rota fazia a checagem de papel à mão e era a ÚNICA das 23 que
+  // não usava requireAdmin — e a checagem manual não olhava `active`, então um
+  // admin desativado continuava entrando e acionando a chave viva do Stripe
+  // logo abaixo. requireAdmin valida sessão, papel E conta ativa.
+  const admin = await requireAdmin(req, res);
+  if (!admin) return;
 
   if (req.method === "GET") {
     return res.status(200).json({

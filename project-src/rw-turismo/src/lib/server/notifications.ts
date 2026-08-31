@@ -1,5 +1,6 @@
 import { createSupabaseAdminClient } from "../supabase/admin";
 import { formatBRL, formatDateBR, formatDateRangeBR, formatDateTimeBR } from "../format";
+import { escaparHtml } from "../security/html";
 import { sendEmail } from "./email";
 import { sendWhatsAppText } from "./whatsapp";
 
@@ -24,9 +25,21 @@ type LogRow = {
   booking_id?: string | null;
 };
 
+// O corpo da mensagem carrega o link da reserva, e esse link carrega o
+// access_token (`?t=...`) — que é um segredo por reserva e não expira. Gravado
+// em texto puro, ele vai junto em qualquer dump, backup ou export do log, e
+// notification_log é lido por mais gente do que a reserva em si.
+//
+// A migration limpou o que já estava gravado; sem isto aqui, a PRÓXIMA reserva
+// recolocaria o token no log e o conserto duraria um dia.
+const semToken = (texto: string): string =>
+  texto.replace(/([?&]t=)[A-Za-z0-9_-]+/g, "$1REDACTED");
+
 const log = async (row: LogRow) => {
   try {
-    await db().from("notification_log").insert(row);
+    await db()
+      .from("notification_log")
+      .insert({ ...row, body: semToken(row.body) });
   } catch {
     // log é melhor-esforço — nunca derruba o fluxo principal
   }
@@ -59,9 +72,20 @@ type Message = {
 };
 
 export const deliver = async (message: Message): Promise<void> => {
+  // ESCAPE OBRIGATÓRIO. message.text carrega nome do cliente, nome do produto e
+  // dados do transfer; o nome vem do corpo de /api/bookings/create-pending, que
+  // é rota PÚBLICA. Sem escapar, um nome como
+  // `Ana<a href="https://site-falso">Clique para pagar</a>` virava link real num
+  // e-mail com o domínio e a assinatura da agência — phishing entregue por
+  // infraestrutura confiável.
+  //
+  // O `\n -> <br>` continua depois do escape: quebrar linha é apresentação
+  // nossa, não conteúdo de quem escreveu.
   const html =
     message.html ??
-    `<div style="font-family:sans-serif;line-height:1.6">${message.text
+    `<div style="font-family:sans-serif;line-height:1.6">${escaparHtml(
+      message.text
+    )
       .split("\n")
       .join("<br>")}</div>`;
 

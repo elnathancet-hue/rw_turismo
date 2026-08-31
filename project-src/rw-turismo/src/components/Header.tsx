@@ -11,6 +11,7 @@ import { useRouter } from "next/router";
 import { Dispatch, FormEvent, SetStateAction } from "react";
 import useSiteMenu from "../hooks/useSiteMenu";
 import { menuIconComponent } from "../lib/content/menuIcons";
+import { eLinkInterno, hrefSeguro } from "../lib/security/url";
 import useSupabaseSession from "../hooks/useSupabaseSession";
 import { ISuggestionFormatted } from "../types/typings";
 
@@ -77,14 +78,26 @@ const Header = ({
                 <span className="truncate">{item.label}</span>
               </>
             );
-            return item.url.startsWith("/") ? (
-              <Link className={menuLinkClass} href={item.url} key={item.id}>
+            // O endereço vem do banco (papel `conteudo`). `startsWith("/")`
+            // sozinho deixava passar `javascript:` para o href — ver
+            // lib/security/url.ts. Link recusado vira texto, e não some do
+            // menu: quem editou precisa perceber que o endereço está errado.
+            const href = hrefSeguro(item.url);
+            if (!href) {
+              return (
+                <span className={menuLinkClass} key={item.id}>
+                  {content}
+                </span>
+              );
+            }
+            return eLinkInterno(item.url) ? (
+              <Link className={menuLinkClass} href={href} key={item.id}>
                 {content}
               </Link>
             ) : (
               <a
                 className={menuLinkClass}
-                href={item.url}
+                href={href}
                 key={item.id}
                 rel="noopener noreferrer"
                 target="_blank"

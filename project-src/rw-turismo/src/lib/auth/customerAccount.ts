@@ -110,12 +110,13 @@ export const resolveCustomerUserId = async (
 
   // Ficha escolhida na tela tem prioridade sobre a busca por e-mail: é o único
   // jeito de alcançar o contato que ainda não tem e-mail nenhum.
-  let existing: { id: string; user_id: string | null } | null = null;
+  let existing: { id: string; user_id: string | null; phone?: string | null } | null =
+    null;
 
   if (input.profile_id) {
     const { data } = await admin
       .from("users_profiles")
-      .select("id, user_id, role")
+      .select("id, user_id, role, phone")
       .eq("id", input.profile_id)
       .maybeSingle();
 
@@ -131,7 +132,7 @@ export const resolveCustomerUserId = async (
     // Caminho normal: o perfil tem e-mail único e indexado.
     const { data } = await admin
       .from("users_profiles")
-      .select("id, user_id")
+      .select("id, user_id, phone")
       .eq("email", email)
       .maybeSingle();
     if (data?.user_id) return data.user_id;
@@ -168,7 +169,13 @@ export const resolveCustomerUserId = async (
         // O e-mail entra junto: a ficha escolhida na tela pode não ter nenhum,
         // e é este o momento em que ela ganha um.
         email,
-        ...(phone ? { phone } : {}),
+        // COALESCE, e não sobrescrita. Este caminho é alcançável sem
+        // autenticação por /api/bookings/create-pending: quem soubesse o e-mail
+        // de um contato importado trocava o telefone dele na base da agência — e
+        // passava a receber o WhatsApp das notificações daquela pessoa.
+        // Preencher o que está vazio é o que a adoção precisa; substituir o que
+        // a agência já tinha, não.
+        ...(phone && !existing.phone ? { phone } : {}),
       })
       .eq("id", existing.id)
       .is("user_id", null);

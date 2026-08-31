@@ -3,27 +3,37 @@ import { useState, type FormEvent } from "react";
 import type { PageBlock } from "../lib/content/types";
 import { submitSiteLead } from "../lib/leads/client";
 import { gaEvent } from "../lib/analytics/gtag";
+import { eLinkInterno, hrefSeguro } from "../lib/security/url";
 import MarkdownContent from "./MarkdownContent";
 
 const buttonClass =
   "inline-flex rounded-lg bg-orange-500 px-6 py-2.5 font-semibold text-white transition hover:bg-orange-600";
 
 const BlockButton = ({ label, url }: { label: string; url: string }) => {
-  if (!label || !url) return null;
-  if (url.startsWith("/") || url.startsWith("#")) {
+  // O endereço é gravado por quem monta a página (papel `conteudo`) e ia direto
+  // para o href. Ver lib/security/url.ts.
+  const href = hrefSeguro(url);
+  if (!label || !href) return null;
+  if (eLinkInterno(url)) {
     return (
-      <Link className={buttonClass} href={url}>
+      <Link className={buttonClass} href={href}>
         {label}
       </Link>
     );
   }
   return (
-    <a className={buttonClass} href={url} rel="noopener noreferrer" target="_blank">
+    <a className={buttonClass} href={href} rel="noopener noreferrer" target="_blank">
       {label}
     </a>
   );
 };
 
+// Só YouTube e Vimeo entram num <iframe>.
+//
+// O fallback antigo era `return url` — a URL crua ia para o src do iframe. Ou
+// seja, bastava um endereço que não casasse com nenhum dos dois padrões para
+// embutir qualquer página de terceiro (ou um `javascript:`) dentro do site.
+// Provedor não reconhecido agora não vira vídeo nenhum.
 const toEmbedUrl = (url: string): string | null => {
   if (!url) return null;
   const youtube = url.match(
@@ -32,7 +42,7 @@ const toEmbedUrl = (url: string): string | null => {
   if (youtube) return `https://www.youtube.com/embed/${youtube[1]}`;
   const vimeo = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
   if (vimeo) return `https://player.vimeo.com/video/${vimeo[1]}`;
-  return url;
+  return null;
 };
 
 const spacerHeight: Record<string, string> = {
@@ -142,6 +152,14 @@ export const PageBlockView = ({ block }: { block: PageBlock }) => {
                 title={block.caption || "Vídeo"}
               />
             </div>
+          )}
+          {/* toEmbedUrl passou a devolver null para provedor não reconhecido —
+              antes a URL crua ia para o src do iframe. Sem este aviso, o vídeo
+              simplesmente sumia da página e quem editou não ficava sabendo. */}
+          {!embed && block.url && (
+            <p className="rounded-lg border border-dashed border-gray-300 p-4 text-center text-sm text-gray-500">
+              Link de vídeo não reconhecido. Use um endereço do YouTube ou do Vimeo.
+            </p>
           )}
           {block.caption && (
             <figcaption className="mt-2 text-center text-sm text-gray-500">
