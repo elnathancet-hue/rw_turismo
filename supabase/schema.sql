@@ -2981,3 +2981,108 @@ alter table public.users_profiles
 create index if not exists users_profiles_marketing_idx
   on public.users_profiles(marketing_opt_in)
   where marketing_opt_in = true;
+
+
+-- =====================================================================
+-- Quiz (espelhado da migration 20260906000000)
+-- =====================================================================
+-- Quiz como entidade própria: criar e editar pelo painel, sem programador.
+-- Rodar no SQL Editor. Idempotente. Aditiva. FASE 1 de 4 — só banco, sem tela.
+--
+-- HOJE existe UM quiz, inteiramente fixo no código (src/lib/quiz/feriado.ts:
+-- 231 linhas de dados + 362 de tela). Cada quiz novo é um deploy.
+--
+-- O MODELO segue `pages`: título, slug único, status draft/published, seo_*,
+-- e o conteúdo em jsonb. É a mesma forma que o construtor de páginas já usa e
+-- que o site já sabe renderizar.
+--
+-- A PONTUAÇÃO generaliza o que o quiz atual faz, sem inventar. Hoje ele soma
+-- dois contadores (relaxar/aventura) e a diferença de 0,5 decide o perfil.
+-- Aqui os eixos passam a ser NOMEADOS PELO QUIZ — um quiz "praia vs montanha"
+-- usa o mesmo motor — e a regra vira: ganha o eixo de maior pontuação; se a
+-- distância para o segundo for menor que a margem, vale o resultado de empate.
+-- Isso cobre o quiz atual exatamente e estende para N eixos de graça.
+
+create table if not exists public.quizzes (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  slug text not null unique,
+  status text not null default 'draft',
+  seo_title text,
+  seo_description text,
+
+  -- Abertura: o que a pessoa vê antes de começar.
+  intro jsonb not null default '{}'::jsonb,
+
+  -- Os eixos de pontuação, nomeados por quem cria: ["relaxar","aventura"].
+  eixos jsonb not null default '[]'::jsonb,
+
+  -- [{ texto, opcoes: [{ texto, pesos: { "<eixo>": number } }] }]
+  -- `pesos` vazio é a opção neutra, que não pontua para lado nenhum.
+  perguntas jsonb not null default '[]'::jsonb,
+
+  -- [{ chave, eixo, rotulo, texto, foto, posicao }]
+  -- `eixo` nulo marca o resultado de EMPATE — o "equilíbrio" do quiz atual.
+  resultados jsonb not null default '[]'::jsonb,
+
+  -- Distância mínima para um eixo ser considerado dominante. Abaixo dela, o
+  -- resultado é o de empate. 0.5 é o valor que o quiz atual usa.
+  margem_empate numeric not null default 0.5,
+
+  -- O que acontece no fim: WhatsApp, formulário, ou nada.
+  cta jsonb not null default '{}'::jsonb,
+
+  -- Quiz sem captura serve como conteúdo puro. Por isso é opcional, e falso
+  -- por padrão: pedir dado pessoal tem que ser decisão explícita de quem cria.
+  captura_ativa boolean not null default false,
+
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint quizzes_status_check check (status in ('draft', 'published'))
+);
+
+create index if not exists quizzes_slug_idx on public.quizzes(slug);
+create index if not exists quizzes_status_idx on public.quizzes(status);
+
+drop trigger if exists set_quizzes_updated_at on public.quizzes;
+create trigger set_quizzes_updated_at
+before update on public.quizzes
+for each row execute function public.set_updated_at();
+
+comment on table public.quizzes is
+  'Quiz de captacao, criado e editado pelo painel. O conteudo fica em jsonb pelo mesmo motivo que pages.blocks: a forma muda com o produto, e uma coluna por campo viraria migration a cada ideia nova.';
+comment on column public.quizzes.eixos is
+  'Nomes dos eixos de pontuacao deste quiz, ex: ["relaxar","aventura"]. Sao do quiz, e nao do sistema — assim um quiz "praia vs montanha" usa o mesmo motor.';
+comment on column public.quizzes.resultados is
+  'Um por desfecho. `eixo` diz qual eixo dominante leva a ele; `eixo` NULO marca o resultado de empate.';
+
+
+-- =====================================================================
+-- As respostas
+-- =====================================================================
+-- Guardar a resposta é o que permite dizer depois "60% caíram em aventura" e
+-- por que aquele lead é quente.
+create table if not exists public.quiz_responses (
+  id uuid primary key default gen_random_uuid(),
+  quiz_id uuid not null references public.quizzes(id) on delete cascade,
+
+  -- A chave do resultado. CALCULADA NO BANCO — ver responder_quiz() abaixo.
+  resultado text not null,
+  -- Quanto cada eixo somou, para o relatório não precisar recalcular.
+  pontuacao jsonb not null default '{}'::jsonb,
+  -- O que a pessoa escolheu: [{ pergunta: 0, opcao: 2 }]
+  respostas jsonb not null default '[]'::jsonb,
+
+  -- Só quando o quiz pede, e só o que a pessoa digitou.
+  name text,
+  phone text,
+  email text,
+
+  utm jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists quiz_responses_quiz_idx
+  on public.quiz_responses(quiz_id, created_at desc);
+create index if not exists quiz_responses_resultado_idx
+  on public.quiz_responses(quiz_id, resultado);
