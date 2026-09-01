@@ -176,9 +176,21 @@ const AdminClientDetail = () => {
             </Card>
 
             <div>
-              <h2 className="font-semibold">
-                Viagens ({bookings.length})
-              </h2>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="font-semibold">
+                  Viagens ({bookings.length})
+                </h2>
+                {/* O `?cliente=` é o que amarra a reserva a ESTA ficha. Sem
+                    ele, quem monta a reserva depende da busca por e-mail — e
+                    para o contato importado, que não tem e-mail, isso criava
+                    uma segunda ficha da mesma pessoa. */}
+                <Link
+                  className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600"
+                  href={`/admin/bookings/new?cliente=${client.id}`}
+                >
+                  + Nova reserva
+                </Link>
+              </div>
               {bookings.length === 0 ? (
                 <Card className="mt-3 p-6 text-sm text-gray-500">
                   Este cliente ainda não tem reservas.

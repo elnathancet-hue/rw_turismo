@@ -67,12 +67,20 @@ const AdminClients = () => {
     <AdminGuard>
       <AdminLayout
         action={
-          <Link
-            className="rounded border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50"
-            href="/admin/import/clientes"
-          >
-            Importar planilha
-          </Link>
+          <div className="flex gap-2">
+            <Link
+              className="rounded border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50"
+              href="/admin/import/clientes"
+            >
+              Importar planilha
+            </Link>
+            <Link
+              className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600"
+              href="/admin/clients/new"
+            >
+              + Novo cliente
+            </Link>
+          </div>
         }
         title="Clientes"
         description="Base de clientes: contato, nascimento, documento e histórico de viagens."

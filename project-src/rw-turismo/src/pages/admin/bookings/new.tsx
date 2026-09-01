@@ -5,6 +5,7 @@ import AdminLayout from "../../../components/admin/AdminLayout";
 import Button from "../../../components/ui/Button";
 import { Field, Input, Select, Textarea } from "../../../components/ui/form";
 import {
+  getAdminClient,
   listAdminProducts,
   listAdminProductDates,
   searchAdminClients,
@@ -87,6 +88,36 @@ const NewManualBooking = () => {
         )
       );
   }, []);
+
+  // Cliente vindo da ficha dele (`/admin/clients/[id]` → + Nova reserva).
+  //
+  // É o caminho que NÃO tem como duplicar: chegando por aqui, o
+  // customerProfileId já vem preenchido, e o servidor adota a ficha existente
+  // em vez de procurar por e-mail. Para o contato importado — que não tem
+  // e-mail — essa busca falharia e criaria uma segunda ficha.
+  //
+  // router.isReady antes de ler: no primeiro render o query vem vazio, e sem
+  // esperar o cliente seria "carregado" como undefined e nada aconteceria.
+  useEffect(() => {
+    if (!router.isReady) return;
+
+    const id = router.query.cliente;
+    if (typeof id !== "string" || !id) return;
+
+    getAdminClient(id)
+      .then((client) => {
+        if (!client) return;
+        selectClient(client);
+      })
+      .catch(() =>
+        setError(
+          "Não foi possível carregar o cliente. Busque pelo nome ou telefone."
+        )
+      );
+    // selectClient é estável dentro do render deste componente e depende só de
+    // setters do useState; incluí-lo na lista relançaria o efeito a cada tecla.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady, router.query.cliente]);
 
   const availableDates = useMemo(() => {
     const today = todayISO();

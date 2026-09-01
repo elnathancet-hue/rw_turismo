@@ -864,6 +864,35 @@ export const searchAdminClients = async (
   return { clients: (data ?? []) as AdminClient[], count: count ?? 0 };
 };
 
+export type NovoClienteInput = {
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  document?: string | null;
+  birth_date?: string | null;
+  contact_origin?: string | null;
+};
+
+// Cadastra UMA pessoa na agenda. Passa por rota de API, e nao direto no
+// Supabase, por dois motivos: com e-mail e preciso criar conta de autenticacao
+// (so o service role faz), e pelo RLS `operacoes` nem teria INSERT em
+// users_profiles — mas e quem atende no balcao.
+export const createAdminClient = async (
+  input: NovoClienteInput
+): Promise<{ client: AdminClient; criou_conta: boolean }> => {
+  const response = await fetch("/api/admin/clients/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data?.error ?? "Nao foi possivel cadastrar o cliente.");
+  }
+  return data as { client: AdminClient; criou_conta: boolean };
+};
+
 export const getAdminClient = async (
   id: string
 ): Promise<AdminClient | null> => {
