@@ -82,6 +82,8 @@ export type QuizIntro = {
   titulo?: string | null;
   subtitulo?: string | null;
   texto_botao?: string | null;
+  /** Imagem da primeira tela. Vazia, a abertura fica so com o texto. */
+  imagem?: string | null;
 };
 
 export type QuizCta = {

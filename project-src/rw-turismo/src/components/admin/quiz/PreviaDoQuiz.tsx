@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import TelaResultado from "../../quiz/TelaResultado";
 import { TelaAbertura, TelaPergunta, Topo } from "../../quiz/TelasPublicas";
 import type { Quiz } from "../../../lib/quiz/types";
@@ -21,10 +21,11 @@ export type FocoDaPrevia =
   | { tela: "pergunta"; indice: number }
   | { tela: "resultado"; indice: number };
 
-const LARGURAS = {
-  desktop: "w-full",
-  mobile: "w-[380px]",
-} as const;
+// A tela do quiz foi desenhada para ~640px (o cartao tem max-width 40rem).
+// Espremer isso numa coluna de 400px nao mostra o layout real: mostra outro
+// layout. Entao a previa desenha na largura DE VERDADE e encolhe a imagem
+// inteira com transform — o que aparece e proporcional ao que vai ao ar.
+const LARGURA_REAL = { desktop: 680, mobile: 390 } as const;
 
 const PreviaDoQuiz = ({
   quiz,
@@ -36,6 +37,25 @@ const PreviaDoQuiz = ({
   onFechar?: () => void;
 }) => {
   const [dispositivo, setDispositivo] = useState<"desktop" | "mobile">("desktop");
+  const palco = useRef<HTMLDivElement>(null);
+  const conteudo = useRef<HTMLDivElement>(null);
+  const [escala, setEscala] = useState(1);
+  const [altura, setAltura] = useState(0);
+
+  // A escala acompanha a largura disponivel: recolher a previa, mudar de
+  // dispositivo ou redimensionar a janela recalcula.
+  useEffect(() => {
+    const medir = () => {
+      const disponivel = (palco.current?.clientWidth ?? 0) - 32; // p-4 dos dois lados
+      if (disponivel > 0) {
+        setEscala(Math.min(1, disponivel / LARGURA_REAL[dispositivo]));
+      }
+      setAltura(conteudo.current?.offsetHeight ?? 0);
+    };
+    medir();
+    window.addEventListener("resize", medir);
+    return () => window.removeEventListener("resize", medir);
+  }, [dispositivo, quiz, foco]);
 
   const pergunta =
     foco.tela === "pergunta" ? quiz.perguntas?.[foco.indice] : undefined;
@@ -82,11 +102,25 @@ const PreviaDoQuiz = ({
 
       <p className="border-b bg-amber-50 px-4 py-1.5 text-xs text-amber-900">
         Exemplo. Nada respondido aqui é gravado, e nenhum lead é criado.
+        {escala < 0.99 && (
+          <span className="ml-1 text-amber-800">
+            Reduzida a {Math.round(escala * 100)}% para caber — no site aparece
+            em tamanho normal.
+          </span>
+        )}
       </p>
 
-      <div className="flex-1 overflow-auto bg-gray-100 p-4">
+      <div className="flex-1 overflow-auto bg-gray-100 p-4" ref={palco}>
         <div
-          className={`mx-auto overflow-hidden rounded-lg border bg-white ${LARGURAS[dispositivo]}`}
+          className="mx-auto origin-top overflow-hidden rounded-lg border bg-white"
+          style={{
+            width: LARGURA_REAL[dispositivo],
+            transform: `scale(${escala})`,
+            // Sem isto o espaco embaixo continua sendo o da altura original, e
+            // sobra um vazio do tamanho do que foi encolhido.
+            marginBottom: altura ? -(altura * (1 - escala)) : undefined,
+          }}
+          ref={conteudo}
         >
           {/* pointer-events-none: a prévia é para ver, não para responder. */}
           <div className="pointer-events-none">
@@ -112,7 +146,11 @@ const PreviaDoQuiz = ({
             {foco.tela === "resultado" &&
               (resultado ? (
                 <TelaResultado
-                  linkCta={null}
+                  // "#" e nao null: com null o TelaResultado nao desenha o
+                  // botao, e a previa escondia justamente a peca que mais
+                  // importa conferir. Nao e link de wa.me e nao navega — o
+                  // palco inteiro e pointer-events-none.
+                  linkCta="#"
                   nome={NOME_EXEMPLO}
                   quiz={quiz}
                   resultado={resultado}

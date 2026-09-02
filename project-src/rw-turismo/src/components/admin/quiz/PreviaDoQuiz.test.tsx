@@ -72,13 +72,40 @@ describe("isolamento", () => {
     expect(screen.getByText(/“Maria” é de exemplo/)).toBeTruthy();
   });
 
-  // O botão de WhatsApp não pode virar um link clicável na prévia: um clique
-  // curioso abriria conversa com o número real da agência.
-  it("não renderiza link de WhatsApp clicável", () => {
+  // O botão PRECISA aparecer — é a peça que mais importa conferir — mas não
+  // pode apontar para o WhatsApp real da agência.
+  it("mostra o botão do resultado, sem apontar para o WhatsApp real", () => {
     const { container } = render(
       <PreviaDoQuiz foco={{ tela: "resultado", indice: 0 }} quiz={quiz} />
     );
+    expect(screen.getByText("Falar no WhatsApp")).toBeTruthy();
     expect(container.querySelector('a[href*="wa.me"]')).toBeNull();
+  });
+
+  it("desenha a imagem da abertura quando ela existe", () => {
+    const comImagem = {
+      ...quiz,
+      intro: { ...quiz.intro, imagem: "https://ex.com/capa.jpg" },
+    } as Quiz;
+    const { container } = render(
+      <PreviaDoQuiz foco={{ tela: "abertura" }} quiz={comImagem} />
+    );
+    const imgs = Array.from(container.querySelectorAll("img"));
+    expect(imgs.some((i) => i.getAttribute("src") === "https://ex.com/capa.jpg")).toBe(
+      true
+    );
+  });
+
+  it("javascript: na imagem da abertura não vira <img>", () => {
+    const perigosa = {
+      ...quiz,
+      intro: { ...quiz.intro, imagem: "javascript:alert(1)" },
+    } as Quiz;
+    const { container } = render(
+      <PreviaDoQuiz foco={{ tela: "abertura" }} quiz={perigosa} />
+    );
+    // Só a logo do topo.
+    expect(container.querySelectorAll("img")).toHaveLength(1);
   });
 });
 

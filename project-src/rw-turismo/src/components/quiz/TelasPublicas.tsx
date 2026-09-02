@@ -1,4 +1,5 @@
 import type { Quiz, QuizPergunta } from "../../lib/quiz/types";
+import { hrefSeguro } from "../../lib/security/url";
 import estilos from "../../styles/quiz.module.css";
 
 // As telas de abertura e de pergunta do quiz público, como componentes.
@@ -34,6 +35,21 @@ export const TelaAbertura = ({
         <p className={estilos.olho}>{quiz.intro.subtitulo}</p>
       )}
       <h1>{quiz.intro?.titulo || quiz.title}</h1>
+      {/* Sem imagem a abertura continua de pe: quiz novo nasce sem ela, e um
+          quadro quebrado seria pior que nenhum. hrefSeguro recusa javascript:
+          e afins — URL negada simplesmente nao vira <img>. */}
+      {quiz.intro?.imagem && hrefSeguro(quiz.intro.imagem) && (
+        <figure className={`${estilos.fotos} ${estilos.fotosLarga}`}>
+          <span className={estilos.foto}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              alt=""
+              className={estilos.fotoArte}
+              src={hrefSeguro(quiz.intro.imagem) as string}
+            />
+          </span>
+        </figure>
+      )}
       <button
         className={estilos.acao}
         disabled={desabilitado}

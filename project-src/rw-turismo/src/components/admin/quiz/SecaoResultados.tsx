@@ -227,6 +227,25 @@ const SecaoResultados = ({
             ajuda="Duas imagens aparecem lado a lado. Sem imagem, o bloco não aparece."
             titulo={`Imagens (${fotos.length})`}
           >
+            {/* Estado vazio COM o campo de envio dentro, e nao um aviso
+                dizendo que nao ha nada: o botao "+ Imagem" no canto do
+                cabecalho era discreto demais e a pessoa nao achava por onde
+                subir a foto. */}
+            {fotos.length === 0 && (
+              <div className="rounded-lg border border-dashed border-gray-300 p-4">
+                <Field
+                  hint="Cole um link ou envie do computador. Você pode adicionar mais depois."
+                  label="Primeira imagem"
+                >
+                  <ImageField
+                    bucket="site-assets"
+                    onChange={(url) => troca({ fotos: [{ url }] })}
+                    value=""
+                  />
+                </Field>
+              </div>
+            )}
+
             {fotos.map((foto, f) => {
               const trocaFoto = (t: Partial<QuizFoto>) =>
                 troca({

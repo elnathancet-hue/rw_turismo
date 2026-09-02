@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import AdminGuard from "../../../components/admin/AdminGuard";
 import AdminLayout from "../../../components/admin/AdminLayout";
 import ConfirmButton from "../../../components/admin/ConfirmButton";
+import ImageField from "../../../components/admin/ImageField";
 import ListaDeTextos from "../../../components/admin/ListaDeTextos";
 import PreviaDoQuiz, {
   type FocoDaPrevia,
@@ -452,6 +453,21 @@ const AdminQuizEditor = () => {
                         }
                         placeholder="Começar"
                         value={quiz.intro?.texto_botao ?? ""}
+                      />
+                    </Field>
+                    <Field
+                      hint="Aparece entre o título e o botão. Sem imagem, a abertura fica só com o texto."
+                      label="Imagem da abertura"
+                    >
+                      <ImageField
+                        bucket="site-assets"
+                        onChange={(imagem) =>
+                          set("intro", { ...quiz.intro, imagem })
+                        }
+                        onRemove={() =>
+                          set("intro", { ...quiz.intro, imagem: null })
+                        }
+                        value={quiz.intro?.imagem ?? ""}
                       />
                     </Field>
                   </Grupo>
