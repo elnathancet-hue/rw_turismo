@@ -57,21 +57,47 @@ type Props = {
 
 // Dois "painéis" (workspaces) — o operacional do dia-a-dia e o do site/CMS. O
 // seletor no topo da sidebar troca qual conjunto de grupos aparece.
-type PanelId = "operacoes" | "site";
+export type PanelId = "operacoes" | "site";
 
 type NavItem = {
   href: string;
   label: string;
   icon: ComponentType<SVGProps<SVGSVGElement>>;
 };
-type NavGroup = { section: string; panel: PanelId; items: NavItem[] };
+export type NavGroup = { section: string; panel: PanelId; items: NavItem[] };
 
-const PANELS: { id: PanelId; label: string }[] = [
-  { id: "operacoes", label: "Painel de operações" },
-  { id: "site", label: "Painel do site" },
+const PANELS: { id: PanelId; label: string; inicio: string }[] = [
+  // `inicio` e a tela em que a pessoa cai ao trocar de painel. E explicito, e
+  // nao "o primeiro item do menu": o primeiro do painel do site e a Home, e
+  // quem troca para la quase sempre quer Paginas.
+  { id: "operacoes", label: "Painel de operações", inicio: "/admin" },
+  { id: "site", label: "Painel do site", inicio: "/admin/pages" },
 ];
 
-const navigation: NavGroup[] = [
+/**
+ * A cor de fundo diz em que painel voce esta, sem precisar ler o seletor.
+ *
+ * O ITEM ATIVO VIRA CARTAO BRANCO nos dois. Ele era laranja sobre laranja-50, o
+ * que desapareceria sobre um fundo laranja; branco contrasta com os dois tons e
+ * a cor da borda continua dizendo de qual painel se trata.
+ */
+const TEMA: Record<
+  PanelId,
+  { fundo: string; ativo: string; icone: string }
+> = {
+  operacoes: {
+    fundo: "bg-blue-50",
+    ativo: "border-blue-500 bg-white text-blue-800 shadow-sm",
+    icone: "text-blue-600",
+  },
+  site: {
+    fundo: "bg-orange-50",
+    ativo: "border-orange-500 bg-white text-orange-800 shadow-sm",
+    icone: "text-orange-600",
+  },
+};
+
+export const navigation: NavGroup[] = [
   {
     section: "Vendas",
     panel: "operacoes",
@@ -146,6 +172,25 @@ const navigation: NavGroup[] = [
     ],
   },
 ];
+
+/**
+ * Onde a pessoa cai ao trocar de painel.
+ *
+ * Prefere o `inicio` declarado do painel, mas so se o papel puder abri-lo:
+ * `groups` ja chega filtrado por permissao, entao quem nao enxerga Paginas cai
+ * no primeiro item que enxerga, em vez de numa tela que o RLS negaria.
+ */
+export const destinoDoPainel = (
+  groups: NavGroup[],
+  panel: PanelId
+): string | undefined => {
+  const doPainel = groups.filter((group) => group.panel === panel);
+  const declarado = PANELS.find((p) => p.id === panel)?.inicio;
+  const podeAbrir = doPainel.some((group) =>
+    group.items.some((item) => item.href === declarado)
+  );
+  return podeAbrir ? declarado : doPainel[0]?.items[0]?.href;
+};
 
 // Painel a que a rota ativa pertence (para "trocar pela rota").
 const panelForHref = (href: string | null): PanelId | null =>
@@ -226,15 +271,17 @@ const NavGroups = ({
               <Link
                 className={`flex items-center gap-3 rounded-lg border-l-2 px-3 py-2 text-sm font-medium transition ${
                   isActive
-                    ? "border-orange-500 bg-orange-50 text-orange-700"
-                    : "border-transparent text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                    ? TEMA[panel].ativo
+                    : "border-transparent text-gray-600 hover:bg-white/70 hover:text-gray-900"
                 }`}
                 href={item.href}
                 key={item.href}
                 onClick={onNavigate}
               >
                 <Icon
-                  className={`h-5 w-5 ${isActive ? "text-orange-600" : "text-gray-400"}`}
+                  className={`h-5 w-5 ${
+                    isActive ? TEMA[panel].icone : "text-gray-500"
+                  }`}
                 />
                 {item.label}
               </Link>
@@ -410,8 +457,7 @@ const AdminLayout = ({ children, title, description, action }: Props) => {
   // que o RLS deixaria zerado.
   const choosePanel = (next: PanelId) => {
     rememberPanel(next);
-    const destination = groups.find((group) => group.panel === next)?.items[0]
-      ?.href;
+    const destination = destinoDoPainel(groups, next);
     if (destination && destination !== router.pathname) {
       void router.push(destination);
     }
@@ -461,7 +507,9 @@ const AdminLayout = ({ children, title, description, action }: Props) => {
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
       {/* Sidebar desktop */}
-      <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r bg-white lg:flex print:hidden">
+      <aside
+        className={`fixed inset-y-0 left-0 hidden w-64 flex-col border-r lg:flex print:hidden ${TEMA[effectivePanel].fundo}`}
+      >
         <div className="border-b px-4 py-4">
           <Link
             aria-label="RW Turismo — Início"
@@ -503,7 +551,7 @@ const AdminLayout = ({ children, title, description, action }: Props) => {
           onClick={() => setIsMobileNavOpen(false)}
         >
           <div
-            className="flex h-full w-72 flex-col bg-white shadow-xl"
+            className={`flex h-full w-72 flex-col shadow-xl ${TEMA[effectivePanel].fundo}`}
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between px-5 py-4">
