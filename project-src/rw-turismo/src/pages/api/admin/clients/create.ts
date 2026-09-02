@@ -28,6 +28,13 @@ import { createSupabaseAdminClient } from "../../../../lib/supabase/admin";
 // para conseguir guardar um contato.
 
 type Corpo = {
+  /**
+   * Confirmacao explicita de que o operador VIU que este e-mail ja tem ficha e
+   * quer atualiza-la. Sem ela a rota recusa com 409 em vez de gravar por cima
+   * — e a mesma regra da importacao, que so mexe em ficha existente quando o
+   * operador marca "atualizar" (import.ts:190).
+   */
+  atualizar_existente?: unknown;
   name?: unknown;
   email?: unknown;
   phone?: unknown;
@@ -77,14 +84,65 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     return res.status(400).json({ error: "E-mail inválido." });
   }
 
+  // birth_date ia cru para uma coluna `date`. Formato errado virava erro do
+  // Postgres na cara de quem atende, e data no futuro entrava sem reclamar —
+  // e depois apareceria na lista de aniversariantes.
+  if (nascimento) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(nascimento)) {
+      return res.status(400).json({ error: "Data de nascimento inválida." });
+    }
+    const [ano, mes, dia] = nascimento.split("-").map(Number);
+    const data = new Date(ano!, mes! - 1, dia!);
+    const real =
+      data.getFullYear() === ano &&
+      data.getMonth() === mes! - 1 &&
+      data.getDate() === dia;
+    if (!real) {
+      return res.status(400).json({ error: "Data de nascimento inválida." });
+    }
+    if (data > new Date()) {
+      return res
+        .status(400)
+        .json({ error: "A data de nascimento está no futuro." });
+    }
+  }
+
   const admin = createSupabaseAdminClient() as any;
 
   try {
-    // COM E-MAIL: mesmo caminho da importação e da reserva manual. Se já existe
-    // ficha com este e-mail, resolveCustomerUserId ADOTA em vez de duplicar —
-    // e devolve o dono. Por isso não há checagem de duplicata aqui: ela está
-    // dentro dele, e é a mesma dos outros dois caminhos.
     if (email) {
+      // OLHAR ANTES DE ESCREVER.
+      //
+      // resolveCustomerUserId ADOTA a ficha existente e devolve o dono — o que
+      // e certo para identidade, mas apaga a diferenca entre "criei" e
+      // "escrevi na ficha de outra pessoa". Sem esta consulta a rota gravava
+      // CPF e nascimento por cima de quem ja estava la, respondia
+      // `criou_conta: true` sem ter criado nada, e levava o operador para a
+      // ficha alterada como se fosse o cadastro novo dele.
+      const { data: existente } = await admin
+        .from("users_profiles")
+        .select("id, role, name")
+        .eq("email", email)
+        .maybeSingle();
+
+      // Nunca mexer em conta de equipe, pela mesma razao da importacao
+      // (import.ts:135): o papel dela decide acesso ao painel, e o aviso de
+      // "parecidos" da tela nem mostra funcionario, porque filtra role
+      // 'customer' — este caso seria 100% silencioso.
+      if (existente && existente.role !== "customer") {
+        return res.status(409).json({
+          error: "Este e-mail é de um usuário da equipe, não de cliente.",
+        });
+      }
+
+      // Existe e o operador ainda nao decidiu: devolve quem e, e para por aqui.
+      if (existente && corpo.atualizar_existente !== true) {
+        return res.status(409).json({
+          error: `${existente.name || "Alguém"} já está cadastrado com este e-mail.`,
+          existente: { id: existente.id, name: existente.name },
+        });
+      }
+
       const idDaConta = await resolveCustomerUserId(admin, {
         user_id: null,
         name: nome,
@@ -92,12 +150,18 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
         phone: telefone || null,
       });
 
-      // Documento e nascimento não passam por resolveCustomerUserId: ela cuida
-      // de identidade, não de cadastro. Só grava o que veio preenchido — célula
-      // vazia não apaga dado bom.
-      const extras: Record<string, unknown> = { contact_origin: origem };
+      // So o que veio PREENCHIDO. Campo vazio nao apaga dado bom — o estrago
+      // mais comum de cadastro em cima de ficha que ja existe.
+      const extras: Record<string, unknown> = {};
       if (documento) extras.document = documento;
       if (nascimento) extras.birth_date = nascimento;
+      // resolveCustomerUserId so grava telefone ao CRIAR a ficha; adotando uma
+      // existente, ele retorna antes e o telefone digitado se perdia calado.
+      if (telefone) extras.phone = telefone;
+      // A ORIGEM SO VALE PARA FICHA NOVA. Reescreve-la numa ficha antiga apaga
+      // a procedencia do consentimento de quem entrou por outro caminho — e e
+      // justamente ela que responde por que aquela pessoa esta na base.
+      if (!existente) extras.contact_origin = origem;
 
       const { data: perfil, error } = await admin
         .from("users_profiles")
@@ -107,7 +171,16 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
         .maybeSingle();
 
       if (error) throw error;
-      return res.status(201).json({ client: perfil, criou_conta: true });
+      if (!perfil) {
+        // maybeSingle devolve null sem erro quando nada casa. Responder 201
+        // aqui mandaria a tela para /admin/clients/undefined.
+        return res
+          .status(500)
+          .json({ error: "O cadastro não pôde ser confirmado." });
+      }
+      return res
+        .status(201)
+        .json({ client: perfil, criou_conta: !existente });
     }
 
     // SEM E-MAIL: entra só na agenda, sem conta de autenticação. É o cliente

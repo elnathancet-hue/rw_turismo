@@ -871,6 +871,11 @@ export type NovoClienteInput = {
   document?: string | null;
   birth_date?: string | null;
   contact_origin?: string | null;
+  /**
+   * Confirmacao de que o operador viu que o e-mail ja tem ficha e quer
+   * atualiza-la. Sem ela a rota recusa com 409 em vez de gravar por cima.
+   */
+  atualizar_existente?: boolean;
 };
 
 // Cadastra UMA pessoa na agenda. Passa por rota de API, e nao direto no
@@ -888,7 +893,13 @@ export const createAdminClient = async (
 
   const data = await response.json();
   if (!response.ok) {
-    throw new Error(data?.error ?? "Nao foi possivel cadastrar o cliente.");
+    // O 409 de "este e-mail ja tem ficha" carrega QUEM e. Um Error simples
+    // perderia isso, e a tela nao teria como oferecer "atualizar a existente".
+    const erro = Object.assign(
+      new Error(data?.error ?? "Nao foi possivel cadastrar o cliente."),
+      { existente: data?.existente }
+    );
+    throw erro;
   }
   return data as { client: AdminClient; criou_conta: boolean };
 };
