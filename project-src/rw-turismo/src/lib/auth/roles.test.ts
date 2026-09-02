@@ -113,3 +113,25 @@ describe("canAccessAdminRoute", () => {
     expect(canAccessAdminRoute("/admin", undefined)).toBe(false);
   });
 });
+
+// O quiz e conteudo, como pagina e blog. Sem esta linha no mapa, a rota cairia
+// na regra de "nao mapeada = admin-only" e o middleware mandaria o `conteudo`
+// embora — a tela existiria e ninguem de conteudo chegaria nela.
+describe("quizzes", () => {
+  it("abre para conteudo, como paginas e blog", () => {
+    expect(rolesForAdminRoute("/admin/quizzes")).toEqual(
+      rolesForAdminRoute("/admin/blog")
+    );
+    expect(canAccessAdminRoute("/admin/quizzes", "conteudo")).toBe(true);
+    expect(canAccessAdminRoute("/admin/quizzes", "admin")).toBe(true);
+  });
+
+  it("fecha para quem nao mexe em conteudo", () => {
+    expect(canAccessAdminRoute("/admin/quizzes", "financeiro")).toBe(false);
+    expect(canAccessAdminRoute("/admin/quizzes", "customer")).toBe(false);
+  });
+
+  it("cobre a tela de edicao junto", () => {
+    expect(canAccessAdminRoute("/admin/quizzes/[id]", "conteudo")).toBe(true);
+  });
+});

@@ -68,6 +68,7 @@ const ROUTE_ROLES: Array<[string, StaffRole[]]> = [
   ["/admin/home", ["admin", "conteudo"]],
   ["/admin/pages", ["admin", "conteudo"]],
   ["/admin/blog", ["admin", "conteudo"]],
+  ["/admin/quizzes", ["admin", "conteudo"]],
   ["/admin/menu", ["admin", "conteudo"]],
   ["/admin/footer", ["admin", "conteudo"]],
   ["/admin/aparencia", ["admin", "conteudo"]],

@@ -131,6 +131,7 @@ const navigation: NavGroup[] = [
       { href: "/admin/home", label: "Home", icon: PhotoIcon },
       { href: "/admin/pages", label: "Páginas", icon: DocumentTextIcon },
       { href: "/admin/blog", label: "Blog", icon: NewspaperIcon },
+      { href: "/admin/quizzes", label: "Quizzes", icon: NewspaperIcon },
       { href: "/admin/menu", label: "Menu", icon: Bars3Icon },
       { href: "/admin/footer", label: "Rodapé", icon: QueueListIcon },
       { href: "/admin/aparencia", label: "Aparência", icon: PaintBrushIcon },
