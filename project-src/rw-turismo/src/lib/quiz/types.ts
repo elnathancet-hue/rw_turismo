@@ -17,16 +17,53 @@ export type QuizPergunta = {
   opcoes: QuizOpcao[];
 };
 
+/** Uma foto do resultado. Sem `url` o bloco nao renderiza. */
+export type QuizFoto = {
+  url: string;
+  legenda?: string | null;
+  /** Selo no canto, ex "SIMULACAO". Vazio nao desenha o selo. */
+  selo?: string | null;
+};
+
+/** O bloco "Seu destino": nome grande, subtitulo e a lista de itens. */
+export type QuizDestino = {
+  nome?: string | null;
+  subtitulo?: string | null;
+  itens?: string[];
+};
+
 export type QuizResultado = {
   chave: string;
   /** Qual eixo dominante leva a este resultado. NULO marca o de empate. */
   eixo: string | null;
   rotulo: string;
+  /**
+   * Titulo da tela de resultado. Aceita {{nome}} e {{rotulo}}.
+   * Vazio cai no `rotulo`, que todo resultado tem — assim quiz antigo, feito
+   * antes destes campos existirem, continua com uma tela de pe.
+   */
+  titulo?: string | null;
   texto?: string | null;
-  /** URL da imagem. Vazio renderiza sem imagem, e a tela continua de pé. */
+  /**
+   * Foto unica, do modelo antigo. Fica por causa dos quizzes ja gravados: o
+   * renderizador a trata como a primeira de `fotos`. O editor novo grava em
+   * `fotos`.
+   */
   foto?: string | null;
-  /** 0 a 100: onde o resultado cai numa régua, quando o quiz usa uma. */
+  fotos?: QuizFoto[];
+  /**
+   * 0 a 100: onde este resultado cai na regua entre os dois eixos. A regua e o
+   * que personaliza a tela visualmente — o texto acima dela costuma ser o mesmo
+   * para todo mundo, e o ponto e o que muda conforme as respostas.
+   * So desenha em quiz de DOIS eixos: com tres ou mais, uma regua de uma
+   * dimensao mentiria sobre o resultado.
+   */
   posicao?: number | null;
+  /** Frase sob a regua, ex "Mais aventura". */
+  regua_rotulo?: string | null;
+  /** Lista com check verde: por que este resultado combina com a pessoa. */
+  motivos?: string[];
+  destino?: QuizDestino | null;
 };
 
 export type QuizIntro = {
@@ -41,6 +78,26 @@ export type QuizCta = {
   /** Mensagem pronta; {{resultado}} e {{nome}} são trocados na hora. */
   molde?: string | null;
   texto_botao?: string | null;
+  /** Linhas pequenas sob o botao, ex "Voce cai direto no WhatsApp...". */
+  micro?: string[];
+};
+
+/**
+ * A moldura da tela de resultado: os rotulos que sao os MESMOS para todos os
+ * resultados do quiz. Ficam aqui, e nao dentro de cada resultado, para quem
+ * edita nao ter de repetir a mesma frase em cada desfecho.
+ */
+export type QuizResultadoLayout = {
+  /** O olho acima do titulo, ex "Sua leitura". */
+  olho?: string | null;
+  /** Cabecalho da lista de motivos, ex "Por que essa viagem combina com voce?" */
+  titulo_motivos?: string | null;
+  /** Cabecalho do bloco de destino, ex "Seu destino". */
+  titulo_destino?: string | null;
+  /** Linha de confianca em texto pequeno, abaixo dos blocos. */
+  selo?: string | null;
+  /** Assinatura no rodape, ex "@rwturismo.pi". */
+  assinatura?: string | null;
 };
 
 export type Quiz = {
@@ -57,6 +114,7 @@ export type Quiz = {
   margem_empate: number;
   cta: QuizCta;
   captura_ativa: boolean;
+  resultado_layout?: QuizResultadoLayout;
 };
 
 /** O que a pessoa escolheu: índice da pergunta e índice da opção. */

@@ -15,13 +15,17 @@ export const Field = ({
   hint,
   error,
   children,
+  className = "",
 }: {
   label: ReactNode;
   hint?: string;
   error?: string | null;
   children: ReactNode;
+  /** Espaçamento e largura de fora. O Field é um <label class="block">, e sem
+   *  isto não dá para lhe dar margem nem `flex-1` no lugar onde ele é usado. */
+  className?: string;
 }) => (
-  <label className="block text-sm font-medium text-gray-700">
+  <label className={`block text-sm font-medium text-gray-700 ${className}`}>
     {label}
     {children}
     {hint && !error && (
@@ -44,11 +48,16 @@ export const Input = ({
   <input className={`${controlClass} ${className}`} {...props} />
 );
 
+// `rows` default 4. Sem ele o navegador usa 2, e como o controlClass e a MESMA
+// string do <input>, a caixa de texto ficava indistinguivel de um campo de uma
+// linha — era o que fazia o editor de quiz parecer apertado. Continua sendo so
+// um default: quem precisa de mais passa `rows`.
 export const Textarea = ({
   className = "",
+  rows = 4,
   ...props
 }: TextareaHTMLAttributes<HTMLTextAreaElement>) => (
-  <textarea className={`${controlClass} ${className}`} {...props} />
+  <textarea className={`${controlClass} ${className}`} rows={rows} {...props} />
 );
 
 export const Select = ({

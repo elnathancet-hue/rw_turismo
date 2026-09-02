@@ -1,6 +1,7 @@
 import type { GetServerSidePropsContext } from "next";
 import Head from "next/head";
 import { useState } from "react";
+import TelaResultado from "../../components/quiz/TelaResultado";
 import { getPublishedQuiz } from "../../lib/quiz/server";
 import {
   mascararTelefone,
@@ -14,16 +15,30 @@ import type {
 } from "../../lib/quiz/types";
 import { hrefSeguro } from "../../lib/security/url";
 import { getStoredUtm } from "../../lib/utm";
+import estilos from "../../styles/quiz.module.css";
 
 // Renderizador genérico de quiz: serve qualquer quiz criado no painel.
 //
-// Não é o /quiz-feriado. Aquele tem arte própria em SVG (CenaSimulada) feita
-// para avaliar o layout antes das fotos existirem, e o comentário do próprio
-// arquivo diz que a arte sai quando as fotos chegarem. Arrastar aquilo para cá
-// prenderia o renderizador genérico a um quiz específico — então aqui a imagem
-// do resultado é uma URL, e sem ela a tela renderiza só o texto.
+// USA A MESMA FOLHA DE ESTILO da página feita à mão (/quiz-feriado). Ela é toda
+// escopada em `.pagina` e nada nela é do feriado — régua, lista com check,
+// fotos legendadas, selo, botão. Antes esta tela era Tailwind cru e um quiz
+// criado no sistema não se parecia com a página real; agora o layout sai igual
+// porque é o MESMO CSS, e não uma imitação dele.
+//
+// A arte em SVG do /quiz-feriado (CenaSimulada) continua só lá: ela existe para
+// avaliar o layout antes das fotos reais chegarem. Aqui a imagem é uma URL que
+// quem cria o quiz informa, e sem ela o bloco some.
 
 type Etapa = "abertura" | "perguntas" | "captura" | "resultado";
+
+// O mesmo topo da pagina a mao: so a logo, sem menu. Aparece em todas as
+// etapas, resultado incluso — e o que amarra a tela ao site.
+const Topo = () => (
+  <header className={estilos.topo}>
+    {/* eslint-disable-next-line @next/next/no-img-element */}
+    <img alt="RW Turismo" src="/rw-turismo-logo.png" />
+  </header>
+);
 
 const QuizPublico = ({ quiz }: { quiz: Quiz }) => {
   const [etapa, setEtapa] = useState<Etapa>("abertura");
@@ -114,125 +129,133 @@ const QuizPublico = ({ quiz }: { quiz: Quiz }) => {
         )}
       </Head>
 
-      <main className="mx-auto min-h-screen max-w-2xl px-6 py-12">
-        {etapa === "abertura" && (
-          <section>
-            <h1 className="text-4xl font-bold">
-              {quiz.intro?.titulo || quiz.title}
-            </h1>
-            {quiz.intro?.subtitulo && (
-              <p className="mt-4 text-lg text-gray-600">
-                {quiz.intro.subtitulo}
-              </p>
-            )}
-            <button
-              className="mt-8 rounded-full bg-orange-500 px-8 py-3 font-semibold text-white hover:bg-orange-600"
-              disabled={total === 0}
-              onClick={() => setEtapa("perguntas")}
-              type="button"
-            >
-              {quiz.intro?.texto_botao || "Começar"}
-            </button>
-            {total === 0 && (
-              <p className="mt-4 text-sm text-gray-500">
-                Este quiz ainda não tem perguntas.
-              </p>
-            )}
-          </section>
-        )}
+      <main className={estilos.pagina} data-tela={etapa}>
+        <Topo />
 
-        {etapa === "perguntas" && pergunta && (
-          <section>
-            <p className="text-sm font-semibold text-orange-600">
-              {/* Sem este sinal a tela fica parada na última pergunta enquanto
-                  o servidor calcula, e quem respondeu não sabe se funcionou. */}
-              {enviando ? "Calculando…" : `${indice + 1} de ${total}`}
-            </p>
-            <h2 className="mt-2 text-2xl font-semibold">{pergunta.texto}</h2>
-            <div className="mt-6 space-y-3">
-              {pergunta.opcoes.map((opcao, i) => (
-                <button
-                  className="block w-full rounded-xl border border-gray-300 px-5 py-4 text-left hover:border-orange-400 hover:bg-orange-50 disabled:opacity-60"
-                  disabled={enviando}
-                  key={i}
-                  onClick={() => escolher(i)}
-                  type="button"
-                >
-                  {opcao.texto}
-                </button>
-              ))}
+        {etapa === "abertura" && (
+          <section className={estilos.tela}>
+            <div className={estilos.col}>
+              {quiz.intro?.subtitulo && (
+                <p className={estilos.olho}>{quiz.intro.subtitulo}</p>
+              )}
+              <h1>{quiz.intro?.titulo || quiz.title}</h1>
+              <button
+                className={estilos.acao}
+                disabled={total === 0}
+                onClick={() => setEtapa("perguntas")}
+                type="button"
+              >
+                {quiz.intro?.texto_botao || "Começar"}
+              </button>
+              {total === 0 && (
+                <p className={estilos.micro}>
+                  Este quiz ainda não tem perguntas.
+                </p>
+              )}
             </div>
           </section>
         )}
 
-        {etapa === "captura" && (
-          <section>
-            <h2 className="text-2xl font-semibold">Quase lá</h2>
-            <p className="mt-2 text-gray-600">
-              Deixe seu contato para receber o resultado.
+        {etapa === "perguntas" && pergunta && (
+          <section className={estilos.tela}>
+            <div className={estilos.col}>
+              <div className={estilos.passo}>
+                <div className={estilos.passoTopo}>
+                  <span>
+                    {/* Sem este sinal a tela fica parada na última pergunta
+                        enquanto o servidor calcula, e quem respondeu não sabe
+                        se funcionou. */}
+                    {enviando ? (
+                      "Calculando…"
+                    ) : (
+                      <>
+                        Pergunta <b>{indice + 1}</b> de {total}
+                      </>
+                    )}
+                  </span>
+                </div>
+                <div aria-hidden="true" className={estilos.trilho}>
+                  {quiz.perguntas.map((_, posicao) => (
+                    <span
+                      className={posicao <= indice ? estilos.trilhoFeito : undefined}
+                      key={posicao}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <h2 className={estilos.pergunta}>{pergunta.texto}</h2>
+
+              <ul className={estilos.opcoes}>
+                {pergunta.opcoes.map((opcao, i) => (
+                  <li key={`${indice}-${i}`}>
+                    <button
+                      className={estilos.opcao}
+                      disabled={enviando}
+                      onClick={() => escolher(i)}
+                      type="button"
+                    >
+                      <span className={estilos.opcaoTexto}>{opcao.texto}</span>
+                      <span aria-hidden="true" className={estilos.marca} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <p aria-live="polite" className={estilos.sr} role="status">
+              {`Pergunta ${indice + 1} de ${total}. ${pergunta.texto}`}
             </p>
-            <div className="mt-6 space-y-4">
-              <label className="block">
-                Nome completo
+          </section>
+        )}
+
+        {etapa === "captura" && (
+          <section className={estilos.tela}>
+            <div className={estilos.col}>
+              <h2>Quase lá</h2>
+              <p className={estilos.sub}>
+                Deixe seu contato para receber o resultado.
+              </p>
+              <label className={estilos.campo}>
+                <span>Nome completo</span>
                 <input
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"
                   onChange={(e) => setNome(e.target.value)}
                   value={nome}
                 />
               </label>
-              <label className="block">
-                WhatsApp
+              <label className={estilos.campo}>
+                <span>WhatsApp</span>
                 <input
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"
                   onChange={(e) => setTelefone(mascararTelefone(e.target.value))}
                   placeholder="(86) 99999-8888"
                   value={telefone}
                 />
               </label>
+              <button
+                className={estilos.acao}
+                disabled={!podeEnviarContato || enviando}
+                onClick={() => void enviar(respostas)}
+                type="button"
+              >
+                {enviando ? "Calculando…" : "Ver meu resultado"}
+              </button>
             </div>
-            <button
-              className="mt-6 rounded-full bg-orange-500 px-8 py-3 font-semibold text-white hover:bg-orange-600 disabled:opacity-60"
-              disabled={!podeEnviarContato || enviando}
-              onClick={() => void enviar(respostas)}
-              type="button"
-            >
-              {enviando ? "Calculando…" : "Ver meu resultado"}
-            </button>
           </section>
         )}
 
         {etapa === "resultado" && conteudo && (
-          <section>
-            <p className="text-sm font-semibold text-orange-600">Seu resultado</p>
-            <h2 className="mt-2 text-3xl font-bold">{conteudo.rotulo}</h2>
-            {/* Sem foto a tela continua de pé: quiz novo costuma nascer sem
-                imagem, e um quadro quebrado seria pior que nenhum. */}
-            {conteudo.foto && hrefSeguro(conteudo.foto) && (
-              <img
-                alt={conteudo.rotulo}
-                className="mt-6 w-full rounded-xl object-cover"
-                src={hrefSeguro(conteudo.foto) as string}
-              />
-            )}
-            {conteudo.texto && (
-              <p className="mt-6 whitespace-pre-wrap text-lg text-gray-700">
-                {conteudo.texto}
-              </p>
-            )}
-            {linkCta && (
-              <a
-                className="mt-8 inline-flex rounded-full bg-green-600 px-8 py-3 font-semibold text-white hover:bg-green-700"
-                href={linkCta}
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                {quiz.cta?.texto_botao || "Falar no WhatsApp"}
-              </a>
-            )}
-          </section>
+          <TelaResultado
+            linkCta={linkCta}
+            nome={nome}
+            quiz={quiz}
+            resultado={conteudo}
+          />
         )}
 
-        {erro && <p className="mt-6 text-sm text-red-600">{erro}</p>}
+        {erro && (
+          <p className={estilos.micro} role="alert">
+            {erro}
+          </p>
+        )}
       </main>
     </>
   );

@@ -31,7 +31,7 @@ import CenaSimulada, {
   CenaAbertura,
   type LetraFoto,
 } from "../components/quiz/CenaSimulada";
-import estilos from "../styles/quiz-feriado.module.css";
+import estilos from "../styles/quiz.module.css";
 
 // Quiz de captação para o feriado de 7 de setembro.
 //

@@ -1,4 +1,4 @@
-import estilos from "../../styles/quiz-feriado.module.css";
+import estilos from "../../styles/quiz.module.css";
 
 // Cenas desenhadas no lugar das 4 fotos reais do quiz.
 //

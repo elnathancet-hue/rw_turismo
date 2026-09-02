@@ -4,15 +4,23 @@ import { useEffect, useState } from "react";
 import AdminGuard from "../../../components/admin/AdminGuard";
 import AdminLayout from "../../../components/admin/AdminLayout";
 import Button from "../../../components/ui/Button";
+import ListaDeTextos from "../../../components/admin/ListaDeTextos";
 import { Field, Input, Select, Textarea } from "../../../components/ui/form";
 import { getAdminQuiz, saveAdminQuiz } from "../../../lib/quiz/client";
-import type { Quiz, QuizPergunta, QuizResultado } from "../../../lib/quiz/types";
+import type {
+  Quiz,
+  QuizFoto,
+  QuizPergunta,
+  QuizResultado,
+  QuizResultadoLayout,
+} from "../../../lib/quiz/types";
 import {
   eixosOrfaos,
   removerEixo as removerEixoDoQuiz,
   renomearEixo as renomearEixoDoQuiz,
 } from "../../../lib/quiz/eixos";
 import { slugify } from "../../../lib/admin/slugs";
+import { hrefSeguro } from "../../../lib/security/url";
 
 // Editor de quiz.
 //
@@ -82,6 +90,12 @@ const AdminQuizEditor = () => {
   const orfaos = eixosOrfaos(quiz);
 
   const setPerguntas = (perguntas: QuizPergunta[]) => set("perguntas", perguntas);
+  // Spread, e nunca reconstrucao campo a campo: e o spread que preserva chave
+  // que este formulario ainda nao conhece. Salvar substitui o jsonb inteiro.
+  const layout: QuizResultadoLayout = quiz.resultado_layout ?? {};
+  const setLayout = (troca: Partial<QuizResultadoLayout>) =>
+    set("resultado_layout", { ...(quiz.resultado_layout ?? {}), ...troca });
+
   const setResultados = (resultados: QuizResultado[]) =>
     set("resultados", resultados);
 
@@ -113,7 +127,7 @@ const AdminQuizEditor = () => {
         title={quiz.title || "Quiz"}
         description="Perguntas, pesos e resultados. Nada aqui aceita HTML."
         action={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Link
               className="rounded border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50"
               href="/admin/quizzes"
@@ -152,7 +166,7 @@ const AdminQuizEditor = () => {
         {erro && <p className="mb-4 text-sm text-red-600">{erro}</p>}
         {aviso && <p className="mb-4 text-sm text-green-700">{aviso}</p>}
 
-        <div className="max-w-3xl space-y-6">
+        <div className="max-w-5xl space-y-6">
           {/* ---------------------------------------------------- básico */}
           <section className="rounded-lg border bg-white p-5 shadow-sm">
             <h2 className="font-semibold">O quiz</h2>
@@ -187,7 +201,7 @@ const AdminQuizEditor = () => {
                 />
               </Field>
             </div>
-            <Field label="Subtítulo da abertura">
+            <Field className="mt-4" label="Subtítulo da abertura">
               <Textarea
                 onChange={(e) =>
                   set("intro", { ...quiz.intro, subtitulo: e.target.value })
@@ -220,8 +234,9 @@ const AdminQuizEditor = () => {
                 caía no empate, sem erro em lugar nenhum. */}
             <div className="mt-4 space-y-2">
               {quiz.eixos.map((eixo, i) => (
-                <div className="flex items-center gap-2" key={i}>
+                <div className="flex min-w-0 items-center gap-2" key={i}>
                   <Input
+                    className="min-w-0 flex-1"
                     onChange={(e) => renomearEixo(i, e.target.value)}
                     value={eixo}
                   />
@@ -244,6 +259,7 @@ const AdminQuizEditor = () => {
               </button>
             </div>
             <Field
+              className="mt-4"
               hint="Diferença mínima para um eixo vencer. Abaixo dela, vale o resultado de empate."
               label="Margem de empate"
             >
@@ -281,7 +297,7 @@ const AdminQuizEditor = () => {
             <div className="mt-4 space-y-5">
               {quiz.perguntas.map((pergunta, iP) => (
                 <div className="rounded-lg border p-4" key={iP}>
-                  <div className="flex items-start gap-2">
+                  <div className="flex min-w-0 items-start gap-2 [&>label]:min-w-0 [&>label]:flex-1">
                     <Field label={`Pergunta ${iP + 1}`}>
                       <Textarea
                         onChange={(e) =>
@@ -423,6 +439,81 @@ const AdminQuizEditor = () => {
             </div>
           </section>
 
+          {/* ------------------------------------- moldura do resultado */}
+          <section className="rounded-lg border bg-white p-5 shadow-sm">
+            <h2 className="font-semibold">Moldura da tela de resultado</h2>
+            <p className="mt-1 text-sm text-gray-500">
+              Os rótulos que são iguais em todos os desfechos. O que muda por
+              desfecho fica em cada resultado, abaixo. Campo vazio não aparece na
+              tela.
+            </p>
+
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <Field
+                hint="A linha pequena acima do título."
+                label="Olho"
+              >
+                <Input
+                  onChange={(e) => setLayout({ olho: e.target.value || null })}
+                  placeholder="Sua leitura"
+                  value={layout.olho ?? ""}
+                />
+              </Field>
+              <Field label="Assinatura do rodapé">
+                <Input
+                  onChange={(e) =>
+                    setLayout({ assinatura: e.target.value || null })
+                  }
+                  placeholder="@rwturismo.pi"
+                  value={layout.assinatura ?? ""}
+                />
+              </Field>
+              <Field label="Título da lista de motivos">
+                <Input
+                  onChange={(e) =>
+                    setLayout({ titulo_motivos: e.target.value || null })
+                  }
+                  placeholder="Por que essa viagem combina com você?"
+                  value={layout.titulo_motivos ?? ""}
+                />
+              </Field>
+              <Field label="Título do bloco de destino">
+                <Input
+                  onChange={(e) =>
+                    setLayout({ titulo_destino: e.target.value || null })
+                  }
+                  placeholder="Seu destino"
+                  value={layout.titulo_destino ?? ""}
+                />
+              </Field>
+            </div>
+
+            <div className="mt-4">
+              <Field
+                hint="Texto pequeno de confiança, abaixo dos blocos."
+                label="Selo"
+              >
+                <Textarea
+                  onChange={(e) => setLayout({ selo: e.target.value || null })}
+                  placeholder="Mais de 25 anos de estrada, Cadastur, loja física em Teresina…"
+                  rows={2}
+                  value={layout.selo ?? ""}
+                />
+              </Field>
+            </div>
+
+            <div className="mt-4 border-t pt-4">
+              <ListaDeTextos
+                hint="Aparecem embaixo do botão, em letra pequena."
+                itens={quiz.cta?.micro ?? []}
+                label="Linhas sob o botão"
+                onChange={(micro) => set("cta", { ...quiz.cta, micro })}
+                placeholder="Você cai direto no WhatsApp, com a mensagem já escrita."
+                textoAdicionar="+ Linha"
+              />
+            </div>
+          </section>
+
           {/* ------------------------------------------------ resultados */}
           <section className="rounded-lg border bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
@@ -463,78 +554,273 @@ const AdminQuizEditor = () => {
               </p>
             )}
 
-            <div className="mt-4 space-y-4">
-              {quiz.resultados.map((resultado, i) => (
-                <div className="rounded-lg border p-4" key={i}>
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <Field label="Rótulo">
-                      <Input
-                        onChange={(e) =>
-                          setResultados(
-                            quiz.resultados.map((r, j) =>
-                              j === i ? { ...r, rotulo: e.target.value } : r
-                            )
-                          )
-                        }
-                        value={resultado.rotulo}
-                      />
-                    </Field>
-                    <Field hint="Vazio = resultado de empate" label="Eixo dominante">
-                      <Select
-                        onChange={(e) =>
-                          setResultados(
-                            quiz.resultados.map((r, j) =>
-                              j === i ? { ...r, eixo: e.target.value || null } : r
-                            )
-                          )
-                        }
-                        value={resultado.eixo ?? ""}
+            <div className="mt-4 space-y-5">
+              {quiz.resultados.map((resultado, i) => {
+                const trocaResultado = (troca: Partial<QuizResultado>) =>
+                  setResultados(
+                    quiz.resultados.map((r, j) => (j === i ? { ...r, ...troca } : r))
+                  );
+                const fotos = resultado.fotos ?? [];
+                const destino = resultado.destino ?? {};
+
+                return (
+                  <div className="rounded-lg border p-5" key={i}>
+                    {/* Duas colunas, não três: com três, cada campo ficava com
+                        um terço da largura e a URL da imagem não cabia — foi a
+                        reclamação de "blocos apertados", e de "não vi a opção de
+                        colocar imagem", que estava espremida na terceira. */}
+                    <div className="grid gap-4 sm:grid-cols-[2fr_1fr]">
+                      <Field label="Rótulo">
+                        <Input
+                          onChange={(e) => trocaResultado({ rotulo: e.target.value })}
+                          placeholder="Serra da Ibiapaba"
+                          value={resultado.rotulo}
+                        />
+                      </Field>
+                      <Field hint="Vazio = resultado de empate" label="Eixo dominante">
+                        <Select
+                          onChange={(e) =>
+                            trocaResultado({ eixo: e.target.value || null })
+                          }
+                          value={resultado.eixo ?? ""}
+                        >
+                          <option value="">— empate —</option>
+                          {quiz.eixos.map((eixo) => (
+                            <option key={eixo} value={eixo}>
+                              {eixo}
+                            </option>
+                          ))}
+                        </Select>
+                      </Field>
+                    </div>
+
+                    <div className="mt-4">
+                      <Field
+                        hint="Aceita {{nome}} e {{rotulo}}. Vazio usa o rótulo acima."
+                        label="Título da tela de resultado"
                       >
-                        <option value="">— empate —</option>
-                        {quiz.eixos.map((eixo) => (
-                          <option key={eixo} value={eixo}>
-                            {eixo}
-                          </option>
-                        ))}
-                      </Select>
-                    </Field>
-                    <Field label="Imagem (URL)">
-                      <Input
-                        onChange={(e) =>
-                          setResultados(
-                            quiz.resultados.map((r, j) =>
-                              j === i ? { ...r, foto: e.target.value || null } : r
-                            )
-                          )
-                        }
-                        placeholder="https://…"
-                        value={resultado.foto ?? ""}
+                        <Input
+                          onChange={(e) =>
+                            trocaResultado({ titulo: e.target.value || null })
+                          }
+                          placeholder="{{nome}}, suas respostas mostram que…"
+                          value={resultado.titulo ?? ""}
+                        />
+                      </Field>
+                    </div>
+
+                    <div className="mt-4">
+                      <Field label="Texto do resultado">
+                        <Textarea
+                          onChange={(e) => trocaResultado({ texto: e.target.value })}
+                          rows={4}
+                          value={resultado.texto ?? ""}
+                        />
+                      </Field>
+                    </div>
+
+                    {/* A RÉGUA só existe em quiz de dois eixos. Com três ou
+                        mais, uma barra de uma dimensão colocaria o resultado num
+                        ponto que não corresponde a nada. */}
+                    {quiz.eixos.length === 2 && (
+                      <div className="mt-4 rounded-lg bg-gray-50 p-4">
+                        <p className="text-sm font-semibold text-gray-700">
+                          Régua entre {quiz.eixos[0]} e {quiz.eixos[1]}
+                        </p>
+                        <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                          <Field
+                            hint="0 = todo à esquerda, 100 = todo à direita"
+                            label="Posição (0 a 100)"
+                          >
+                            <Input
+                              max={100}
+                              min={0}
+                              onChange={(e) =>
+                                trocaResultado({
+                                  posicao:
+                                    e.target.value === ""
+                                      ? null
+                                      : Number(e.target.value),
+                                })
+                              }
+                              placeholder="50"
+                              type="number"
+                              value={resultado.posicao ?? ""}
+                            />
+                          </Field>
+                          <Field label="Frase sob a régua">
+                            <Input
+                              onChange={(e) =>
+                                trocaResultado({
+                                  regua_rotulo: e.target.value || null,
+                                })
+                              }
+                              placeholder="Mais aventura"
+                              value={resultado.regua_rotulo ?? ""}
+                            />
+                          </Field>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="mt-4">
+                      <ListaDeTextos
+                        hint="Lista com check verde, abaixo da régua."
+                        itens={resultado.motivos ?? []}
+                        label="Motivos"
+                        onChange={(motivos) => trocaResultado({ motivos })}
+                        placeholder="Paisagens, serra e experiências ao ar livre."
+                        textoAdicionar="+ Motivo"
                       />
-                    </Field>
-                  </div>
-                  <Field label="Texto do resultado">
-                    <Textarea
-                      onChange={(e) =>
-                        setResultados(
-                          quiz.resultados.map((r, j) =>
-                            j === i ? { ...r, texto: e.target.value } : r
-                          )
-                        )
+                    </div>
+
+                    {/* AS IMAGENS, agora em bloco próprio e com largura inteira.
+                        Duas ficam lado a lado na tela pública; uma sozinha ocupa
+                        a largura toda. */}
+                    <div className="mt-5 border-t pt-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-700">
+                          Imagens ({fotos.length})
+                        </span>
+                        <button
+                          className="text-sm font-semibold text-brand-600 hover:underline"
+                          onClick={() =>
+                            trocaResultado({ fotos: [...fotos, { url: "" }] })
+                          }
+                          type="button"
+                        >
+                          + Imagem
+                        </button>
+                      </div>
+                      <p className="mt-1 text-xs text-gray-500">
+                        Duas imagens aparecem lado a lado. Sem imagem, o bloco não
+                        aparece.
+                      </p>
+
+                      {fotos.length === 0 ? (
+                        <p className="mt-2 rounded-lg border border-dashed border-gray-300 p-3 text-sm text-gray-500">
+                          Nenhuma imagem.
+                        </p>
+                      ) : (
+                        <div className="mt-3 space-y-4">
+                          {fotos.map((foto, f) => {
+                            const trocaFoto = (troca: Partial<QuizFoto>) =>
+                              trocaResultado({
+                                fotos: fotos.map((x, k) =>
+                                  k === f ? { ...x, ...troca } : x
+                                ),
+                              });
+                            return (
+                              <div className="rounded-lg border bg-gray-50 p-4" key={f}>
+                                <Field label={`Imagem ${f + 1} — endereço (URL)`}>
+                                  <Input
+                                    onChange={(e) => trocaFoto({ url: e.target.value })}
+                                    placeholder="https://…/foto.jpg"
+                                    value={foto.url}
+                                  />
+                                </Field>
+                                {foto.url && hrefSeguro(foto.url) && (
+                                  <img
+                                    alt=""
+                                    className="mt-2 h-32 w-full rounded border object-cover"
+                                    src={hrefSeguro(foto.url) as string}
+                                  />
+                                )}
+                                <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                                  <Field label="Legenda">
+                                    <Input
+                                      onChange={(e) =>
+                                        trocaFoto({ legenda: e.target.value || null })
+                                      }
+                                      placeholder="Teleférico sobre a mata"
+                                      value={foto.legenda ?? ""}
+                                    />
+                                  </Field>
+                                  <Field
+                                    hint="Canto da imagem. Vazio não desenha."
+                                    label="Selo"
+                                  >
+                                    <Input
+                                      onChange={(e) =>
+                                        trocaFoto({ selo: e.target.value || null })
+                                      }
+                                      placeholder="Simulação"
+                                      value={foto.selo ?? ""}
+                                    />
+                                  </Field>
+                                </div>
+                                <button
+                                  className="mt-3 text-xs font-semibold text-red-600"
+                                  onClick={() =>
+                                    trocaResultado({
+                                      fotos: fotos.filter((_, k) => k !== f),
+                                    })
+                                  }
+                                  type="button"
+                                >
+                                  Remover imagem
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mt-5 border-t pt-4">
+                      <p className="text-sm font-semibold text-gray-700">Destino</p>
+                      <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                        <Field label="Nome do destino">
+                          <Input
+                            onChange={(e) =>
+                              trocaResultado({
+                                destino: { ...destino, nome: e.target.value || null },
+                              })
+                            }
+                            placeholder="Serra da Ibiapaba"
+                            value={destino.nome ?? ""}
+                          />
+                        </Field>
+                        <Field label="Subtítulo">
+                          <Input
+                            onChange={(e) =>
+                              trocaResultado({
+                                destino: {
+                                  ...destino,
+                                  subtitulo: e.target.value || null,
+                                },
+                              })
+                            }
+                            placeholder="Sítio do Bosco + Lapa + Ubajara"
+                            value={destino.subtitulo ?? ""}
+                          />
+                        </Field>
+                      </div>
+                      <div className="mt-4">
+                        <ListaDeTextos
+                          itens={destino.itens ?? []}
+                          label="O que a viagem inclui"
+                          onChange={(itens) =>
+                            trocaResultado({ destino: { ...destino, itens } })
+                          }
+                          placeholder="Saída sábado, 5 de setembro"
+                          textoAdicionar="+ Item"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      className="mt-5 text-xs font-semibold text-red-600"
+                      onClick={() =>
+                        setResultados(quiz.resultados.filter((_, j) => j !== i))
                       }
-                      value={resultado.texto ?? ""}
-                    />
-                  </Field>
-                  <button
-                    className="mt-2 text-xs font-semibold text-red-600"
-                    onClick={() =>
-                      setResultados(quiz.resultados.filter((_, j) => j !== i))
-                    }
-                    type="button"
-                  >
-                    Remover resultado
-                  </button>
-                </div>
-              ))}
+                      type="button"
+                    >
+                      Remover resultado
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </section>
 
