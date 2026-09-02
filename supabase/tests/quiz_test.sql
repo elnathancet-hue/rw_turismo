@@ -21,7 +21,9 @@ grant select, insert, update on all tables in schema public to authenticated;
 grant select on all tables in schema public to anon;
 
 -- ---------------------------------------------------------------------------
--- O quiz-feriado, traduzido para o modelo novo.
+-- Um quiz DO TESTE, com slug proprio: o banco ja tem a semente do feriado
+-- (migration 20260907), e reusar aquele slug faria este arquivo colidir com
+-- ela — e quebrar por motivo nenhum a ver com o que ele quer provar.
 -- Cada pergunta oferece as quatro naturezas de peso do quiz original:
 --   opcao 0 = "R"      opcao 1 = "A"      opcao 2 = "R+A"      opcao 3 = neutra
 -- ---------------------------------------------------------------------------
@@ -29,7 +31,7 @@ insert into public.quizzes (
   id, title, slug, status, eixos, margem_empate, perguntas, resultados
 ) values (
   '11110000-0000-0000-0000-000000000001',
-  'Feriado', 'feriado', 'published',
+  'Motor de teste', 'motor-de-teste', 'published',
   '["relaxar","aventura"]'::jsonb,
   0.5,
   (
@@ -73,7 +75,7 @@ $$;
 
 create or replace function pg_temp.resultado(p_respostas jsonb)
 returns text language sql as $$
-  select public.responder_quiz('feriado', p_respostas) ->> 'resultado';
+  select public.responder_quiz('motor-de-teste', p_respostas) ->> 'resultado';
 $$;
 
 
@@ -105,7 +107,7 @@ select is(
   'diferenca de um ponto passa a margem e define o dominante');
 
 select is(
-  (public.responder_quiz('feriado', pg_temp.responder_tudo(0)) -> 'pontuacao')::text,
+  (public.responder_quiz('motor-de-teste', pg_temp.responder_tudo(0)) -> 'pontuacao')::text,
   '{"relaxar": 6, "aventura": 0}',
   'a pontuacao por eixo volta junto com o resultado');
 
@@ -153,7 +155,7 @@ select throws_ok(
 set local role anon;
 
 select is(
-  (select count(*)::int from public.quizzes where slug = 'feriado'),
+  (select count(*)::int from public.quizzes where slug = 'motor-de-teste'),
   1,
   'anonimo le o quiz publicado');
 

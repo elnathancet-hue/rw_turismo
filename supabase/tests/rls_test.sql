@@ -81,9 +81,12 @@ values ('ddddddd2-0000-0000-0000-000000000001', 'Landing RLS', 'landing-rls', 'p
 
 insert into public.integration_secrets (key, value) values ('stripe_secret_key', 'sk_test_naovazar');
 insert into public.system_logs (action, entity) values ('teste_rls', 'rls');
+-- on conflict: estas chaves podem ja ter vindo de migration. O teste so
+-- precisa que a linha EXISTA para checar quem enxerga o que.
 insert into public.site_settings (setting_key, value) values
   ('site_identity', '{"logo":"x"}'::jsonb),
-  ('crm_stages',    '{"stages":["novo"]}'::jsonb);
+  ('crm_stages',    '{"stages":["novo"]}'::jsonb)
+on conflict (setting_key) do nothing;
 
 -- Assume a identidade de um usuário logado (os stubs de auth leem estes GUCs).
 create or replace function pg_temp.entrar(p_uid uuid, p_email text)

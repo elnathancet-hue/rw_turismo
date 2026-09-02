@@ -67,13 +67,22 @@ jobs:
           sudo -u postgres psql -c "create role runner superuser login password 'runner';"
           sudo -u postgres createdb -O runner rwtest
 
-      - name: Aplicar bootstrap + schema + rls
+      - name: Aplicar bootstrap + schema + rls + migrations
         env:
           PGPASSWORD: runner
         run: |
           psql -h localhost -U runner -d rwtest -v ON_ERROR_STOP=1 -f supabase/tests/_bootstrap.sql
           psql -h localhost -U runner -d rwtest -v ON_ERROR_STOP=1 -f supabase/schema.sql
           psql -h localhost -U runner -d rwtest -v ON_ERROR_STOP=1 -f supabase/rls.sql
+          # As migrations entram DEPOIS, em ordem, porque é isso que o banco de
+          # produção tem: schema + rls como base, e os deltas por cima. Sem
+          # elas, o CI testava um banco que não existe em lugar nenhum — e
+          # qualquer coisa que só vive numa migration (uma semente, uma função
+          # nova) ficava sem cobertura.
+          for m in supabase/migrations/*.sql; do
+            echo "-- $m"
+            psql -h localhost -U runner -d rwtest -v ON_ERROR_STOP=1 -q -f "$m"
+          done
 
       - name: Rodar pgTAP
         env:

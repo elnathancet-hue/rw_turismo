@@ -29,3 +29,4 @@ project-main.zip
 # Versao "fragmento" do quiz, gerada a partir de quiz-feriado.html so para
 # publicar como Artifact. Derivada: a fonte da verdade e o .html.
 quiz-feriado.artifact.html
+supabase/.temp/
