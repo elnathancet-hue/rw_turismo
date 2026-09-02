@@ -62,3 +62,28 @@ export const countQuizResponses = async (): Promise<Record<string, number>> => {
   }
   return contagem;
 };
+
+export type RespostaDoQuiz = {
+  id: string;
+  resultado: string;
+  pontuacao: Record<string, number>;
+  name: string | null;
+  phone: string | null;
+  created_at: string;
+};
+
+// Respostas de um quiz, para o relatório. Limitado porque a tela mostra as
+// últimas: quiz que roda em anúncio junta milhares, e trazer tudo para o
+// navegador travaria o painel sem servir a ninguém.
+export const listQuizResponses = async (
+  quizId: string,
+  limite = 200
+): Promise<RespostaDoQuiz[]> =>
+  (unwrap(
+    await db()
+      .from("quiz_responses")
+      .select("id, resultado, pontuacao, name, phone, created_at")
+      .eq("quiz_id", quizId)
+      .order("created_at", { ascending: false })
+      .limit(limite)
+  ) ?? []) as RespostaDoQuiz[];

@@ -133,6 +133,13 @@ const AdminQuizzes = () => {
                   )}
 
                   <Link
+                    className="font-semibold text-gray-600 hover:underline"
+                    href={`/admin/quizzes/${quiz.id}/respostas`}
+                  >
+                    Respostas
+                  </Link>
+
+                  <Link
                     className="font-semibold text-brand-600 hover:underline"
                     href={`/admin/quizzes/${quiz.id}`}
                   >

@@ -109,6 +109,12 @@ const AdminQuizEditor = () => {
             >
               Voltar
             </Link>
+            <Link
+              className="rounded border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50"
+              href={`/admin/quizzes/${quiz.id}/respostas`}
+            >
+              Respostas
+            </Link>
             <Button loading={salvando} onClick={() => void salvar()} type="button">
               Salvar
             </Button>

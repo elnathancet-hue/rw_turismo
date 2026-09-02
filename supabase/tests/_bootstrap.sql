@@ -87,5 +87,19 @@ as $$ select string_to_array(name, '/') $$;
 grant usage on schema storage to anon, authenticated, service_role;
 grant execute on function storage.foldername(text) to anon, authenticated, service_role;
 
+-- service_role no Supabase real tem privilégio de tabela em todo o schema
+-- public, além do bypassrls. Sem isso aqui, qualquer teste do caminho de
+-- servidor (rota de API, RPC, cron) falharia com "permission denied" — e não
+-- pela regra que ele quer provar.
+--
+-- O DEFAULT PRIVILEGES é o que faz valer para tabela criada DEPOIS deste
+-- arquivo: schema.sql e as migrations rodam em seguida, e sem ele cada tabela
+-- nova nasceria invisível para o service_role.
+alter default privileges in schema public
+  grant all on tables to service_role;
+alter default privileges in schema public
+  grant all on sequences to service_role;
+grant usage on schema public to service_role;
+
 -- pgTAP
 create extension if not exists pgtap;

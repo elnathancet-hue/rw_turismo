@@ -75,6 +75,39 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       throw error;
     }
 
+    // O LEAD NO CRM.
+    //
+    // Só quando a pessoa deixou contato — quiz sem captura é conteúdo, e não
+    // captação. O `interest` carrega o quiz e o resultado: é a informação que
+    // um lead de quiz tem e os outros não, e é ela que diz para a equipe por
+    // onde começar a conversa.
+    //
+    // Fora da transação da RPC de propósito: se o CRM falhar, a pessoa não
+    // pode ficar sem o resultado na tela. Lead perdido a equipe recupera pelo
+    // relatório de respostas; resultado que não aparece é a experiência
+    // quebrada na frente de quem respondeu.
+    const nome = texto(req.body?.nome);
+    const telefone = texto(req.body?.telefone);
+
+    if (nome && telefone) {
+      const rotulo = (data as any)?.conteudo?.rotulo ?? (data as any)?.resultado;
+      await admin
+        .from("leads")
+        .insert({
+          name: nome,
+          phone: telefone,
+          email: texto(req.body?.email).toLowerCase() || null,
+          interest: `Quiz: ${slug}${rotulo ? ` — ${rotulo}` : ""}`,
+          source: "quiz",
+          stage_id: "new",
+          position: Date.now(),
+          utm: req.body?.utm && typeof req.body.utm === "object" ? req.body.utm : {},
+        })
+        .then(({ error: erroLead }: { error: unknown }) => {
+          if (erroLead) console.error("quiz lead insert failed", erroLead);
+        });
+    }
+
     return res.status(200).json(data);
   } catch (erro) {
     console.error("quiz responder failed", erro);

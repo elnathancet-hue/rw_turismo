@@ -76,6 +76,10 @@ export const sourceLabels: Record<string, string> = {
   site_form: "Formulário do site",
   whatsapp: "WhatsApp",
   ads: "Tráfego pago",
+  // Lead que veio de quiz. Vale ter origem própria porque ele chega com uma
+  // informação que os outros não têm: em que resultado a pessoa caiu — e é
+  // isso que diz por onde começar a conversa.
+  quiz: "Quiz",
 };
 
 export type Lead = {
