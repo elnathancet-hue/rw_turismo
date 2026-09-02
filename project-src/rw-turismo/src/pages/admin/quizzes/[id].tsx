@@ -7,6 +7,11 @@ import Button from "../../../components/ui/Button";
 import { Field, Input, Select, Textarea } from "../../../components/ui/form";
 import { getAdminQuiz, saveAdminQuiz } from "../../../lib/quiz/client";
 import type { Quiz, QuizPergunta, QuizResultado } from "../../../lib/quiz/types";
+import {
+  eixosOrfaos,
+  removerEixo as removerEixoDoQuiz,
+  renomearEixo as renomearEixoDoQuiz,
+} from "../../../lib/quiz/eixos";
 import { slugify } from "../../../lib/admin/slugs";
 
 // Editor de quiz.
@@ -69,6 +74,12 @@ const AdminQuizEditor = () => {
 
   const set = <K extends keyof Quiz>(campo: K, valor: Quiz[K]) =>
     setQuiz({ ...quiz, [campo]: valor });
+
+  // Renomear/remover eixo migra pesos e resultados junto — ver lib/quiz/eixos.ts.
+  const renomearEixo = (i: number, nome: string) =>
+    setQuiz(renomearEixoDoQuiz(quiz, i, nome));
+  const removerEixo = (i: number) => setQuiz(removerEixoDoQuiz(quiz, i));
+  const orfaos = eixosOrfaos(quiz);
 
   const setPerguntas = (perguntas: QuizPergunta[]) => set("perguntas", perguntas);
   const setResultados = (resultados: QuizResultado[]) =>
@@ -201,23 +212,37 @@ const AdminQuizEditor = () => {
               Os lados que o quiz mede — por exemplo <em>relaxar</em> e{" "}
               <em>aventura</em>. Cada opção de resposta soma pontos para eles.
             </p>
-            <Field
-              hint="Separe por vírgula. Mudar um nome aqui exige acertar os pesos das opções."
-              label="Nomes dos eixos"
-            >
-              <Input
-                onChange={(e) =>
-                  set(
-                    "eixos",
-                    e.target.value
-                      .split(",")
-                      .map((x) => x.trim())
-                      .filter(Boolean)
-                  )
-                }
-                value={quiz.eixos.join(", ")}
-              />
-            </Field>
+            {/* UM CAMPO POR EIXO, e não um texto separado por vírgula.
+                O texto solto refazia a lista a cada tecla: apagar "relaxar"
+                para digitar "descanso" passava por "relaxa", "relax", "rela"…
+                e a cada estado os pesos — que são gravados POR NOME dentro de
+                cada opção — ficavam órfãos. A pontuação ia a zero e todo mundo
+                caía no empate, sem erro em lugar nenhum. */}
+            <div className="mt-4 space-y-2">
+              {quiz.eixos.map((eixo, i) => (
+                <div className="flex items-center gap-2" key={i}>
+                  <Input
+                    onChange={(e) => renomearEixo(i, e.target.value)}
+                    value={eixo}
+                  />
+                  <button
+                    className="shrink-0 rounded border px-3 py-2 text-xs font-semibold text-red-600 disabled:opacity-40"
+                    disabled={quiz.eixos.length <= 1}
+                    onClick={() => removerEixo(i)}
+                    type="button"
+                  >
+                    Remover
+                  </button>
+                </div>
+              ))}
+              <button
+                className="text-sm font-semibold text-brand-600 hover:underline"
+                onClick={() => set("eixos", [...quiz.eixos, ""])}
+                type="button"
+              >
+                + Eixo
+              </button>
+            </div>
             <Field
               hint="Diferença mínima para um eixo vencer. Abaixo dela, vale o resultado de empate."
               label="Margem de empate"
@@ -417,6 +442,14 @@ const AdminQuizEditor = () => {
                 + Resultado
               </button>
             </div>
+
+            {orfaos.length > 0 && (
+              <p className="mt-3 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-900">
+                Há pesos apontando para eixo que não existe mais:{" "}
+                <strong>{orfaos.join(", ")}</strong>. A pontuação descarta esses
+                pesos, então o quiz vai dar quase sempre o mesmo resultado.
+              </p>
+            )}
 
             {(eixosSemResultado.length > 0 || !temEmpate) && (
               <p className="mt-3 rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">

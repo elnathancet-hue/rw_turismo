@@ -84,6 +84,31 @@ jobs:
             psql -h localhost -U runner -d rwtest -v ON_ERROR_STOP=1 -q -f "$m"
           done
 
+      - name: Conferir o caminho de deploy humano (RODAR_NO_SUPABASE.sql)
+        env:
+          PGPASSWORD: runner
+        run: |
+          # POR QUE ISTO EXISTE: o CI aplica supabase/migrations/*.sql, mas a
+          # pessoa que sobe o banco cola supabase/RODAR_NO_SUPABASE.sql no SQL
+          # Editor — o proprio cabecalho do arquivo manda fazer isso. Eram dois
+          # caminhos, e so um era testado. O arquivo silenciosamente ficou 20
+          # migrations atras: quem seguisse a instrucao subia sem cupons, sem
+          # checkout, sem InfinitePay e com o app apontando para tabelas que
+          # nao existiam. Nada quebrava no CI, porque o CI nunca abria o arquivo.
+          #
+          # Aqui ele monta um banco do zero pelo caminho humano e roda a MESMA
+          # suite. Se alguem criar uma migration e esquecer de anexa-la, este
+          # job fica vermelho.
+          sudo -u postgres createdb -O runner rwdeploy
+          psql -h localhost -U runner -d rwdeploy -v ON_ERROR_STOP=1 -f supabase/tests/_bootstrap.sql
+          psql -h localhost -U runner -d rwdeploy -v ON_ERROR_STOP=1 -f supabase/schema.sql
+          psql -h localhost -U runner -d rwdeploy -v ON_ERROR_STOP=1 -f supabase/rls.sql
+          # Duas vezes: o cabecalho promete "tudo e idempotente", e promessa que
+          # ninguem verifica e so um comentario.
+          psql -h localhost -U runner -d rwdeploy -v ON_ERROR_STOP=1 -q -f supabase/RODAR_NO_SUPABASE.sql
+          psql -h localhost -U runner -d rwdeploy -v ON_ERROR_STOP=1 -q -f supabase/RODAR_NO_SUPABASE.sql
+          pg_prove -h localhost -U runner -d rwdeploy supabase/tests/*_test.sql
+
       - name: Rodar pgTAP
         env:
           PGPASSWORD: runner

@@ -69,6 +69,13 @@ const QuizPublico = ({ quiz }: { quiz: Quiz }) => {
   };
 
   const escolher = (opcao: number) => {
+    // Trava de clique repetido. Na última pergunta sem captura, `enviar` é
+    // chamado mas a etapa não muda enquanto o servidor responde — a tela fica
+    // parada mostrando a mesma pergunta. Quem clicar de novo, achando que não
+    // funcionou, gerava uma SEGUNDA resposta e um SEGUNDO lead, e o relatório
+    // de "onde as pessoas caem" passava a contar a mesma pessoa duas vezes.
+    if (enviando) return;
+
     const escolhas = [...respostas, { pergunta: indice, opcao }];
     setRespostas(escolhas);
 
@@ -137,13 +144,16 @@ const QuizPublico = ({ quiz }: { quiz: Quiz }) => {
         {etapa === "perguntas" && pergunta && (
           <section>
             <p className="text-sm font-semibold text-orange-600">
-              {indice + 1} de {total}
+              {/* Sem este sinal a tela fica parada na última pergunta enquanto
+                  o servidor calcula, e quem respondeu não sabe se funcionou. */}
+              {enviando ? "Calculando…" : `${indice + 1} de ${total}`}
             </p>
             <h2 className="mt-2 text-2xl font-semibold">{pergunta.texto}</h2>
             <div className="mt-6 space-y-3">
               {pergunta.opcoes.map((opcao, i) => (
                 <button
-                  className="block w-full rounded-xl border border-gray-300 px-5 py-4 text-left hover:border-orange-400 hover:bg-orange-50"
+                  className="block w-full rounded-xl border border-gray-300 px-5 py-4 text-left hover:border-orange-400 hover:bg-orange-50 disabled:opacity-60"
+                  disabled={enviando}
                   key={i}
                   onClick={() => escolher(i)}
                   type="button"

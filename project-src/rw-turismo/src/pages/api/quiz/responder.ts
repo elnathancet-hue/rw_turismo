@@ -19,6 +19,15 @@ import { createSupabaseAdminClient } from "../../../lib/supabase/admin";
 const texto = (valor: unknown): string =>
   typeof valor === "string" ? valor.trim() : "";
 
+// `typeof [] === "object"` em JavaScript, entao um array passava na checagem
+// e chegava ate `leads.utm` — onde a constraint leads_utm_object_check exige
+// jsonb_typeof = 'object' e recusa array. O insert falhava, e como o erro so
+// vai para o console, o lead sumia do CRM em silencio.
+const utmSeguro = (valor: unknown): Record<string, unknown> =>
+  valor && typeof valor === "object" && !Array.isArray(valor)
+    ? (valor as Record<string, unknown>)
+    : {};
+
 const clientIp = (req: NextApiRequest): string => {
   const forwarded = req.headers["x-forwarded-for"];
   const raw = Array.isArray(forwarded) ? forwarded[0] : forwarded;
@@ -63,7 +72,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       p_nome: texto(req.body?.nome) || null,
       p_telefone: texto(req.body?.telefone) || null,
       p_email: texto(req.body?.email).toLowerCase() || null,
-      p_utm: req.body?.utm && typeof req.body.utm === "object" ? req.body.utm : {},
+      p_utm: utmSeguro(req.body?.utm),
     });
 
     if (error) {
@@ -89,7 +98,11 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     const nome = texto(req.body?.nome);
     const telefone = texto(req.body?.telefone);
 
-    if (nome && telefone) {
+    // `capturou` vem da RPC e reflete a coluna captura_ativa do quiz. Sem
+    // consultar isso, um quiz configurado para NÃO pedir contato ainda geraria
+    // lead se alguém mandasse nome e telefone no corpo — a RPC já descarta os
+    // dois, e o CRM ficaria com um dado que a resposta nem guardou.
+    if ((data as any)?.capturou && nome && telefone) {
       const rotulo = (data as any)?.conteudo?.rotulo ?? (data as any)?.resultado;
       await admin
         .from("leads")
@@ -101,7 +114,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
           source: "quiz",
           stage_id: "new",
           position: Date.now(),
-          utm: req.body?.utm && typeof req.body.utm === "object" ? req.body.utm : {},
+          utm: utmSeguro(req.body?.utm),
         })
         .then(({ error: erroLead }: { error: unknown }) => {
           if (erroLead) console.error("quiz lead insert failed", erroLead);

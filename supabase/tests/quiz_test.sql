@@ -14,7 +14,7 @@
 --   "R+A" soma 0,5 para cada
 
 begin;
-select plan(14);
+select plan(27);
 
 grant usage on schema public to authenticated, anon;
 grant select, insert, update on all tables in schema public to authenticated;
@@ -171,5 +171,122 @@ select is(
   'anonimo NAO le as respostas de ninguem');
 
 reset role;
+create or replace function pg_temp.pontuacao(p jsonb)
+returns text language plpgsql as $$
+begin
+  return (public.responder_quiz('motor-de-teste', p) -> 'pontuacao')::text;
+exception when others then
+  return 'ERRO: ' || sqlerrm;
+end;
+$$;
+
+-- ===========================================================================
+-- O QUE VEM DO NAVEGADOR NAO E CONFIAVEL (achados da revisao)
+-- ===========================================================================
+-- A funcao nunca aceitou o resultado por parametro — isso ja era verdade. Mas
+-- ela aceitava qualquer CAMINHO ate ele, e caminho controlado e resultado
+-- controlado.
+
+-- Repetir a mesma pergunta somava de novo: mandando 6x a mesma escolha, o
+-- visitante forcava o desfecho. Agora vale a primeira e o resto e ignorado.
+select is(
+  pg_temp.pontuacao('[{"pergunta":0,"opcao":0},{"pergunta":0,"opcao":0},
+                      {"pergunta":0,"opcao":0},{"pergunta":0,"opcao":0}]'::jsonb),
+  '{"relaxar": 1, "aventura": 0}',
+  'pergunta repetida conta UMA vez, nao quatro');
+
+-- O comentario da funcao sempre prometeu que indice fora da faixa e ignorado
+-- "e nao derruba o resto". Com "abc" o ::int estourava antes de checar nada.
+select lives_ok(
+  $$ select public.responder_quiz('motor-de-teste',
+       '[{"pergunta":"abc","opcao":"x"},{"pergunta":0,"opcao":0}]'::jsonb) $$,
+  'indice nao numerico e ignorado em vez de derrubar a resposta');
+
+select is(
+  pg_temp.pontuacao('[{"pergunta":"abc","opcao":"x"},{"pergunta":0,"opcao":0}]'::jsonb),
+  '{"relaxar": 1, "aventura": 0}',
+  'a linha valida ao lado da invalida continua pontuando');
+
+-- Em jsonb, -1 conta do FIM do array: pegava a ultima opcao.
+select is(
+  pg_temp.pontuacao('[{"pergunta":0,"opcao":-3}]'::jsonb),
+  '{"relaxar": 0, "aventura": 0}',
+  'indice negativo nao pontua (nao conta do fim do array)');
+
+select is(
+  pg_temp.pontuacao('[{"pergunta":999,"opcao":0}]'::jsonb),
+  '{"relaxar": 0, "aventura": 0}',
+  'pergunta alem do fim nao pontua');
+
+-- A fronteira exata da margem: e `>=`, entao diferenca IGUAL a margem ja
+-- define o dominante. Nenhum teste cobria isso, e trocar >= por > passava.
+select is(
+  pg_temp.resultado('[{"pergunta":0,"opcao":2},{"pergunta":1,"opcao":0}]'::jsonb),
+  'relaxar-dominante',
+  'diferenca IGUAL a margem (0,5) ja define o dominante');
+
+
+-- ===========================================================================
+-- QUIZ SEM CAPTURA NAO GUARDA CONTATO
+-- ===========================================================================
+-- Era trava so do React: bastava mandar nome e telefone no corpo.
+reset role;
+insert into public.quizzes (title, slug, status, eixos, margem_empate, captura_ativa, perguntas, resultados)
+values ('Sem captura', 'sem-captura', 'published', '["a"]'::jsonb, 0.5, false,
+        '[{"texto":"p","opcoes":[{"texto":"o","pesos":{"a":1}}]}]'::jsonb,
+        '[{"chave":"x","eixo":"a","rotulo":"X"}]'::jsonb);
+
+select lives_ok(
+  $$ select public.responder_quiz('sem-captura','[{"pergunta":0,"opcao":0}]'::jsonb,
+       'Fulano de Tal','86999998888','fulano@x.test') $$,
+  'quiz sem captura aceita a resposta normalmente');
+
+select is(
+  (select coalesce(name,'-') || '|' || coalesce(phone,'-') || '|' || coalesce(email,'-')
+     from public.quiz_responses r
+     join public.quizzes q on q.id = r.quiz_id
+    where q.slug = 'sem-captura'),
+  '-|-|-',
+  'mas NAO guarda nome, telefone nem e-mail');
+
+-- E o quiz COM captura guarda, senao o teste acima passaria por nao guardar nada.
+select is(
+  (select public.responder_quiz('motor-de-teste','[{"pergunta":0,"opcao":0}]'::jsonb,
+     'Ciclana Silva','86988887777') ->> 'capturou'),
+  'false',
+  'a resposta diz se o contato foi guardado');
+
+
+-- ===========================================================================
+-- AUTORIZACAO — o furo que a revisao encontrou
+-- ===========================================================================
+-- A suite passava 27/27 mesmo depois de abrir a RPC para o anon e afrouxar as
+-- policies do editor. Provava a pontuacao, nao a permissao.
+select is(
+  (select count(*)::int from information_schema.role_routine_grants
+    where routine_name = 'responder_quiz' and grantee in ('anon','authenticated','public')),
+  0,
+  'responder_quiz NAO e executavel por anon nem authenticated');
+
+select is(
+  (select count(*)::int from pg_policies
+    where tablename = 'quizzes' and 'anon' = any(roles) and cmd <> 'SELECT'),
+  0,
+  'anon nao tem policy de escrita em quizzes');
+
+select is(
+  (select count(*)::int from pg_policies
+    where tablename = 'quiz_responses' and 'anon' = any(roles)),
+  0,
+  'anon nao tem policy nenhuma em quiz_responses');
+
+-- Quem edita quiz e conteudo/admin — os mesmos papeis que a UI mapeia.
+select is(
+  (select count(*)::int from pg_policies
+    where tablename = 'quizzes' and policyname = 'quizzes_conteudo_all'
+      and qual like '%conteudo%'),
+  1,
+  'a policy do editor exige o papel conteudo, e nao apenas estar logado');
+
 select * from finish();
 rollback;
