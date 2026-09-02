@@ -134,6 +134,33 @@ describe("mostra a tela certa para o que está sendo editado", () => {
   });
 });
 
+describe("ampliar", () => {
+  it("abre em tela cheia e volta", () => {
+    render(<PreviaDoQuiz foco={{ tela: "abertura" }} quiz={quiz} />);
+    const botao = screen.getByRole("button", { name: "Ampliar" });
+    fireEvent.click(botao);
+    expect(screen.getByRole("button", { name: "Reduzir" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Reduzir" }));
+    expect(screen.getByRole("button", { name: "Ampliar" })).toBeTruthy();
+  });
+
+  it("Esc fecha a tela cheia", () => {
+    render(<PreviaDoQuiz foco={{ tela: "abertura" }} quiz={quiz} />);
+    fireEvent.click(screen.getByRole("button", { name: "Ampliar" }));
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.getByRole("button", { name: "Ampliar" })).toBeTruthy();
+  });
+
+  it("ampliada, some o Recolher — não faz sentido em tela cheia", () => {
+    render(
+      <PreviaDoQuiz foco={{ tela: "abertura" }} onFechar={() => {}} quiz={quiz} />
+    );
+    expect(screen.getByRole("button", { name: "Recolher" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Ampliar" }));
+    expect(screen.queryByRole("button", { name: "Recolher" })).toBeNull();
+  });
+});
+
 describe("computador e celular", () => {
   it("alterna entre os dois e marca o ativo sem depender só de cor", () => {
     render(<PreviaDoQuiz foco={{ tela: "abertura" }} quiz={quiz} />);

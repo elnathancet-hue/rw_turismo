@@ -482,3 +482,18 @@
      pareceriam travamento. */
   .barraCorrendo i{ animation-duration:2.7s !important }
 }
+
+/* ==========================================================================
+   A PREVIA DO PAINEL.
+
+   .pagina e .tela usam 100dvh porque no site elas SAO a janela. Dentro do
+   editor a previa vive numa caixa de umas poucas centenas de pixels, e ali
+   100dvh e a altura da janela do PAINEL: o cartao virava uma tela inteira com
+   o conteudo perdido no meio de um vazio enorme, e a escala precisava ser
+   minuscula para caber.
+
+   Esta classe entra so na previa. A pagina publica nao a usa e continua igual.
+   ========================================================================== */
+.emCaixa{ min-height:0 }
+.emCaixa .tela{ min-height:0; padding:1.5rem 1.25rem 2rem }
+.emCaixa .topo{ padding:1rem 1.25rem 0 }

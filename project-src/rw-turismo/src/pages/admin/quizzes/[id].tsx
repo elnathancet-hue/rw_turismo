@@ -396,8 +396,10 @@ const AdminQuizEditor = () => {
             )}
           </nav>
 
-          <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,400px)]">
-            <div className="min-w-0 space-y-6">
+          <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,460px)] 2xl:grid-cols-[minmax(0,1fr)_minmax(0,560px)]">
+            {/* Teto de largura: campo de texto de 1200px e ilegivel, e o que
+                sobra vai para a previa. */}
+            <div className="min-w-0 max-w-[46rem] space-y-6">
               {secao === "geral" && (
                 <>
                   <Grupo titulo="Informações gerais">

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import TelaResultado from "../../quiz/TelaResultado";
 import { TelaAbertura, TelaPergunta, Topo } from "../../quiz/TelasPublicas";
 import type { Quiz } from "../../../lib/quiz/types";
+import estilos from "../../../styles/quiz.module.css";
 
 // Prévia contextual: mostra a tela que corresponde ao que está sendo editado.
 //
@@ -25,7 +26,7 @@ export type FocoDaPrevia =
 // Espremer isso numa coluna de 400px nao mostra o layout real: mostra outro
 // layout. Entao a previa desenha na largura DE VERDADE e encolhe a imagem
 // inteira com transform — o que aparece e proporcional ao que vai ao ar.
-const LARGURA_REAL = { desktop: 680, mobile: 390 } as const;
+const LARGURA_REAL = { desktop: 640, mobile: 390 } as const;
 
 const PreviaDoQuiz = ({
   quiz,
@@ -37,10 +38,23 @@ const PreviaDoQuiz = ({
   onFechar?: () => void;
 }) => {
   const [dispositivo, setDispositivo] = useState<"desktop" | "mobile">("desktop");
+  // Numa coluna de 460px o conteudo de 640px cabe a ~67%, que da para conferir
+  // o layout mas nao para LER. Ampliar abre a previa em tela cheia, em tamanho
+  // real, sem tirar a pessoa da tela em que ela estava editando.
+  const [ampliada, setAmpliada] = useState(false);
   const palco = useRef<HTMLDivElement>(null);
   const conteudo = useRef<HTMLDivElement>(null);
   const [escala, setEscala] = useState(1);
   const [altura, setAltura] = useState(0);
+
+  useEffect(() => {
+    if (!ampliada) return;
+    const aoTeclar = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setAmpliada(false);
+    };
+    window.addEventListener("keydown", aoTeclar);
+    return () => window.removeEventListener("keydown", aoTeclar);
+  }, [ampliada]);
 
   // A escala acompanha a largura disponivel: recolher a previa, mudar de
   // dispositivo ou redimensionar a janela recalcula.
@@ -55,7 +69,7 @@ const PreviaDoQuiz = ({
     medir();
     window.addEventListener("resize", medir);
     return () => window.removeEventListener("resize", medir);
-  }, [dispositivo, quiz, foco]);
+  }, [dispositivo, quiz, foco, ampliada]);
 
   const pergunta =
     foco.tela === "pergunta" ? quiz.perguntas?.[foco.indice] : undefined;
@@ -63,7 +77,13 @@ const PreviaDoQuiz = ({
     foco.tela === "resultado" ? quiz.resultados?.[foco.indice] : undefined;
 
   return (
-    <div className="flex h-full flex-col">
+    <div
+      className={
+        ampliada
+          ? "fixed inset-0 z-50 flex flex-col bg-white"
+          : "flex h-full flex-col"
+      }
+    >
       <div className="flex items-center gap-2 border-b px-4 py-2">
         <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
           Prévia
@@ -89,7 +109,15 @@ const PreviaDoQuiz = ({
           ))}
         </div>
 
-        {onFechar && (
+        <button
+          className="rounded px-2 py-1 text-xs font-semibold text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+          onClick={() => setAmpliada((v) => !v)}
+          type="button"
+        >
+          {ampliada ? "Reduzir" : "Ampliar"}
+        </button>
+
+        {onFechar && !ampliada && (
           <button
             className="rounded px-2 py-1 text-xs font-semibold text-gray-500 hover:bg-gray-100 hover:text-gray-800"
             onClick={onFechar}
@@ -122,8 +150,10 @@ const PreviaDoQuiz = ({
           }}
           ref={conteudo}
         >
-          {/* pointer-events-none: a prévia é para ver, não para responder. */}
-          <div className="pointer-events-none">
+          {/* pointer-events-none: a prévia é para ver, não para responder.
+              emCaixa desliga os 100dvh de .pagina/.tela, que aqui seriam a
+              altura da janela do painel e não a da caixa. */}
+          <div className={`pointer-events-none ${estilos.emCaixa}`}>
             <Topo />
             {foco.tela === "abertura" && (
               <TelaAbertura
