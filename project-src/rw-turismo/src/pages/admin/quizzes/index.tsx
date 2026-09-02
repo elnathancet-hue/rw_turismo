@@ -45,7 +45,9 @@ const AdminQuizzes = () => {
         title: "Quiz sem título",
         slug: `quiz-${Date.now()}`,
         status: "draft",
-        eixos: ["a", "b"],
+        // Nomes de exemplo, e nao "a"/"b": o primeiro contato com a tela
+        // precisa mostrar o que um eixo E, nao uma letra sem significado.
+        eixos: ["relaxar", "aventura"],
         perguntas: [],
         resultados: [],
       });

@@ -3,7 +3,14 @@ import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import AdminGuard from "../../../components/admin/AdminGuard";
 import AdminLayout from "../../../components/admin/AdminLayout";
+import BarraDoQuiz, {
+  pendenciasDoQuiz,
+} from "../../../components/admin/BarraDoQuiz";
+import SaveMessage from "../../../components/admin/SaveMessage";
+import useSaveMessage from "../../../hooks/useSaveMessage";
 import Button from "../../../components/ui/Button";
+import TelaResultado from "../../../components/quiz/TelaResultado";
+import ImageField from "../../../components/admin/ImageField";
 import ListaDeTextos from "../../../components/admin/ListaDeTextos";
 import { Field, Input, Select, Textarea } from "../../../components/ui/form";
 import { getAdminQuiz, saveAdminQuiz } from "../../../lib/quiz/client";
@@ -33,6 +40,16 @@ import { hrefSeguro } from "../../../lib/security/url";
 // escapa. É essa garantia que deixa o papel `conteudo` criar quiz — foi a falta
 // dela que obrigou a travar pages.custom_html no admin.
 
+// A chave identifica o resultado nas respostas ja gravadas. `r${length+1}`
+// colidia: com [r1,r2,r3], remover o do meio deixa length 2 e o proximo nasce
+// 'r3' outra vez — duas linhas com a mesma chave, e o relatorio somando as duas
+// como se fossem o mesmo desfecho.
+export const proximaChave = (resultados: { chave: string }[]): string => {
+  let n = resultados.length + 1;
+  while (resultados.some((r) => r.chave === `r${n}`)) n += 1;
+  return `r${n}`;
+};
+
 const trocar = <T,>(lista: T[], i: number, dir: -1 | 1): T[] => {
   const alvo = i + dir;
   if (alvo < 0 || alvo >= lista.length) return lista;
@@ -45,8 +62,23 @@ const AdminQuizEditor = () => {
   const router = useRouter();
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [salvando, setSalvando] = useState(false);
+  // Trabalho nao salvo. Sem isto, sair da tela perde tudo em silencio — e o
+  // formulario e longo o bastante para alguem passar meia hora nele.
+  const [sujo, setSujo] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const [aviso, setAviso] = useState<string | null>(null);
+  const { message, showOk, showError, clearMessage } = useSaveMessage();
+
+  // O navegador so mostra o aviso de "sair sem salvar" se houver um handler
+  // registrado. Sem ele, fechar a aba descarta o quiz sem uma palavra.
+  useEffect(() => {
+    if (!sujo) return;
+    const avisar = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", avisar);
+    return () => window.removeEventListener("beforeunload", avisar);
+  }, [sujo]);
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -80,13 +112,18 @@ const AdminQuizEditor = () => {
     );
   }
 
+  const alterar = (proximo: Quiz) => {
+    setQuiz(proximo);
+    setSujo(true);
+  };
+
   const set = <K extends keyof Quiz>(campo: K, valor: Quiz[K]) =>
-    setQuiz({ ...quiz, [campo]: valor });
+    alterar({ ...quiz, [campo]: valor });
 
   // Renomear/remover eixo migra pesos e resultados junto — ver lib/quiz/eixos.ts.
   const renomearEixo = (i: number, nome: string) =>
-    setQuiz(renomearEixoDoQuiz(quiz, i, nome));
-  const removerEixo = (i: number) => setQuiz(removerEixoDoQuiz(quiz, i));
+    alterar(renomearEixoDoQuiz(quiz, i, nome));
+  const removerEixo = (i: number) => alterar(removerEixoDoQuiz(quiz, i));
   const orfaos = eixosOrfaos(quiz);
 
   const setPerguntas = (perguntas: QuizPergunta[]) => set("perguntas", perguntas);
@@ -101,14 +138,15 @@ const AdminQuizEditor = () => {
 
   const salvar = async (status?: Quiz["status"]) => {
     setErro(null);
-    setAviso(null);
+    clearMessage();
     setSalvando(true);
     try {
       const salvo = await saveAdminQuiz({ ...quiz, status: status ?? quiz.status });
       setQuiz(salvo);
-      setAviso(status === "published" ? "Publicado." : "Salvo.");
+      setSujo(false);
+      showOk(status === "published" ? "Publicado." : "Salvo.");
     } catch (e) {
-      setErro(e instanceof Error ? e.message : "Falha ao salvar.");
+      showError(e instanceof Error ? e.message : "Falha ao salvar.");
     } finally {
       setSalvando(false);
     }
@@ -120,6 +158,7 @@ const AdminQuizEditor = () => {
     (eixo) => !quiz.resultados.some((r) => r.eixo === eixo)
   );
   const temEmpate = quiz.resultados.some((r) => !r.eixo);
+  const pendencias = pendenciasDoQuiz(quiz);
 
   return (
     <AdminGuard>
@@ -128,18 +167,38 @@ const AdminQuizEditor = () => {
         description="Perguntas, pesos e resultados. Nada aqui aceita HTML."
         action={
           <div className="flex flex-wrap gap-2">
-            <Link
+            {/* Voltar era um <Link> seco: um clique depois de meia hora de
+                edicao levava o trabalho junto, sem uma palavra. */}
+            <button
               className="rounded border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50"
-              href="/admin/quizzes"
+              onClick={() => {
+                if (
+                  sujo &&
+                  !window.confirm(
+                    "Você tem alterações que ainda não foram salvas. Sair mesmo assim?"
+                  )
+                ) {
+                  return;
+                }
+                void router.push("/admin/quizzes");
+              }}
+              type="button"
             >
               Voltar
-            </Link>
+            </button>
             <Link
               className="rounded border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50"
               href={`/admin/quizzes/${quiz.id}/respostas`}
             >
               Respostas
             </Link>
+            <span
+              className={`self-center text-xs font-semibold ${
+                sujo ? "text-amber-700" : "text-gray-400"
+              }`}
+            >
+              {sujo ? "• não salvo" : "tudo salvo"}
+            </span>
             <Button loading={salvando} onClick={() => void salvar()} type="button">
               Salvar
             </Button>
@@ -164,11 +223,23 @@ const AdminQuizEditor = () => {
         }
       >
         {erro && <p className="mb-4 text-sm text-red-600">{erro}</p>}
-        {aviso && <p className="mb-4 text-sm text-green-700">{aviso}</p>}
+        <div className="mb-4">
+          <SaveMessage message={message} />
+        </div>
 
-        <div className="max-w-5xl space-y-6">
+        <div className="max-w-5xl">
+          <BarraDoQuiz
+            pendencias={pendencias}
+            quiz={quiz}
+            sujo={sujo}
+          />
+
+          <div className="space-y-6">
           {/* ---------------------------------------------------- básico */}
-          <section className="rounded-lg border bg-white p-5 shadow-sm">
+          <section
+            className="scroll-mt-28 rounded-lg border bg-white p-5 shadow-sm"
+            id="o-quiz"
+          >
             <h2 className="font-semibold">O quiz</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <Field label="Título">
@@ -220,7 +291,10 @@ const AdminQuizEditor = () => {
           </section>
 
           {/* ----------------------------------------------------- eixos */}
-          <section className="rounded-lg border bg-white p-5 shadow-sm">
+          <section
+            className="scroll-mt-28 rounded-lg border bg-white p-5 shadow-sm"
+            id="eixos"
+          >
             <h2 className="font-semibold">Eixos</h2>
             <p className="mt-1 text-sm text-gray-500">
               Os lados que o quiz mede — por exemplo <em>relaxar</em> e{" "}
@@ -252,7 +326,9 @@ const AdminQuizEditor = () => {
               ))}
               <button
                 className="text-sm font-semibold text-brand-600 hover:underline"
-                onClick={() => set("eixos", [...quiz.eixos, ""])}
+                onClick={() =>
+                  set("eixos", [...quiz.eixos, `Eixo ${quiz.eixos.length + 1}`])
+                }
                 type="button"
               >
                 + Eixo
@@ -275,7 +351,10 @@ const AdminQuizEditor = () => {
           </section>
 
           {/* ------------------------------------------------- perguntas */}
-          <section className="rounded-lg border bg-white p-5 shadow-sm">
+          <section
+            className="scroll-mt-28 rounded-lg border bg-white p-5 shadow-sm"
+            id="perguntas"
+          >
             <div className="flex items-center justify-between">
               <h2 className="font-semibold">
                 Perguntas ({quiz.perguntas.length})
@@ -293,6 +372,12 @@ const AdminQuizEditor = () => {
                 + Pergunta
               </button>
             </div>
+
+            <p className="mt-1 text-sm text-gray-500">
+              Cada opção soma pontos para os eixos. Quem responde não vê esses
+              números — eles só decidem em que resultado a pessoa cai. Deixe em
+              branco quando a opção não pesar para aquele lado.
+            </p>
 
             <div className="mt-4 space-y-5">
               {quiz.perguntas.map((pergunta, iP) => (
@@ -440,7 +525,10 @@ const AdminQuizEditor = () => {
           </section>
 
           {/* ------------------------------------- moldura do resultado */}
-          <section className="rounded-lg border bg-white p-5 shadow-sm">
+          <section
+            className="scroll-mt-28 rounded-lg border bg-white p-5 shadow-sm"
+            id="moldura"
+          >
             <h2 className="font-semibold">Moldura da tela de resultado</h2>
             <p className="mt-1 text-sm text-gray-500">
               Os rótulos que são iguais em todos os desfechos. O que muda por
@@ -515,7 +603,10 @@ const AdminQuizEditor = () => {
           </section>
 
           {/* ------------------------------------------------ resultados */}
-          <section className="rounded-lg border bg-white p-5 shadow-sm">
+          <section
+            className="scroll-mt-28 rounded-lg border bg-white p-5 shadow-sm"
+            id="resultados"
+          >
             <div className="flex items-center justify-between">
               <h2 className="font-semibold">
                 Resultados ({quiz.resultados.length})
@@ -525,7 +616,16 @@ const AdminQuizEditor = () => {
                 onClick={() =>
                   setResultados([
                     ...quiz.resultados,
-                    { chave: `r${quiz.resultados.length + 1}`, eixo: null, rotulo: "" },
+                    {
+                      chave: proximaChave(quiz.resultados),
+                      // Nasce no primeiro eixo que ainda nao tem resultado. Antes
+                      // nascia sempre como empate, e o aviso "falta resultado
+                      // para X" continuava acusando falta depois de a pessoa
+                      // clicar em adicionar — o clique nao resolvia o que o
+                      // proprio aviso pedia.
+                      eixo: eixosSemResultado[0] ?? null,
+                      rotulo: "",
+                    },
                   ])
                 }
                 type="button"
@@ -533,6 +633,11 @@ const AdminQuizEditor = () => {
                 + Resultado
               </button>
             </div>
+
+            <p className="mt-1 text-sm text-gray-500">
+              Um resultado para cada eixo, mais um para quando dá empate. É o
+              eixo que ganhou a soma dos pontos que escolhe qual destes aparece.
+            </p>
 
             {orfaos.length > 0 && (
               <p className="mt-3 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-900">
@@ -564,7 +669,32 @@ const AdminQuizEditor = () => {
                 const destino = resultado.destino ?? {};
 
                 return (
-                  <div className="rounded-lg border p-5" key={i}>
+                  // <details>, e nao um cartao aberto: cinco resultados eram
+                  // cinco mil pixels de campos quase identicos, e ao chegar em
+                  // "Imagens" ou "Destino" o campo Rotulo que identificava
+                  // aquele resultado ja tinha saido da tela ha muito — dava para
+                  // trocar a foto no desfecho errado sem perceber.
+                  //
+                  // key pela CHAVE, e nao pelo indice: o estado `open` do
+                  // <details> e nativo e gruda no vizinho quando se remove um
+                  // item do meio de uma lista chaveada por indice.
+                  <details
+                    className="rounded-lg border p-5 open:pb-5"
+                    key={resultado.chave || i}
+                    open={quiz.resultados.length <= 2}
+                  >
+                    <summary className="-m-5 mb-0 cursor-pointer p-5 text-sm font-semibold text-gray-800">
+                      <span className="text-gray-400">Resultado {i + 1}</span>{" "}
+                      {resultado.rotulo || (
+                        <span className="font-normal italic text-gray-400">
+                          sem rótulo
+                        </span>
+                      )}
+                      <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                        {resultado.eixo ?? "empate"}
+                      </span>
+                    </summary>
+                    <div className="mt-5">
                     {/* Duas colunas, não três: com três, cada campo ficava com
                         um terço da largura e a URL da imagem não cabia — foi a
                         reclamação de "blocos apertados", e de "não vi a opção de
@@ -622,6 +752,13 @@ const AdminQuizEditor = () => {
                     {/* A RÉGUA só existe em quiz de dois eixos. Com três ou
                         mais, uma barra de uma dimensão colocaria o resultado num
                         ponto que não corresponde a nada. */}
+                    {quiz.eixos.length !== 2 && (
+                      <p className="mt-4 text-sm text-gray-500">
+                        A régua só existe em quiz de dois eixos — este tem{" "}
+                        {quiz.eixos.length}. O que você já escreveu nela continua
+                        guardado e volta a valer se o quiz voltar a ter dois.
+                      </p>
+                    )}
                     {quiz.eixos.length === 2 && (
                       <div className="mt-4 rounded-lg bg-gray-50 p-4">
                         <p className="text-sm font-semibold text-gray-700">
@@ -712,20 +849,18 @@ const AdminQuizEditor = () => {
                               });
                             return (
                               <div className="rounded-lg border bg-gray-50 p-4" key={f}>
-                                <Field label={`Imagem ${f + 1} — endereço (URL)`}>
-                                  <Input
-                                    onChange={(e) => trocaFoto({ url: e.target.value })}
-                                    placeholder="https://…/foto.jpg"
+                                <Field label={`Imagem ${f + 1}`}>
+                                  {/* ImageField, o mesmo do ProductForm: aceita
+                                      link colado OU arquivo do computador/celular,
+                                      e ele mesmo sobe para o Storage. Antes aqui
+                                      era um campo de URL cru — quem monta o quiz
+                                      na agência não tem de onde tirar um link. */}
+                                  <ImageField
+                                    bucket="site-assets"
+                                    onChange={(url) => trocaFoto({ url })}
                                     value={foto.url}
                                   />
                                 </Field>
-                                {foto.url && hrefSeguro(foto.url) && (
-                                  <img
-                                    alt=""
-                                    className="mt-2 h-32 w-full rounded border object-cover"
-                                    src={hrefSeguro(foto.url) as string}
-                                  />
-                                )}
                                 <div className="mt-3 grid gap-4 sm:grid-cols-2">
                                   <Field label="Legenda">
                                     <Input
@@ -809,6 +944,28 @@ const AdminQuizEditor = () => {
                       </div>
                     </div>
 
+                    {/* A PRÉVIA. Sem ela o único jeito de ver o que se montou
+                        era publicar no site — e testar publicado suja o
+                        relatório de respostas e cria lead falso no CRM.
+                        TelaResultado é o MESMO componente da página pública, e
+                        não uma imitação, então o que aparece aqui é o que a
+                        pessoa vai ver. Dentro de <details> fechado: só renderiza
+                        quando aberto, e assim um dado pela metade não pesa em
+                        cada tecla digitada. */}
+                    <details className="mt-5 rounded-lg border bg-gray-50">
+                      <summary className="cursor-pointer p-3 text-xs font-semibold text-gray-700">
+                        Ver como fica
+                      </summary>
+                      <div className="pointer-events-none border-t p-3">
+                        <TelaResultado
+                          linkCta={null}
+                          nome="Maria"
+                          quiz={quiz}
+                          resultado={resultado}
+                        />
+                      </div>
+                    </details>
+
                     <button
                       className="mt-5 text-xs font-semibold text-red-600"
                       onClick={() =>
@@ -818,14 +975,18 @@ const AdminQuizEditor = () => {
                     >
                       Remover resultado
                     </button>
-                  </div>
+                    </div>
+                  </details>
                 );
               })}
             </div>
           </section>
 
           {/* ------------------------------------------------------- cta */}
-          <section className="rounded-lg border bg-white p-5 shadow-sm">
+          <section
+            className="scroll-mt-28 rounded-lg border bg-white p-5 shadow-sm"
+            id="whatsapp"
+          >
             <h2 className="font-semibold">Botão no fim</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <Field label="Tipo">
@@ -860,6 +1021,7 @@ const AdminQuizEditor = () => {
               />
             </Field>
           </section>
+          </div>
         </div>
       </AdminLayout>
     </AdminGuard>
