@@ -80,10 +80,19 @@ export type QuizResultado = {
 
 export type QuizIntro = {
   titulo?: string | null;
+  /** O olho, acima do titulo. */
   subtitulo?: string | null;
+  /** Paragrafo de apoio, entre o titulo e a imagem. */
+  texto?: string | null;
   texto_botao?: string | null;
   /** Imagem da primeira tela. Vazia, a abertura fica so com o texto. */
   imagem?: string | null;
+  /** Legenda sobre a base da imagem. */
+  imagem_legenda?: string | null;
+  /** Selo no canto da imagem, ex "Simulacao". */
+  imagem_selo?: string | null;
+  /** Linhas pequenas sob o botao, ex "Leva menos de 2 minutos.". */
+  micro?: string[];
 };
 
 export type QuizCta = {

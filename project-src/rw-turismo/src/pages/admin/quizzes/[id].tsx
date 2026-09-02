@@ -445,6 +445,19 @@ const AdminQuizEditor = () => {
                         value={quiz.intro?.titulo ?? ""}
                       />
                     </Field>
+                    <Field
+                      hint="Parágrafo de apoio, entre o título e a imagem."
+                      label="Descrição"
+                    >
+                      <Textarea
+                        onChange={(e) =>
+                          set("intro", { ...quiz.intro, texto: e.target.value })
+                        }
+                        placeholder="Responda essas perguntas rápidas e descubra…"
+                        rows={3}
+                        value={quiz.intro?.texto ?? ""}
+                      />
+                    </Field>
                     <Field label="Texto do botão">
                       <Input
                         onChange={(e) =>
@@ -472,6 +485,45 @@ const AdminQuizEditor = () => {
                         value={quiz.intro?.imagem ?? ""}
                       />
                     </Field>
+                    {quiz.intro?.imagem && (
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <Field label="Legenda da imagem">
+                          <Input
+                            onChange={(e) =>
+                              set("intro", {
+                                ...quiz.intro,
+                                imagem_legenda: e.target.value || null,
+                              })
+                            }
+                            placeholder="Piscina com vista da Serra, no fim da tarde"
+                            value={quiz.intro?.imagem_legenda ?? ""}
+                          />
+                        </Field>
+                        <Field
+                          hint="Canto da imagem. Vazio não desenha."
+                          label="Carimbo"
+                        >
+                          <Input
+                            onChange={(e) =>
+                              set("intro", {
+                                ...quiz.intro,
+                                imagem_selo: e.target.value || null,
+                              })
+                            }
+                            placeholder="Simulação"
+                            value={quiz.intro?.imagem_selo ?? ""}
+                          />
+                        </Field>
+                      </div>
+                    )}
+                    <ListaDeTextos
+                      hint="Aparecem embaixo do botão, em letra pequena."
+                      itens={quiz.intro?.micro ?? []}
+                      label="Linhas sob o botão"
+                      onChange={(micro) => set("intro", { ...quiz.intro, micro })}
+                      placeholder="Leva menos de 2 minutos. Sem e-mail, sem pegadinha."
+                      textoAdicionar="+ Linha"
+                    />
                   </Grupo>
 
                   <Grupo

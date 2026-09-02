@@ -134,6 +134,71 @@ describe("mostra a tela certa para o que está sendo editado", () => {
   });
 });
 
+describe("a abertura completa", () => {
+  const cheia = {
+    ...quiz,
+    intro: {
+      ...quiz.intro,
+      texto: "Responda essas perguntas rápidas e descubra.",
+      texto_botao: "Começar o teste",
+      imagem: "https://ex.com/capa.jpg",
+      imagem_legenda: "Piscina com vista da Serra",
+      imagem_selo: "Simulação",
+      micro: ["Leva menos de 2 minutos.", "Sem e-mail, sem pegadinha."],
+    },
+  } as Quiz;
+
+  it("desenha paragrafo, imagem com legenda e selo, e as linhas do rodape", () => {
+    render(<PreviaDoQuiz foco={{ tela: "abertura" }} quiz={cheia} />);
+    expect(screen.getByText(/Responda essas perguntas rápidas/)).toBeTruthy();
+    expect(screen.getByText("Piscina com vista da Serra")).toBeTruthy();
+    expect(screen.getByText("Simulação")).toBeTruthy();
+    expect(screen.getByText("Começar o teste")).toBeTruthy();
+    expect(screen.getByText("Leva menos de 2 minutos.")).toBeTruthy();
+    expect(screen.getByText("Sem e-mail, sem pegadinha.")).toBeTruthy();
+  });
+
+  // Quiz recem-criado tem so o titulo. Cabecalho pendurado sobre nada seria
+  // pior que uma tela curta e inteira.
+  it("abertura pelada nao deixa peca vazia na tela", () => {
+    const { container } = render(
+      <PreviaDoQuiz
+        foco={{ tela: "abertura" }}
+        quiz={{ ...quiz, intro: { titulo: "So o titulo" } } as Quiz}
+      />
+    );
+    expect(screen.getByText("So o titulo")).toBeTruthy();
+    // So a logo do topo: nenhuma figura de abertura.
+    expect(container.querySelectorAll("img")).toHaveLength(1);
+    expect(container.querySelector("figcaption")).toBeNull();
+  });
+
+  it("legenda e selo nao aparecem sem imagem", () => {
+    render(
+      <PreviaDoQuiz
+        foco={{ tela: "abertura" }}
+        quiz={{
+          ...quiz,
+          intro: { titulo: "T", imagem_legenda: "orfa", imagem_selo: "orfo" },
+        } as Quiz}
+      />
+    );
+    expect(screen.queryByText("orfa")).toBeNull();
+    expect(screen.queryByText("orfo")).toBeNull();
+  });
+
+  it("micro que nao e array nao derruba a tela", () => {
+    expect(() =>
+      render(
+        <PreviaDoQuiz
+          foco={{ tela: "abertura" }}
+          quiz={{ ...quiz, intro: { micro: "nao sou array" } } as never}
+        />
+      )
+    ).not.toThrow();
+  });
+});
+
 describe("ampliar", () => {
   it("abre em tela cheia e volta", () => {
     render(<PreviaDoQuiz foco={{ tela: "abertura" }} quiz={quiz} />);
