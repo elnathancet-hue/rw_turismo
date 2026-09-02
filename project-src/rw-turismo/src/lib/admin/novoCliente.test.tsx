@@ -84,6 +84,51 @@ describe("o botão realmente envia o formulário", () => {
   });
 });
 
+describe("o formulário para de aceitar tudo", () => {
+  it("CPF com dígito errado é recusado NA TELA, sem ir ao servidor", async () => {
+    preencher();
+    fireEvent.change(screen.getByLabelText(/CPF/), {
+      target: { value: "52998224726" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Conferir/ }));
+
+    expect(await screen.findByText(/Este CPF não existe/)).toBeTruthy();
+    expect(searchAdminClients).not.toHaveBeenCalled();
+    expect(createAdminClient).not.toHaveBeenCalled();
+  });
+
+  it("telefone curto demais é recusado, e a mensagem diz quantos dígitos vieram", async () => {
+    preencher();
+    fireEvent.change(screen.getByLabelText(/Telefone/), {
+      target: { value: "8699" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Conferir/ }));
+    expect(await screen.findByText(/digitou 4/)).toBeTruthy();
+  });
+
+  it("nome de uma letra é recusado", async () => {
+    render(<NovoCliente />);
+    fireEvent.change(screen.getByLabelText(/Nome/), { target: { value: "A" } });
+    fireEvent.click(screen.getByRole("button", { name: /Conferir/ }));
+    expect(await screen.findByText(/Informe o nome completo/)).toBeTruthy();
+  });
+
+  // Marcar de vermelho enquanto a pessoa digita acusa erro em todo campo pela
+  // metade — o erro só aparece depois da primeira tentativa.
+  it("não acusa erro antes da primeira tentativa", () => {
+    render(<NovoCliente />);
+    fireEvent.change(screen.getByLabelText(/CPF/), { target: { value: "1" } });
+    expect(screen.queryByText(/CPF precisa/)).toBeNull();
+  });
+
+  it("a máscara formata o CPF enquanto se digita", () => {
+    render(<NovoCliente />);
+    const campo = screen.getByLabelText(/CPF/) as HTMLInputElement;
+    fireEvent.change(campo, { target: { value: "52998224725" } });
+    expect(campo.value).toBe("529.982.247-25");
+  });
+});
+
 describe("a conferência de parecidos não pode virar luz verde falsa", () => {
   it("quando a busca falha, a tela NÃO diz que pode cadastrar", async () => {
     searchAdminClients.mockRejectedValue(new Error("rede caiu"));

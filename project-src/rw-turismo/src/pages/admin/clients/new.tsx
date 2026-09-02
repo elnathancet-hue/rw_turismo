@@ -6,6 +6,11 @@ import AdminLayout from "../../../components/admin/AdminLayout";
 import Button from "../../../components/ui/Button";
 import { Field, Input } from "../../../components/ui/form";
 import {
+  mascararCpf,
+  mascararTelefone,
+  validarCliente,
+} from "../../../lib/admin/validacaoCliente";
+import {
   createAdminClient,
   searchAdminClients,
   type AdminClient,
@@ -41,6 +46,10 @@ const AdminNewClient = () => {
   const [falhouConferencia, setFalhouConferencia] = useState(false);
   // Ficha que ja usa o e-mail digitado. A rota devolve 409 com ela em vez de
   // gravar por cima; o operador decide se atualiza.
+  // Erros por campo, mostrados so DEPOIS da primeira tentativa: marcar de
+  // vermelho enquanto a pessoa ainda esta digitando o telefone acusa erro em
+  // todo campo pela metade.
+  const [tentou, setTentou] = useState(false);
   const [jaExiste, setJaExiste] = useState<{ id: string; name: string | null } | null>(
     null
   );
@@ -84,6 +93,10 @@ const AdminNewClient = () => {
   const salvar = async (event: FormEvent) => {
     event.preventDefault();
     setErro(null);
+    setTentou(true);
+    // O botao ja fica desabilitado, mas o Enter no campo tambem envia — e a
+    // checagem aqui e o que garante que os dois caminhos parem no mesmo lugar.
+    if (Object.keys(erros).length > 0) return;
 
     // Primeiro clique procura; o segundo grava. Assim quem atende vê os
     // parecidos antes de criar, sem precisar lembrar de clicar em "buscar".
@@ -124,7 +137,10 @@ const AdminNewClient = () => {
     }
   };
 
-  const podeSalvar = form.name.trim().length > 0;
+  const erros = validarCliente(form);
+  const mostrarErro = (campo: keyof typeof erros) =>
+    tentou ? erros[campo] : undefined;
+  const podeSalvar = Object.keys(erros).length === 0;
 
   return (
     <AdminGuard>
@@ -145,7 +161,7 @@ const AdminNewClient = () => {
             <h2 className="font-semibold">Dados do cliente</h2>
 
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <Field label="Nome *">
+              <Field error={mostrarErro("name")} label="Nome *">
                 <Input
                   onChange={(e) => {
                     set("name", e.target.value);
@@ -157,12 +173,15 @@ const AdminNewClient = () => {
               </Field>
 
               <Field
+                error={mostrarErro("phone")}
                 hint="É por aqui que a equipe encontra a pessoa depois."
                 label="Telefone (WhatsApp)"
               >
                 <Input
+                  inputMode="tel"
                   onChange={(e) => {
-                    set("phone", e.target.value);
+                    // Mascara na digitacao: o mesmo formato do quiz e do site.
+                    set("phone", mascararTelefone(e.target.value));
                     setParecidos(null);
                   }}
                   placeholder="(86) 99999-8888"
@@ -170,10 +189,11 @@ const AdminNewClient = () => {
                 />
               </Field>
 
-              <Field label="CPF">
+              <Field error={mostrarErro("document")} label="CPF">
                 <Input
+                  inputMode="numeric"
                   onChange={(e) => {
-                    set("document", e.target.value);
+                    set("document", mascararCpf(e.target.value));
                     setParecidos(null);
                   }}
                   placeholder="000.000.000-00"
@@ -181,7 +201,7 @@ const AdminNewClient = () => {
                 />
               </Field>
 
-              <Field label="Nascimento">
+              <Field error={mostrarErro("birth_date")} label="Nascimento">
                 <Input
                   onChange={(e) => set("birth_date", e.target.value)}
                   type="date"
@@ -190,6 +210,7 @@ const AdminNewClient = () => {
               </Field>
 
               <Field
+                error={mostrarErro("email")}
                 hint="Sem e-mail, entra só na agenda: sem conta e sem login. Com e-mail, a conta de acesso é criada."
                 label="E-mail (opcional)"
               >
@@ -297,17 +318,30 @@ const AdminNewClient = () => {
             </section>
           )}
 
-          {erro && <p className="text-sm text-red-600">{erro}</p>}
+          {erro && (
+            <p className="text-sm text-red-600" role="alert">
+              {erro}
+            </p>
+          )}
+
+          {/* Botao desabilitado sem explicacao e a pessoa clicando de novo sem
+              entender. Diz o que falta, e so depois da primeira tentativa. */}
+          {tentou && !podeSalvar && (
+            <p className="text-sm text-red-600" role="alert">
+              Confira os campos marcados acima.
+            </p>
+          )}
 
           {/* type="submit" EXPLICITO. O <Button> do projeto tem type="button"
               por padrao (components/ui/Button.tsx), o oposto do <button> cru do
               HTML. Sem isto o onSubmit do <form> nunca dispara e a tela inteira
               nao faz nada — nem procura parecidos, nem cadastra. */}
-          <Button
-            disabled={!podeSalvar}
-            loading={procurando || salvando}
-            type="submit"
-          >
+          {/* O botao NAO fica desabilitado quando ha erro de preenchimento.
+              Desabilitado, o clique nao acontece — e sem clique a tela nunca
+              marca os campos nem diz o que falta, entao a pessoa fica batendo
+              num botao morto sem saber por que. Clicar mostra o problema; o
+              handler e que impede o envio. */}
+          <Button loading={procurando || salvando} type="submit">
             {parecidos === null ? "Conferir e continuar" : "Cadastrar cliente"}
           </Button>
         </form>

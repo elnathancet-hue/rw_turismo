@@ -3,6 +3,7 @@ import {
   CustomerAccountError,
   resolveCustomerUserId,
 } from "../../../../lib/auth/customerAccount";
+import { validarCliente } from "../../../../lib/admin/validacaoCliente";
 import { requireStaff } from "../../../../lib/server/adminAuth";
 import { checkRateLimit } from "../../../../lib/server/rateLimit";
 import { createSupabaseAdminClient } from "../../../../lib/supabase/admin";
@@ -76,35 +77,19 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   // aquela pessoa está na base — a mesma razão pela qual a importação exige.
   const origem = texto(corpo.contact_origin) || "cadastro manual";
 
-  if (!nome) {
-    return res.status(400).json({ error: "O nome é obrigatório." });
-  }
-
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return res.status(400).json({ error: "E-mail inválido." });
-  }
-
-  // birth_date ia cru para uma coluna `date`. Formato errado virava erro do
-  // Postgres na cara de quem atende, e data no futuro entrava sem reclamar —
-  // e depois apareceria na lista de aniversariantes.
-  if (nascimento) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(nascimento)) {
-      return res.status(400).json({ error: "Data de nascimento inválida." });
-    }
-    const [ano, mes, dia] = nascimento.split("-").map(Number);
-    const data = new Date(ano!, mes! - 1, dia!);
-    const real =
-      data.getFullYear() === ano &&
-      data.getMonth() === mes! - 1 &&
-      data.getDate() === dia;
-    if (!real) {
-      return res.status(400).json({ error: "Data de nascimento inválida." });
-    }
-    if (data > new Date()) {
-      return res
-        .status(400)
-        .json({ error: "A data de nascimento está no futuro." });
-    }
+  // MESMAS REGRAS DA TELA, do mesmo modulo. Antes a rota so conferia o e-mail,
+  // entao nome "A" com CPF "123" entrava por aqui mesmo com a tela consertada —
+  // e quem chega por fora nao passa pela tela nenhuma.
+  const erros = validarCliente({
+    name: nome,
+    email,
+    phone: telefone,
+    document: documento,
+    birth_date: nascimento,
+  });
+  const primeiro = Object.entries(erros)[0];
+  if (primeiro) {
+    return res.status(400).json({ error: primeiro[1], campo: primeiro[0], erros });
   }
 
   const admin = createSupabaseAdminClient() as any;
