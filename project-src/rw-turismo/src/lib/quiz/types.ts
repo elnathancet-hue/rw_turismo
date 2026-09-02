@@ -15,6 +15,18 @@ export type QuizOpcao = {
 export type QuizPergunta = {
   texto: string;
   opcoes: QuizOpcao[];
+  /**
+   * Pergunta que NAO decide o resultado — ela colhe informacao (quantas
+   * pessoas viajam, de onde saem) e o desfecho nao depende dela.
+   *
+   * Existe para o editor poder distinguir "esqueci de pontuar" de "esta e
+   * informativa de proposito". Sem isso, a unica saida para calar o aviso seria
+   * inventar pesos, o que mudaria o resultado de quem responde.
+   *
+   * NAO muda a pontuacao: opcao sem peso ja soma zero, e o motor no banco
+   * continua igual. E declaracao de intencao, lida so pelo painel.
+   */
+  informativa?: boolean;
 };
 
 /** Uma foto do resultado. Sem `url` o bloco nao renderiza. */

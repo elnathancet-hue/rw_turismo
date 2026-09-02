@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { proximaChave } from "../../pages/admin/quizzes/[id]";
+import { proximaChave } from "../../components/admin/quiz/SecaoResultados";
 
 // A chave do resultado e o que fica gravado em quiz_responses.resultado, e e
 // por ela que o relatorio conta quantas pessoas cairam em cada desfecho.

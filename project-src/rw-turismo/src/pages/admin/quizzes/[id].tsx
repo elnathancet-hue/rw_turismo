@@ -3,73 +3,79 @@ import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import AdminGuard from "../../../components/admin/AdminGuard";
 import AdminLayout from "../../../components/admin/AdminLayout";
-import BarraDoQuiz, {
-  pendenciasDoQuiz,
-} from "../../../components/admin/BarraDoQuiz";
-import SaveMessage from "../../../components/admin/SaveMessage";
-import useSaveMessage from "../../../hooks/useSaveMessage";
-import Button from "../../../components/ui/Button";
-import TelaResultado from "../../../components/quiz/TelaResultado";
-import ImageField from "../../../components/admin/ImageField";
+import ConfirmButton from "../../../components/admin/ConfirmButton";
 import ListaDeTextos from "../../../components/admin/ListaDeTextos";
+import PreviaDoQuiz, {
+  type FocoDaPrevia,
+} from "../../../components/admin/quiz/PreviaDoQuiz";
+import SecaoPerguntas from "../../../components/admin/quiz/SecaoPerguntas";
+import SecaoResultados from "../../../components/admin/quiz/SecaoResultados";
+import { Grupo, Variaveis } from "../../../components/admin/quiz/campos";
+import Button from "../../../components/ui/Button";
 import { Field, Input, Select, Textarea } from "../../../components/ui/form";
 import { getAdminQuiz, saveAdminQuiz } from "../../../lib/quiz/client";
-import type {
-  Quiz,
-  QuizFoto,
-  QuizPergunta,
-  QuizResultado,
-  QuizResultadoLayout,
-} from "../../../lib/quiz/types";
 import {
   eixosOrfaos,
   removerEixo as removerEixoDoQuiz,
   renomearEixo as renomearEixoDoQuiz,
 } from "../../../lib/quiz/eixos";
+import {
+  analisarQuiz,
+  avisos as soAvisos,
+  erros as soErros,
+  type Apontamento,
+  type Secao,
+} from "../../../lib/quiz/validacao";
+import type {
+  Quiz,
+  QuizResultadoLayout,
+} from "../../../lib/quiz/types";
 import { slugify } from "../../../lib/admin/slugs";
-import { hrefSeguro } from "../../../lib/security/url";
 
 // Editor de quiz.
 //
-// A parte trabalhosa é a lista aninhada: perguntas contêm opções, e cada opção
-// distribui pesos entre os eixos. O padrão de mover/remover é o mesmo do
-// construtor de páginas (PageBuilder.moveBlock): troca com o vizinho, sem
-// arrastar, porque arrastar em lista aninhada erra mais do que acerta.
+// A tela era a serialização direta do jsonb: seis blocos na ordem do tipo Quiz,
+// empilhados num rolar de ~900 linhas. Agora é navegação lateral + uma seção
+// por vez + prévia do que está sendo editado.
 //
 // NENHUM CAMPO AQUI É HTML. Tudo é texto e vai para a tela pelo React, que
 // escapa. É essa garantia que deixa o papel `conteudo` criar quiz — foi a falta
 // dela que obrigou a travar pages.custom_html no admin.
+//
+// SOBRE "ALTERAÇÕES NÃO PUBLICADAS": a tabela `quizzes` tem UMA linha por quiz,
+// com `status` draft|published, e saveAdminQuiz faz `update` nessa mesma linha.
+// Não existe versão publicada separada da versão em edição — salvar um quiz
+// publicado publica a mudança na hora. Por isso a tela NÃO mostra "alterações
+// não publicadas": seria inventar um estado que o banco não tem. O que ela
+// mostra, quando o quiz está publicado e há trabalho pendente, é o aviso de que
+// salvar vai ao ar.
 
-// A chave identifica o resultado nas respostas ja gravadas. `r${length+1}`
-// colidia: com [r1,r2,r3], remover o do meio deixa length 2 e o proximo nasce
-// 'r3' outra vez — duas linhas com a mesma chave, e o relatorio somando as duas
-// como se fossem o mesmo desfecho.
-export const proximaChave = (resultados: { chave: string }[]): string => {
-  let n = resultados.length + 1;
-  while (resultados.some((r) => r.chave === `r${n}`)) n += 1;
-  return `r${n}`;
-};
+type Estado = "parado" | "salvando" | "salvo" | "erro";
 
-const trocar = <T,>(lista: T[], i: number, dir: -1 | 1): T[] => {
-  const alvo = i + dir;
-  if (alvo < 0 || alvo >= lista.length) return lista;
-  const next = [...lista];
-  [next[i], next[alvo]] = [next[alvo], next[i]];
-  return next;
-};
+const SECOES: { id: Secao; nome: string }[] = [
+  { id: "geral", nome: "Informações gerais" },
+  { id: "perguntas", nome: "Perguntas" },
+  { id: "perfis", nome: "Perfis e pontuação" },
+  { id: "resultados", nome: "Resultados" },
+  { id: "aparencia", nome: "Layout do resultado" },
+  { id: "contato", nome: "Contato e WhatsApp" },
+];
 
 const AdminQuizEditor = () => {
   const router = useRouter();
   const [quiz, setQuiz] = useState<Quiz | null>(null);
-  const [salvando, setSalvando] = useState(false);
-  // Trabalho nao salvo. Sem isto, sair da tela perde tudo em silencio — e o
-  // formulario e longo o bastante para alguem passar meia hora nele.
+  const [estado, setEstado] = useState<Estado>("parado");
+  const [erroTexto, setErroTexto] = useState<string | null>(null);
+  const [erroCarga, setErroCarga] = useState<string | null>(null);
   const [sujo, setSujo] = useState(false);
-  const [erro, setErro] = useState<string | null>(null);
-  const { message, showOk, showError, clearMessage } = useSaveMessage();
 
-  // O navegador so mostra o aviso de "sair sem salvar" se houver um handler
-  // registrado. Sem ele, fechar a aba descarta o quiz sem uma palavra.
+  const [secao, setSecao] = useState<Secao>("geral");
+  // Guardados fora da seção: trocar de seção e voltar não pode perder o que
+  // estava aberto.
+  const [perguntaAtual, setPerguntaAtual] = useState(0);
+  const [resultadoAtual, setResultadoAtual] = useState(0);
+  const [previaAberta, setPreviaAberta] = useState(true);
+
   useEffect(() => {
     if (!sujo) return;
     const avisar = (e: BeforeUnloadEvent) => {
@@ -80,6 +86,25 @@ const AdminQuizEditor = () => {
     return () => window.removeEventListener("beforeunload", avisar);
   }, [sujo]);
 
+  // Navegação interna do Next não passa por beforeunload — sem isto, clicar em
+  // "Respostas" ou no menu lateral levava o trabalho junto, em silêncio.
+  useEffect(() => {
+    if (!sujo) return;
+    const aoSair = () => {
+      if (
+        !window.confirm(
+          "Você tem alterações que ainda não foram salvas. Sair mesmo assim?"
+        )
+      ) {
+        router.events.emit("routeChangeError");
+        // eslint-disable-next-line no-throw-literal
+        throw "Navegação cancelada.";
+      }
+    };
+    router.events.on("routeChangeStart", aoSair);
+    return () => router.events.off("routeChangeStart", aoSair);
+  }, [sujo, router.events]);
+
   useEffect(() => {
     if (!router.isReady) return;
     const id = router.query.id;
@@ -87,17 +112,19 @@ const AdminQuizEditor = () => {
 
     getAdminQuiz(id)
       .then((q) => {
-        if (!q) setErro("Quiz não encontrado.");
+        if (!q) setErroCarga("Quiz não encontrado.");
         else setQuiz(q);
       })
-      .catch((e) => setErro(e instanceof Error ? e.message : "Falha ao abrir."));
+      .catch((e) =>
+        setErroCarga(e instanceof Error ? e.message : "Falha ao abrir.")
+      );
   }, [router.isReady, router.query.id]);
 
-  if (erro && !quiz) {
+  if (erroCarga && !quiz) {
     return (
       <AdminGuard>
         <AdminLayout title="Quiz">
-          <p className="text-red-600">{erro}</p>
+          <p className="text-red-600">{erroCarga}</p>
         </AdminLayout>
       </AdminGuard>
     );
@@ -115,912 +142,607 @@ const AdminQuizEditor = () => {
   const alterar = (proximo: Quiz) => {
     setQuiz(proximo);
     setSujo(true);
+    // "Salvo" some assim que a pessoa edita: manter o verde na tela enquanto há
+    // trabalho pendente é a tela mentindo sobre o estado do trabalho.
+    if (estado === "salvo") setEstado("parado");
   };
 
+  // Spread, e nunca reconstrução campo a campo: é o spread que preserva chave
+  // que este formulário ainda não conhece. Salvar substitui o jsonb inteiro.
   const set = <K extends keyof Quiz>(campo: K, valor: Quiz[K]) =>
     alterar({ ...quiz, [campo]: valor });
 
-  // Renomear/remover eixo migra pesos e resultados junto — ver lib/quiz/eixos.ts.
+  const layout: QuizResultadoLayout = quiz.resultado_layout ?? {};
+  const setLayout = (troca: Partial<QuizResultadoLayout>) =>
+    set("resultado_layout", { ...layout, ...troca });
+
   const renomearEixo = (i: number, nome: string) =>
     alterar(renomearEixoDoQuiz(quiz, i, nome));
   const removerEixo = (i: number) => alterar(removerEixoDoQuiz(quiz, i));
   const orfaos = eixosOrfaos(quiz);
 
-  const setPerguntas = (perguntas: QuizPergunta[]) => set("perguntas", perguntas);
-  // Spread, e nunca reconstrucao campo a campo: e o spread que preserva chave
-  // que este formulario ainda nao conhece. Salvar substitui o jsonb inteiro.
-  const layout: QuizResultadoLayout = quiz.resultado_layout ?? {};
-  const setLayout = (troca: Partial<QuizResultadoLayout>) =>
-    set("resultado_layout", { ...(quiz.resultado_layout ?? {}), ...troca });
-
-  const setResultados = (resultados: QuizResultado[]) =>
-    set("resultados", resultados);
+  const apontamentos = analisarQuiz(quiz);
+  const erros = soErros(apontamentos);
+  const avisos = soAvisos(apontamentos);
 
   const salvar = async (status?: Quiz["status"]) => {
-    setErro(null);
-    clearMessage();
-    setSalvando(true);
+    setErroTexto(null);
+    setEstado("salvando");
     try {
-      const salvo = await saveAdminQuiz({ ...quiz, status: status ?? quiz.status });
+      const salvo = await saveAdminQuiz({
+        ...quiz,
+        status: status ?? quiz.status,
+      });
+      // "Salvo" só depois da confirmação real do banco.
       setQuiz(salvo);
       setSujo(false);
-      showOk(status === "published" ? "Publicado." : "Salvo.");
+      setEstado("salvo");
     } catch (e) {
-      showError(e instanceof Error ? e.message : "Falha ao salvar.");
-    } finally {
-      setSalvando(false);
+      setEstado("erro");
+      setErroTexto(e instanceof Error ? e.message : "Não foi possível salvar.");
     }
   };
 
-  // Um resultado por eixo, mais um de empate: é o que a pontuação espera.
-  // Sem cobrir todos, quem cair no eixo faltante recebe o primeiro resultado.
-  const eixosSemResultado = quiz.eixos.filter(
-    (eixo) => !quiz.resultados.some((r) => r.eixo === eixo)
+  const irPara = (a: Apontamento) => {
+    setSecao(a.secao);
+    if (a.item === undefined) return;
+    if (a.secao === "perguntas") setPerguntaAtual(a.item);
+    if (a.secao === "resultados") setResultadoAtual(a.item);
+  };
+
+  const foco: FocoDaPrevia =
+    secao === "perguntas"
+      ? { tela: "pergunta", indice: perguntaAtual }
+      : secao === "resultados" || secao === "aparencia"
+        ? { tela: "resultado", indice: resultadoAtual }
+        : { tela: "abertura" };
+
+  const contagem: Partial<Record<Secao, number>> = {
+    perguntas: quiz.perguntas?.length,
+    perfis: quiz.eixos?.length,
+    resultados: quiz.resultados?.length,
+  };
+
+  const listaDeApontamentos = (
+    itens: Apontamento[],
+    tom: "erro" | "aviso"
+  ) => (
+    <details
+      className={`rounded border p-2 ${
+        tom === "erro"
+          ? "border-red-200 bg-red-50"
+          : "border-amber-200 bg-amber-50"
+      }`}
+    >
+      <summary
+        className={`cursor-pointer font-semibold ${
+          tom === "erro" ? "text-red-800" : "text-amber-800"
+        }`}
+      >
+        {itens.length}{" "}
+        {tom === "erro"
+          ? `erro${itens.length > 1 ? "s" : ""}`
+          : `aviso${itens.length > 1 ? "s" : ""}`}
+      </summary>
+      <ul className="mt-1 space-y-1">
+        {itens.map((a, i) => (
+          <li key={i}>
+            <button
+              className={`text-left hover:underline ${
+                tom === "erro" ? "text-red-900" : "text-amber-900"
+              }`}
+              onClick={() => irPara(a)}
+              type="button"
+            >
+              {a.texto}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </details>
   );
-  const temEmpate = quiz.resultados.some((r) => !r.eixo);
-  const pendencias = pendenciasDoQuiz(quiz);
 
   return (
     <AdminGuard>
       <AdminLayout
-        title={quiz.title || "Quiz"}
-        description="Perguntas, pesos e resultados. Nada aqui aceita HTML."
         action={
-          <div className="flex flex-wrap gap-2">
-            {/* Voltar era um <Link> seco: um clique depois de meia hora de
-                edicao levava o trabalho junto, sem uma palavra. */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Estado por texto, e não só por cor. aria-live avisa quem usa
+                leitor de tela sem precisar procurar o selo. */}
+            <span
+              aria-live="polite"
+              className={`text-xs font-semibold ${
+                estado === "erro"
+                  ? "text-red-700"
+                  : estado === "salvando"
+                    ? "text-gray-600"
+                    : estado === "salvo"
+                      ? "text-green-700"
+                      : sujo
+                        ? "text-amber-700"
+                        : "text-gray-400"
+              }`}
+            >
+              {estado === "salvando"
+                ? "Salvando…"
+                : estado === "erro"
+                  ? "Erro ao salvar"
+                  : estado === "salvo"
+                    ? "Salvo"
+                    : sujo
+                      ? "Não salvo"
+                      : "Tudo salvo"}
+            </span>
+
             <button
-              className="rounded border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50"
-              onClick={() => {
-                if (
-                  sujo &&
-                  !window.confirm(
-                    "Você tem alterações que ainda não foram salvas. Sair mesmo assim?"
-                  )
-                ) {
-                  return;
-                }
-                void router.push("/admin/quizzes");
-              }}
+              className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-800 hover:bg-gray-50"
+              onClick={() => void router.push("/admin/quizzes")}
               type="button"
             >
               Voltar
             </button>
             <Link
-              className="rounded border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50"
+              className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-800 hover:bg-gray-50"
               href={`/admin/quizzes/${quiz.id}/respostas`}
             >
               Respostas
             </Link>
-            <span
-              className={`self-center text-xs font-semibold ${
-                sujo ? "text-amber-700" : "text-gray-400"
-              }`}
+            {/* "Visualizar" só quando há o que visualizar: a rota pública
+                mostra apenas quiz publicado, de propósito. */}
+            {quiz.status === "published" && quiz.slug && (
+              <a
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-800 hover:bg-gray-50"
+                href={`/quiz/${quiz.slug}`}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                Visualizar
+              </a>
+            )}
+
+            <Button
+              loading={estado === "salvando"}
+              onClick={() => void salvar()}
+              type="button"
             >
-              {sujo ? "• não salvo" : "tudo salvo"}
-            </span>
-            <Button loading={salvando} onClick={() => void salvar()} type="button">
               Salvar
             </Button>
+
             {quiz.status === "draft" ? (
               <Button
-                loading={salvando}
+                loading={estado === "salvando"}
                 onClick={() => void salvar("published")}
                 type="button"
               >
                 Publicar
               </Button>
             ) : (
-              <Button
-                loading={salvando}
-                onClick={() => void salvar("draft")}
-                type="button"
+              // Despublicar sai do lugar da ação principal e ganha confirmação.
+              <ConfirmButton
+                className="rounded-lg px-3 py-2.5 text-sm font-semibold text-gray-500 hover:text-gray-900"
+                confirmLabel="Despublicar"
+                message="O quiz sai do ar e o link deixa de abrir. As respostas já gravadas continuam no relatório."
+                onConfirm={async () => salvar("draft")}
+                title="Despublicar este quiz?"
               >
                 Despublicar
-              </Button>
+              </ConfirmButton>
             )}
           </div>
         }
+        description="Perguntas, pontuação e resultados. Nada aqui aceita HTML."
+        title={quiz.title || "Quiz"}
       >
-        {erro && <p className="mb-4 text-sm text-red-600">{erro}</p>}
-        <div className="mb-4">
-          <SaveMessage message={message} />
-        </div>
-
-        <div className="max-w-5xl">
-          <BarraDoQuiz
-            pendencias={pendencias}
-            quiz={quiz}
-            sujo={sujo}
-          />
-
-          <div className="space-y-6">
-          {/* ---------------------------------------------------- básico */}
-          <section
-            className="scroll-mt-28 rounded-lg border bg-white p-5 shadow-sm"
-            id="o-quiz"
+        {erroTexto && (
+          <p
+            className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+            role="alert"
           >
-            <h2 className="font-semibold">O quiz</h2>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <Field label="Título">
-                <Input
-                  onChange={(e) => set("title", e.target.value)}
-                  value={quiz.title}
-                />
-              </Field>
-              <Field hint={`Fica em /quiz/${quiz.slug || "..."}`} label="Endereço">
-                <Input
-                  onChange={(e) => set("slug", slugify(e.target.value))}
-                  value={quiz.slug}
-                />
-              </Field>
-              <Field label="Título da abertura">
-                <Input
-                  onChange={(e) =>
-                    set("intro", { ...quiz.intro, titulo: e.target.value })
-                  }
-                  value={quiz.intro?.titulo ?? ""}
-                />
-              </Field>
-              <Field label="Texto do botão">
-                <Input
-                  onChange={(e) =>
-                    set("intro", { ...quiz.intro, texto_botao: e.target.value })
-                  }
-                  placeholder="Começar"
-                  value={quiz.intro?.texto_botao ?? ""}
-                />
-              </Field>
-            </div>
-            <Field className="mt-4" label="Subtítulo da abertura">
-              <Textarea
-                onChange={(e) =>
-                  set("intro", { ...quiz.intro, subtitulo: e.target.value })
-                }
-                value={quiz.intro?.subtitulo ?? ""}
-              />
-            </Field>
-            <label className="mt-4 flex items-center gap-2 text-sm">
-              <input
-                checked={quiz.captura_ativa}
-                onChange={(e) => set("captura_ativa", e.target.checked)}
-                type="checkbox"
-              />
-              Pedir nome e WhatsApp antes de mostrar o resultado
-            </label>
-          </section>
+            {erroTexto}
+          </p>
+        )}
 
-          {/* ----------------------------------------------------- eixos */}
-          <section
-            className="scroll-mt-28 rounded-lg border bg-white p-5 shadow-sm"
-            id="eixos"
-          >
-            <h2 className="font-semibold">Eixos</h2>
-            <p className="mt-1 text-sm text-gray-500">
-              Os lados que o quiz mede — por exemplo <em>relaxar</em> e{" "}
-              <em>aventura</em>. Cada opção de resposta soma pontos para eles.
-            </p>
-            {/* UM CAMPO POR EIXO, e não um texto separado por vírgula.
-                O texto solto refazia a lista a cada tecla: apagar "relaxar"
-                para digitar "descanso" passava por "relaxa", "relax", "rela"…
-                e a cada estado os pesos — que são gravados POR NOME dentro de
-                cada opção — ficavam órfãos. A pontuação ia a zero e todo mundo
-                caía no empate, sem erro em lugar nenhum. */}
-            <div className="mt-4 space-y-2">
-              {quiz.eixos.map((eixo, i) => (
-                <div className="flex min-w-0 items-center gap-2" key={i}>
-                  <Input
-                    className="min-w-0 flex-1"
-                    onChange={(e) => renomearEixo(i, e.target.value)}
-                    value={eixo}
-                  />
+        {/* Honesto sobre o que o banco faz: não há versão de rascunho separada
+            da publicada, então salvar um quiz publicado vai ao ar na hora. */}
+        {quiz.status === "published" && sujo && (
+          <p className="mb-4 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            Este quiz está publicado. Ao salvar, as alterações vão ao ar
+            imediatamente — não existe rascunho separado da versão pública.
+          </p>
+        )}
+
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,204px)_minmax(0,1fr)]">
+          <nav aria-label="Seções do editor">
+            <ul className="flex gap-1 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible">
+              {SECOES.map((s) => (
+                <li key={s.id}>
                   <button
-                    className="shrink-0 rounded border px-3 py-2 text-xs font-semibold text-red-600 disabled:opacity-40"
-                    disabled={quiz.eixos.length <= 1}
-                    onClick={() => removerEixo(i)}
+                    aria-current={secao === s.id ? "page" : undefined}
+                    className={`flex w-full items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2.5 text-left text-sm font-medium ${
+                      secao === s.id
+                        ? "bg-brand-50 text-brand-800"
+                        : "text-gray-700 hover:bg-gray-100"
+                    }`}
+                    onClick={() => setSecao(s.id)}
                     type="button"
                   >
-                    Remover
+                    <span className="flex-1">{s.nome}</span>
+                    {contagem[s.id] !== undefined && (
+                      <span className="text-xs text-gray-400">
+                        {contagem[s.id]}
+                      </span>
+                    )}
+                    {apontamentos.some(
+                      (a) => a.secao === s.id && a.nivel === "erro"
+                    ) && (
+                      <span
+                        aria-label="tem erro"
+                        className="text-sm font-bold text-red-600"
+                      >
+                        !
+                      </span>
+                    )}
                   </button>
-                </div>
+                </li>
               ))}
-              <button
-                className="text-sm font-semibold text-brand-600 hover:underline"
-                onClick={() =>
-                  set("eixos", [...quiz.eixos, `Eixo ${quiz.eixos.length + 1}`])
-                }
-                type="button"
-              >
-                + Eixo
-              </button>
-            </div>
-            <Field
-              className="mt-4"
-              hint="Diferença mínima para um eixo vencer. Abaixo dela, vale o resultado de empate."
-              label="Margem de empate"
-            >
-              <Input
-                onChange={(e) =>
-                  set("margem_empate", Number(e.target.value) || 0)
-                }
-                step="0.5"
-                type="number"
-                value={quiz.margem_empate}
-              />
-            </Field>
-          </section>
+            </ul>
 
-          {/* ------------------------------------------------- perguntas */}
-          <section
-            className="scroll-mt-28 rounded-lg border bg-white p-5 shadow-sm"
-            id="perguntas"
-          >
-            <div className="flex items-center justify-between">
-              <h2 className="font-semibold">
-                Perguntas ({quiz.perguntas.length})
-              </h2>
-              <button
-                className="text-sm font-semibold text-brand-600 hover:underline"
-                onClick={() =>
-                  setPerguntas([
-                    ...quiz.perguntas,
-                    { texto: "", opcoes: [{ texto: "", pesos: {} }] },
-                  ])
-                }
-                type="button"
-              >
-                + Pergunta
-              </button>
-            </div>
+            {(erros.length > 0 || avisos.length > 0) && (
+              <div className="mt-4 space-y-2 text-xs">
+                {erros.length > 0 && listaDeApontamentos(erros, "erro")}
+                {avisos.length > 0 && listaDeApontamentos(avisos, "aviso")}
+              </div>
+            )}
+          </nav>
 
-            <p className="mt-1 text-sm text-gray-500">
-              Cada opção soma pontos para os eixos. Quem responde não vê esses
-              números — eles só decidem em que resultado a pessoa cai. Deixe em
-              branco quando a opção não pesar para aquele lado.
-            </p>
-
-            <div className="mt-4 space-y-5">
-              {quiz.perguntas.map((pergunta, iP) => (
-                <div className="rounded-lg border p-4" key={iP}>
-                  <div className="flex min-w-0 items-start gap-2 [&>label]:min-w-0 [&>label]:flex-1">
-                    <Field label={`Pergunta ${iP + 1}`}>
-                      <Textarea
-                        onChange={(e) =>
-                          setPerguntas(
-                            quiz.perguntas.map((p, j) =>
-                              j === iP ? { ...p, texto: e.target.value } : p
-                            )
-                          )
-                        }
-                        value={pergunta.texto}
+          <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,400px)]">
+            <div className="min-w-0 space-y-6">
+              {secao === "geral" && (
+                <>
+                  <Grupo titulo="Informações gerais">
+                    <Field label="Nome do quiz">
+                      <Input
+                        onChange={(e) => set("title", e.target.value)}
+                        value={quiz.title}
                       />
                     </Field>
-                    <div className="mt-6 flex shrink-0 gap-1 text-xs">
-                      <button
-                        className="rounded border px-2 py-1"
-                        onClick={() => setPerguntas(trocar(quiz.perguntas, iP, -1))}
-                        type="button"
-                      >
-                        ↑
-                      </button>
-                      <button
-                        className="rounded border px-2 py-1"
-                        onClick={() => setPerguntas(trocar(quiz.perguntas, iP, 1))}
-                        type="button"
-                      >
-                        ↓
-                      </button>
-                      <button
-                        className="rounded border px-2 py-1 text-red-600"
-                        onClick={() =>
-                          setPerguntas(quiz.perguntas.filter((_, j) => j !== iP))
-                        }
-                        type="button"
-                      >
-                        Remover
-                      </button>
-                    </div>
-                  </div>
+                    <Field
+                      hint={`O quiz fica em /quiz/${quiz.slug || "…"}`}
+                      label="Link do quiz"
+                    >
+                      <Input
+                        onChange={(e) => set("slug", slugify(e.target.value))}
+                        value={quiz.slug}
+                      />
+                    </Field>
+                  </Grupo>
 
-                  <p className="mt-3 text-sm font-medium text-gray-700">Opções</p>
-                  <div className="mt-2 space-y-2">
-                    {pergunta.opcoes.map((opcao, iO) => (
-                      <div className="rounded border bg-gray-50 p-3" key={iO}>
+                  <Grupo
+                    ajuda="A primeira coisa que quem responde vê."
+                    titulo="Tela de abertura"
+                  >
+                    <Field label="Texto acima do título">
+                      <Input
+                        onChange={(e) =>
+                          set("intro", {
+                            ...quiz.intro,
+                            subtitulo: e.target.value,
+                          })
+                        }
+                        placeholder="Feriado de 7 de setembro"
+                        value={quiz.intro?.subtitulo ?? ""}
+                      />
+                    </Field>
+                    <Field label="Título">
+                      <Textarea
+                        onChange={(e) =>
+                          set("intro", { ...quiz.intro, titulo: e.target.value })
+                        }
+                        rows={2}
+                        value={quiz.intro?.titulo ?? ""}
+                      />
+                    </Field>
+                    <Field label="Texto do botão">
+                      <Input
+                        onChange={(e) =>
+                          set("intro", {
+                            ...quiz.intro,
+                            texto_botao: e.target.value,
+                          })
+                        }
+                        placeholder="Começar"
+                        value={quiz.intro?.texto_botao ?? ""}
+                      />
+                    </Field>
+                  </Grupo>
+
+                  <Grupo
+                    ajuda="Aparece no Google e na prévia do link no WhatsApp. Vazio usa o nome do quiz."
+                    titulo="Busca e compartilhamento"
+                  >
+                    <Field label="Título para busca">
+                      <Input
+                        onChange={(e) =>
+                          set("seo_title", e.target.value || null)
+                        }
+                        placeholder={quiz.title}
+                        value={quiz.seo_title ?? ""}
+                      />
+                    </Field>
+                    <Field label="Descrição para busca">
+                      <Textarea
+                        onChange={(e) =>
+                          set("seo_description", e.target.value || null)
+                        }
+                        rows={2}
+                        value={quiz.seo_description ?? ""}
+                      />
+                    </Field>
+                  </Grupo>
+
+                  <Grupo titulo="Captura de contato">
+                    <label className="flex items-start gap-2 text-sm text-gray-700">
+                      <input
+                        checked={quiz.captura_ativa}
+                        className="mt-1"
+                        onChange={(e) => set("captura_ativa", e.target.checked)}
+                        type="checkbox"
+                      />
+                      <span>
+                        Pedir nome e WhatsApp antes de mostrar o resultado
+                        <span className="block text-xs text-gray-500">
+                          Desligado, o quiz não guarda contato nenhum e não gera
+                          lead.
+                        </span>
+                      </span>
+                    </label>
+                  </Grupo>
+                </>
+              )}
+
+              {secao === "perguntas" && (
+                <SecaoPerguntas
+                  onChange={(perguntas) => set("perguntas", perguntas)}
+                  onSelecionar={setPerguntaAtual}
+                  quiz={quiz}
+                  selecionada={perguntaAtual}
+                />
+              )}
+
+              {secao === "perfis" && (
+                <>
+                  <Grupo
+                    acao={
+                      <Button
+                        onClick={() =>
+                          set("eixos", [
+                            ...quiz.eixos,
+                            `Perfil ${quiz.eixos.length + 1}`,
+                          ])
+                        }
+                        size="sm"
+                        type="button"
+                        variant="ghost"
+                      >
+                        + Perfil
+                      </Button>
+                    }
+                    ajuda="Os lados que o quiz separa, ex: descanso e aventura. Cada alternativa soma pontos para eles, e o perfil que ganhar a soma escolhe qual resultado aparece."
+                    titulo="Perfis"
+                  >
+                    {quiz.eixos.map((eixo, i) => (
+                      <div className="flex min-w-0 items-center gap-2" key={i}>
                         <Input
-                          onChange={(e) =>
-                            setPerguntas(
-                              quiz.perguntas.map((p, j) =>
-                                j === iP
-                                  ? {
-                                      ...p,
-                                      opcoes: p.opcoes.map((o, k) =>
-                                        k === iO
-                                          ? { ...o, texto: e.target.value }
-                                          : o
-                                      ),
-                                    }
-                                  : p
-                              )
-                            )
-                          }
-                          placeholder="Texto da opção"
-                          value={opcao.texto}
+                          aria-label={`Nome do perfil ${i + 1}`}
+                          className="min-w-0 flex-1"
+                          onChange={(e) => renomearEixo(i, e.target.value)}
+                          value={eixo}
                         />
-                        <div className="mt-2 flex flex-wrap items-end gap-3">
-                          {quiz.eixos.map((eixo) => (
-                            <label className="text-xs text-gray-600" key={eixo}>
-                              {eixo}
-                              <input
-                                className="mt-1 block w-24 rounded border px-2 py-1"
-                                onChange={(e) => {
-                                  const v = e.target.value;
-                                  setPerguntas(
-                                    quiz.perguntas.map((p, j) =>
-                                      j === iP
-                                        ? {
-                                            ...p,
-                                            opcoes: p.opcoes.map((o, k) => {
-                                              if (k !== iO) return o;
-                                              const pesos = { ...o.pesos };
-                                              // Campo vazio REMOVE o eixo, em
-                                              // vez de gravar zero: opção
-                                              // neutra é a que não tem peso.
-                                              if (v === "") delete pesos[eixo];
-                                              else pesos[eixo] = Number(v) || 0;
-                                              return { ...o, pesos };
-                                            }),
-                                          }
-                                        : p
-                                    )
-                                  );
-                                }}
-                                placeholder="—"
-                                step="0.5"
-                                type="number"
-                                value={opcao.pesos?.[eixo] ?? ""}
-                              />
-                            </label>
-                          ))}
-                          <button
-                            className="ml-auto text-xs font-semibold text-red-600"
-                            onClick={() =>
-                              setPerguntas(
-                                quiz.perguntas.map((p, j) =>
-                                  j === iP
-                                    ? {
-                                        ...p,
-                                        opcoes: p.opcoes.filter((_, k) => k !== iO),
-                                      }
-                                    : p
-                                )
-                              )
-                            }
-                            type="button"
-                          >
-                            Remover opção
-                          </button>
-                        </div>
+                        <ConfirmButton
+                          className="shrink-0 rounded border px-3 py-2 text-xs font-semibold text-gray-500 hover:text-red-600"
+                          message={`Remover o perfil "${eixo}" apaga os pontos dele em todas as perguntas e solta o resultado que dependia dele. Continuar?`}
+                          onConfirm={async () => removerEixo(i)}
+                        >
+                          Remover
+                        </ConfirmButton>
                       </div>
                     ))}
-                  </div>
 
-                  <button
-                    className="mt-2 text-sm font-semibold text-brand-600 hover:underline"
-                    onClick={() =>
-                      setPerguntas(
-                        quiz.perguntas.map((p, j) =>
-                          j === iP
-                            ? { ...p, opcoes: [...p.opcoes, { texto: "", pesos: {} }] }
-                            : p
-                        )
-                      )
-                    }
-                    type="button"
-                  >
-                    + Opção
-                  </button>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* ------------------------------------- moldura do resultado */}
-          <section
-            className="scroll-mt-28 rounded-lg border bg-white p-5 shadow-sm"
-            id="moldura"
-          >
-            <h2 className="font-semibold">Moldura da tela de resultado</h2>
-            <p className="mt-1 text-sm text-gray-500">
-              Os rótulos que são iguais em todos os desfechos. O que muda por
-              desfecho fica em cada resultado, abaixo. Campo vazio não aparece na
-              tela.
-            </p>
-
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <Field
-                hint="A linha pequena acima do título."
-                label="Olho"
-              >
-                <Input
-                  onChange={(e) => setLayout({ olho: e.target.value || null })}
-                  placeholder="Sua leitura"
-                  value={layout.olho ?? ""}
-                />
-              </Field>
-              <Field label="Assinatura do rodapé">
-                <Input
-                  onChange={(e) =>
-                    setLayout({ assinatura: e.target.value || null })
-                  }
-                  placeholder="@rwturismo.pi"
-                  value={layout.assinatura ?? ""}
-                />
-              </Field>
-              <Field label="Título da lista de motivos">
-                <Input
-                  onChange={(e) =>
-                    setLayout({ titulo_motivos: e.target.value || null })
-                  }
-                  placeholder="Por que essa viagem combina com você?"
-                  value={layout.titulo_motivos ?? ""}
-                />
-              </Field>
-              <Field label="Título do bloco de destino">
-                <Input
-                  onChange={(e) =>
-                    setLayout({ titulo_destino: e.target.value || null })
-                  }
-                  placeholder="Seu destino"
-                  value={layout.titulo_destino ?? ""}
-                />
-              </Field>
-            </div>
-
-            <div className="mt-4">
-              <Field
-                hint="Texto pequeno de confiança, abaixo dos blocos."
-                label="Selo"
-              >
-                <Textarea
-                  onChange={(e) => setLayout({ selo: e.target.value || null })}
-                  placeholder="Mais de 25 anos de estrada, Cadastur, loja física em Teresina…"
-                  rows={2}
-                  value={layout.selo ?? ""}
-                />
-              </Field>
-            </div>
-
-            <div className="mt-4 border-t pt-4">
-              <ListaDeTextos
-                hint="Aparecem embaixo do botão, em letra pequena."
-                itens={quiz.cta?.micro ?? []}
-                label="Linhas sob o botão"
-                onChange={(micro) => set("cta", { ...quiz.cta, micro })}
-                placeholder="Você cai direto no WhatsApp, com a mensagem já escrita."
-                textoAdicionar="+ Linha"
-              />
-            </div>
-          </section>
-
-          {/* ------------------------------------------------ resultados */}
-          <section
-            className="scroll-mt-28 rounded-lg border bg-white p-5 shadow-sm"
-            id="resultados"
-          >
-            <div className="flex items-center justify-between">
-              <h2 className="font-semibold">
-                Resultados ({quiz.resultados.length})
-              </h2>
-              <button
-                className="text-sm font-semibold text-brand-600 hover:underline"
-                onClick={() =>
-                  setResultados([
-                    ...quiz.resultados,
-                    {
-                      chave: proximaChave(quiz.resultados),
-                      // Nasce no primeiro eixo que ainda nao tem resultado. Antes
-                      // nascia sempre como empate, e o aviso "falta resultado
-                      // para X" continuava acusando falta depois de a pessoa
-                      // clicar em adicionar — o clique nao resolvia o que o
-                      // proprio aviso pedia.
-                      eixo: eixosSemResultado[0] ?? null,
-                      rotulo: "",
-                    },
-                  ])
-                }
-                type="button"
-              >
-                + Resultado
-              </button>
-            </div>
-
-            <p className="mt-1 text-sm text-gray-500">
-              Um resultado para cada eixo, mais um para quando dá empate. É o
-              eixo que ganhou a soma dos pontos que escolhe qual destes aparece.
-            </p>
-
-            {orfaos.length > 0 && (
-              <p className="mt-3 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-900">
-                Há pesos apontando para eixo que não existe mais:{" "}
-                <strong>{orfaos.join(", ")}</strong>. A pontuação descarta esses
-                pesos, então o quiz vai dar quase sempre o mesmo resultado.
-              </p>
-            )}
-
-            {(eixosSemResultado.length > 0 || !temEmpate) && (
-              <p className="mt-3 rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-                {eixosSemResultado.length > 0 && (
-                  <>
-                    Sem resultado para: <strong>{eixosSemResultado.join(", ")}</strong>.{" "}
-                  </>
-                )}
-                {!temEmpate && <>Falta o resultado de empate. </>}
-                Quem cair aí recebe o primeiro resultado da lista.
-              </p>
-            )}
-
-            <div className="mt-4 space-y-5">
-              {quiz.resultados.map((resultado, i) => {
-                const trocaResultado = (troca: Partial<QuizResultado>) =>
-                  setResultados(
-                    quiz.resultados.map((r, j) => (j === i ? { ...r, ...troca } : r))
-                  );
-                const fotos = resultado.fotos ?? [];
-                const destino = resultado.destino ?? {};
-
-                return (
-                  // <details>, e nao um cartao aberto: cinco resultados eram
-                  // cinco mil pixels de campos quase identicos, e ao chegar em
-                  // "Imagens" ou "Destino" o campo Rotulo que identificava
-                  // aquele resultado ja tinha saido da tela ha muito — dava para
-                  // trocar a foto no desfecho errado sem perceber.
-                  //
-                  // key pela CHAVE, e nao pelo indice: o estado `open` do
-                  // <details> e nativo e gruda no vizinho quando se remove um
-                  // item do meio de uma lista chaveada por indice.
-                  <details
-                    className="rounded-lg border p-5 open:pb-5"
-                    key={resultado.chave || i}
-                    open={quiz.resultados.length <= 2}
-                  >
-                    <summary className="-m-5 mb-0 cursor-pointer p-5 text-sm font-semibold text-gray-800">
-                      <span className="text-gray-400">Resultado {i + 1}</span>{" "}
-                      {resultado.rotulo || (
-                        <span className="font-normal italic text-gray-400">
-                          sem rótulo
-                        </span>
-                      )}
-                      <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
-                        {resultado.eixo ?? "empate"}
-                      </span>
-                    </summary>
-                    <div className="mt-5">
-                    {/* Duas colunas, não três: com três, cada campo ficava com
-                        um terço da largura e a URL da imagem não cabia — foi a
-                        reclamação de "blocos apertados", e de "não vi a opção de
-                        colocar imagem", que estava espremida na terceira. */}
-                    <div className="grid gap-4 sm:grid-cols-[2fr_1fr]">
-                      <Field label="Rótulo">
-                        <Input
-                          onChange={(e) => trocaResultado({ rotulo: e.target.value })}
-                          placeholder="Serra da Ibiapaba"
-                          value={resultado.rotulo}
-                        />
-                      </Field>
-                      <Field hint="Vazio = resultado de empate" label="Eixo dominante">
-                        <Select
-                          onChange={(e) =>
-                            trocaResultado({ eixo: e.target.value || null })
-                          }
-                          value={resultado.eixo ?? ""}
-                        >
-                          <option value="">— empate —</option>
-                          {quiz.eixos.map((eixo) => (
-                            <option key={eixo} value={eixo}>
-                              {eixo}
-                            </option>
-                          ))}
-                        </Select>
-                      </Field>
-                    </div>
-
-                    <div className="mt-4">
-                      <Field
-                        hint="Aceita {{nome}} e {{rotulo}}. Vazio usa o rótulo acima."
-                        label="Título da tela de resultado"
-                      >
-                        <Input
-                          onChange={(e) =>
-                            trocaResultado({ titulo: e.target.value || null })
-                          }
-                          placeholder="{{nome}}, suas respostas mostram que…"
-                          value={resultado.titulo ?? ""}
-                        />
-                      </Field>
-                    </div>
-
-                    <div className="mt-4">
-                      <Field label="Texto do resultado">
-                        <Textarea
-                          onChange={(e) => trocaResultado({ texto: e.target.value })}
-                          rows={4}
-                          value={resultado.texto ?? ""}
-                        />
-                      </Field>
-                    </div>
-
-                    {/* A RÉGUA só existe em quiz de dois eixos. Com três ou
-                        mais, uma barra de uma dimensão colocaria o resultado num
-                        ponto que não corresponde a nada. */}
-                    {quiz.eixos.length !== 2 && (
-                      <p className="mt-4 text-sm text-gray-500">
-                        A régua só existe em quiz de dois eixos — este tem{" "}
-                        {quiz.eixos.length}. O que você já escreveu nela continua
-                        guardado e volta a valer se o quiz voltar a ter dois.
+                    {orfaos.length > 0 && (
+                      <p className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+                        Há pontos para perfis que não existem mais:{" "}
+                        <strong>{orfaos.join(", ")}</strong>. A pontuação
+                        descarta esses pontos, então o quiz tende a dar sempre a
+                        mesma resposta.
                       </p>
                     )}
-                    {quiz.eixos.length === 2 && (
-                      <div className="mt-4 rounded-lg bg-gray-50 p-4">
-                        <p className="text-sm font-semibold text-gray-700">
-                          Régua entre {quiz.eixos[0]} e {quiz.eixos[1]}
-                        </p>
-                        <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                          <Field
-                            hint="0 = todo à esquerda, 100 = todo à direita"
-                            label="Posição (0 a 100)"
-                          >
-                            <Input
-                              max={100}
-                              min={0}
-                              onChange={(e) =>
-                                trocaResultado({
-                                  posicao:
-                                    e.target.value === ""
-                                      ? null
-                                      : Number(e.target.value),
-                                })
-                              }
-                              placeholder="50"
-                              type="number"
-                              value={resultado.posicao ?? ""}
-                            />
-                          </Field>
-                          <Field label="Frase sob a régua">
-                            <Input
-                              onChange={(e) =>
-                                trocaResultado({
-                                  regua_rotulo: e.target.value || null,
-                                })
-                              }
-                              placeholder="Mais aventura"
-                              value={resultado.regua_rotulo ?? ""}
-                            />
-                          </Field>
-                        </div>
-                      </div>
-                    )}
+                  </Grupo>
 
-                    <div className="mt-4">
-                      <ListaDeTextos
-                        hint="Lista com check verde, abaixo da régua."
-                        itens={resultado.motivos ?? []}
-                        label="Motivos"
-                        onChange={(motivos) => trocaResultado({ motivos })}
-                        placeholder="Paisagens, serra e experiências ao ar livre."
-                        textoAdicionar="+ Motivo"
+                  <Grupo
+                    ajuda="Diferença mínima para um perfil vencer. Abaixo dela, vale o resultado de empate."
+                    titulo="Margem de empate"
+                  >
+                    <Field label="Margem">
+                      <Input
+                        min={0}
+                        onChange={(e) =>
+                          set("margem_empate", Number(e.target.value) || 0)
+                        }
+                        step="0.1"
+                        type="number"
+                        value={quiz.margem_empate}
                       />
-                    </div>
+                    </Field>
+                  </Grupo>
+                </>
+              )}
 
-                    {/* AS IMAGENS, agora em bloco próprio e com largura inteira.
-                        Duas ficam lado a lado na tela pública; uma sozinha ocupa
-                        a largura toda. */}
-                    <div className="mt-5 border-t pt-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-700">
-                          Imagens ({fotos.length})
-                        </span>
-                        <button
-                          className="text-sm font-semibold text-brand-600 hover:underline"
-                          onClick={() =>
-                            trocaResultado({ fotos: [...fotos, { url: "" }] })
-                          }
-                          type="button"
-                        >
-                          + Imagem
-                        </button>
-                      </div>
-                      <p className="mt-1 text-xs text-gray-500">
-                        Duas imagens aparecem lado a lado. Sem imagem, o bloco não
-                        aparece.
-                      </p>
-
-                      {fotos.length === 0 ? (
-                        <p className="mt-2 rounded-lg border border-dashed border-gray-300 p-3 text-sm text-gray-500">
-                          Nenhuma imagem.
-                        </p>
-                      ) : (
-                        <div className="mt-3 space-y-4">
-                          {fotos.map((foto, f) => {
-                            const trocaFoto = (troca: Partial<QuizFoto>) =>
-                              trocaResultado({
-                                fotos: fotos.map((x, k) =>
-                                  k === f ? { ...x, ...troca } : x
-                                ),
-                              });
-                            return (
-                              <div className="rounded-lg border bg-gray-50 p-4" key={f}>
-                                <Field label={`Imagem ${f + 1}`}>
-                                  {/* ImageField, o mesmo do ProductForm: aceita
-                                      link colado OU arquivo do computador/celular,
-                                      e ele mesmo sobe para o Storage. Antes aqui
-                                      era um campo de URL cru — quem monta o quiz
-                                      na agência não tem de onde tirar um link. */}
-                                  <ImageField
-                                    bucket="site-assets"
-                                    onChange={(url) => trocaFoto({ url })}
-                                    value={foto.url}
-                                  />
-                                </Field>
-                                <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                                  <Field label="Legenda">
-                                    <Input
-                                      onChange={(e) =>
-                                        trocaFoto({ legenda: e.target.value || null })
-                                      }
-                                      placeholder="Teleférico sobre a mata"
-                                      value={foto.legenda ?? ""}
-                                    />
-                                  </Field>
-                                  <Field
-                                    hint="Canto da imagem. Vazio não desenha."
-                                    label="Selo"
-                                  >
-                                    <Input
-                                      onChange={(e) =>
-                                        trocaFoto({ selo: e.target.value || null })
-                                      }
-                                      placeholder="Simulação"
-                                      value={foto.selo ?? ""}
-                                    />
-                                  </Field>
-                                </div>
-                                <button
-                                  className="mt-3 text-xs font-semibold text-red-600"
-                                  onClick={() =>
-                                    trocaResultado({
-                                      fotos: fotos.filter((_, k) => k !== f),
-                                    })
-                                  }
-                                  type="button"
-                                >
-                                  Remover imagem
-                                </button>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="mt-5 border-t pt-4">
-                      <p className="text-sm font-semibold text-gray-700">Destino</p>
-                      <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                        <Field label="Nome do destino">
-                          <Input
-                            onChange={(e) =>
-                              trocaResultado({
-                                destino: { ...destino, nome: e.target.value || null },
-                              })
-                            }
-                            placeholder="Serra da Ibiapaba"
-                            value={destino.nome ?? ""}
-                          />
-                        </Field>
-                        <Field label="Subtítulo">
-                          <Input
-                            onChange={(e) =>
-                              trocaResultado({
-                                destino: {
-                                  ...destino,
-                                  subtitulo: e.target.value || null,
-                                },
-                              })
-                            }
-                            placeholder="Sítio do Bosco + Lapa + Ubajara"
-                            value={destino.subtitulo ?? ""}
-                          />
-                        </Field>
-                      </div>
-                      <div className="mt-4">
-                        <ListaDeTextos
-                          itens={destino.itens ?? []}
-                          label="O que a viagem inclui"
-                          onChange={(itens) =>
-                            trocaResultado({ destino: { ...destino, itens } })
-                          }
-                          placeholder="Saída sábado, 5 de setembro"
-                          textoAdicionar="+ Item"
-                        />
-                      </div>
-                    </div>
-
-                    {/* A PRÉVIA. Sem ela o único jeito de ver o que se montou
-                        era publicar no site — e testar publicado suja o
-                        relatório de respostas e cria lead falso no CRM.
-                        TelaResultado é o MESMO componente da página pública, e
-                        não uma imitação, então o que aparece aqui é o que a
-                        pessoa vai ver. Dentro de <details> fechado: só renderiza
-                        quando aberto, e assim um dado pela metade não pesa em
-                        cada tecla digitada. */}
-                    <details className="mt-5 rounded-lg border bg-gray-50">
-                      <summary className="cursor-pointer p-3 text-xs font-semibold text-gray-700">
-                        Ver como fica
-                      </summary>
-                      <div className="pointer-events-none border-t p-3">
-                        <TelaResultado
-                          linkCta={null}
-                          nome="Maria"
-                          quiz={quiz}
-                          resultado={resultado}
-                        />
-                      </div>
-                    </details>
-
-                    <button
-                      className="mt-5 text-xs font-semibold text-red-600"
-                      onClick={() =>
-                        setResultados(quiz.resultados.filter((_, j) => j !== i))
-                      }
-                      type="button"
-                    >
-                      Remover resultado
-                    </button>
-                    </div>
-                  </details>
-                );
-              })}
-            </div>
-          </section>
-
-          {/* ------------------------------------------------------- cta */}
-          <section
-            className="scroll-mt-28 rounded-lg border bg-white p-5 shadow-sm"
-            id="whatsapp"
-          >
-            <h2 className="font-semibold">Botão no fim</h2>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <Field label="Tipo">
-                <Select
-                  onChange={(e) =>
-                    set("cta", {
-                      ...quiz.cta,
-                      tipo: e.target.value as "whatsapp" | "nenhum",
-                    })
-                  }
-                  value={quiz.cta?.tipo ?? "nenhum"}
-                >
-                  <option value="nenhum">Nenhum</option>
-                  <option value="whatsapp">WhatsApp</option>
-                </Select>
-              </Field>
-              <Field hint="Só números, com DDI" label="Número">
-                <Input
-                  onChange={(e) => set("cta", { ...quiz.cta, numero: e.target.value })}
-                  placeholder="5586999999999"
-                  value={quiz.cta?.numero ?? ""}
+              {secao === "resultados" && (
+                <SecaoResultados
+                  onChange={(resultados) => set("resultados", resultados)}
+                  onSelecionar={setResultadoAtual}
+                  quiz={quiz}
+                  selecionado={resultadoAtual}
                 />
-              </Field>
+              )}
+
+              {secao === "aparencia" && (
+                <Grupo
+                  ajuda="Os textos iguais em TODOS os resultados. O que muda por resultado fica em Resultados."
+                  titulo="Layout do resultado"
+                >
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field label="Texto acima do título">
+                      <Input
+                        onChange={(e) =>
+                          setLayout({ olho: e.target.value || null })
+                        }
+                        placeholder="Sua leitura"
+                        value={layout.olho ?? ""}
+                      />
+                    </Field>
+                    <Field label="Assinatura do rodapé">
+                      <Input
+                        onChange={(e) =>
+                          setLayout({ assinatura: e.target.value || null })
+                        }
+                        placeholder="@rwturismo.pi"
+                        value={layout.assinatura ?? ""}
+                      />
+                    </Field>
+                    <Field label="Título da lista de motivos">
+                      <Input
+                        onChange={(e) =>
+                          setLayout({ titulo_motivos: e.target.value || null })
+                        }
+                        placeholder="Por que essa viagem combina com você?"
+                        value={layout.titulo_motivos ?? ""}
+                      />
+                    </Field>
+                    <Field label="Título do bloco de destino">
+                      <Input
+                        onChange={(e) =>
+                          setLayout({ titulo_destino: e.target.value || null })
+                        }
+                        placeholder="Seu destino"
+                        value={layout.titulo_destino ?? ""}
+                      />
+                    </Field>
+                  </div>
+                  <Field
+                    hint="Texto pequeno de confiança, abaixo dos blocos."
+                    label="Linha de confiança"
+                  >
+                    <Textarea
+                      onChange={(e) =>
+                        setLayout({ selo: e.target.value || null })
+                      }
+                      placeholder="Mais de 25 anos de estrada, Cadastur…"
+                      rows={2}
+                      value={layout.selo ?? ""}
+                    />
+                  </Field>
+                </Grupo>
+              )}
+
+              {secao === "contato" && (
+                <Grupo
+                  ajuda="O botão no fim da tela de resultado."
+                  titulo="Ação final"
+                >
+                  <Field label="Tipo">
+                    <Select
+                      onChange={(e) =>
+                        set("cta", {
+                          ...quiz.cta,
+                          tipo: e.target.value as "whatsapp" | "nenhum",
+                        })
+                      }
+                      value={quiz.cta?.tipo ?? "nenhum"}
+                    >
+                      <option value="nenhum">Sem botão</option>
+                      <option value="whatsapp">WhatsApp</option>
+                    </Select>
+                  </Field>
+
+                  {quiz.cta?.tipo === "whatsapp" && (
+                    <>
+                      <Field label="Número">
+                        <Input
+                          onChange={(e) =>
+                            set("cta", { ...quiz.cta, numero: e.target.value })
+                          }
+                          placeholder="5586999207088"
+                          value={quiz.cta?.numero ?? ""}
+                        />
+                      </Field>
+                      <Field label="Texto do botão">
+                        <Input
+                          onChange={(e) =>
+                            set("cta", {
+                              ...quiz.cta,
+                              texto_botao: e.target.value,
+                            })
+                          }
+                          placeholder="Falar no WhatsApp"
+                          value={quiz.cta?.texto_botao ?? ""}
+                        />
+                      </Field>
+                      <Field label="Mensagem já escrita">
+                        <Textarea
+                          onChange={(e) =>
+                            set("cta", { ...quiz.cta, molde: e.target.value })
+                          }
+                          rows={3}
+                          value={quiz.cta?.molde ?? ""}
+                        />
+                      </Field>
+                      <Variaveis
+                        onInserir={(v) =>
+                          set("cta", {
+                            ...quiz.cta,
+                            molde: `${quiz.cta?.molde ?? ""}${v}`,
+                          })
+                        }
+                        variaveis={["nome", "resultado"]}
+                      />
+                    </>
+                  )}
+
+                  <ListaDeTextos
+                    hint="Aparecem embaixo do botão, em letra pequena."
+                    itens={quiz.cta?.micro ?? []}
+                    label="Linhas sob o botão"
+                    onChange={(micro) => set("cta", { ...quiz.cta, micro })}
+                    placeholder="Você cai direto no WhatsApp, com a mensagem já escrita."
+                    textoAdicionar="+ Linha"
+                  />
+                </Grupo>
+              )}
             </div>
-            <Field
-              hint="{{resultado}} e {{nome}} são trocados na hora do envio."
-              label="Mensagem pronta"
-            >
-              <Textarea
-                onChange={(e) => set("cta", { ...quiz.cta, molde: e.target.value })}
-                value={quiz.cta?.molde ?? ""}
-              />
-            </Field>
-          </section>
+
+            {/* A prévia é a última coluna no desktop e um botão em tela
+                estreita — nunca uma terceira coluna espremida. */}
+            <div className="min-w-0">
+              {previaAberta ? (
+                <div className="h-[70vh] overflow-hidden rounded-lg border bg-white xl:sticky xl:top-4 xl:h-[calc(100vh-9rem)]">
+                  <PreviaDoQuiz
+                    foco={foco}
+                    onFechar={() => setPreviaAberta(false)}
+                    quiz={quiz}
+                  />
+                </div>
+              ) : (
+                <Button
+                  onClick={() => setPreviaAberta(true)}
+                  size="sm"
+                  type="button"
+                  variant="secondary"
+                >
+                  Mostrar prévia
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </AdminLayout>

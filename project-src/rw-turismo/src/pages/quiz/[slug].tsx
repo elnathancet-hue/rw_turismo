@@ -2,6 +2,11 @@ import type { GetServerSidePropsContext } from "next";
 import Head from "next/head";
 import { useState } from "react";
 import TelaResultado from "../../components/quiz/TelaResultado";
+import {
+  TelaAbertura,
+  TelaPergunta,
+  Topo,
+} from "../../components/quiz/TelasPublicas";
 import { getPublishedQuiz } from "../../lib/quiz/server";
 import {
   mascararTelefone,
@@ -30,15 +35,6 @@ import estilos from "../../styles/quiz.module.css";
 // quem cria o quiz informa, e sem ela o bloco some.
 
 type Etapa = "abertura" | "perguntas" | "captura" | "resultado";
-
-// O mesmo topo da pagina a mao: so a logo, sem menu. Aparece em todas as
-// etapas, resultado incluso — e o que amarra a tela ao site.
-const Topo = () => (
-  <header className={estilos.topo}>
-    {/* eslint-disable-next-line @next/next/no-img-element */}
-    <img alt="RW Turismo" src="/rw-turismo-logo.png" />
-  </header>
-);
 
 const QuizPublico = ({ quiz }: { quiz: Quiz }) => {
   const [etapa, setEtapa] = useState<Etapa>("abertura");
@@ -133,79 +129,21 @@ const QuizPublico = ({ quiz }: { quiz: Quiz }) => {
         <Topo />
 
         {etapa === "abertura" && (
-          <section className={estilos.tela}>
-            <div className={estilos.col}>
-              {quiz.intro?.subtitulo && (
-                <p className={estilos.olho}>{quiz.intro.subtitulo}</p>
-              )}
-              <h1>{quiz.intro?.titulo || quiz.title}</h1>
-              <button
-                className={estilos.acao}
-                disabled={total === 0}
-                onClick={() => setEtapa("perguntas")}
-                type="button"
-              >
-                {quiz.intro?.texto_botao || "Começar"}
-              </button>
-              {total === 0 && (
-                <p className={estilos.micro}>
-                  Este quiz ainda não tem perguntas.
-                </p>
-              )}
-            </div>
-          </section>
+          <TelaAbertura
+            desabilitado={total === 0}
+            onComecar={() => setEtapa("perguntas")}
+            quiz={quiz}
+          />
         )}
 
         {etapa === "perguntas" && pergunta && (
-          <section className={estilos.tela}>
-            <div className={estilos.col}>
-              <div className={estilos.passo}>
-                <div className={estilos.passoTopo}>
-                  <span>
-                    {/* Sem este sinal a tela fica parada na última pergunta
-                        enquanto o servidor calcula, e quem respondeu não sabe
-                        se funcionou. */}
-                    {enviando ? (
-                      "Calculando…"
-                    ) : (
-                      <>
-                        Pergunta <b>{indice + 1}</b> de {total}
-                      </>
-                    )}
-                  </span>
-                </div>
-                <div aria-hidden="true" className={estilos.trilho}>
-                  {quiz.perguntas.map((_, posicao) => (
-                    <span
-                      className={posicao <= indice ? estilos.trilhoFeito : undefined}
-                      key={posicao}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <h2 className={estilos.pergunta}>{pergunta.texto}</h2>
-
-              <ul className={estilos.opcoes}>
-                {pergunta.opcoes.map((opcao, i) => (
-                  <li key={`${indice}-${i}`}>
-                    <button
-                      className={estilos.opcao}
-                      disabled={enviando}
-                      onClick={() => escolher(i)}
-                      type="button"
-                    >
-                      <span className={estilos.opcaoTexto}>{opcao.texto}</span>
-                      <span aria-hidden="true" className={estilos.marca} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <p aria-live="polite" className={estilos.sr} role="status">
-              {`Pergunta ${indice + 1} de ${total}. ${pergunta.texto}`}
-            </p>
-          </section>
+          <TelaPergunta
+            indice={indice}
+            ocupado={enviando}
+            onEscolher={escolher}
+            pergunta={pergunta}
+            total={total}
+          />
         )}
 
         {etapa === "captura" && (
