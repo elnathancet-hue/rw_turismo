@@ -185,3 +185,29 @@ export const pareceLinhaDeTotal = (linha: string[]): boolean => {
   const primeira = normalizarCabecalho(preenchidas[0] ?? "");
   return /^(total|soma|subtotal|somatorio)\b/.test(primeira);
 };
+
+/**
+ * CSV ou Excel, decidido pelos BYTES e não pela extensão.
+ *
+ * Extensão mente: gente renomeia .xlsx para .csv achando que converte, e o
+ * Excel salva .csv com nome .xls. Todo .xlsx começa com "PK", a assinatura do
+ * ZIP — é isso que dá a resposta certa.
+ *
+ * A forma de saída é a mesma nos dois casos, então tudo o que vem depois
+ * (mapeamento de colunas, prévia, validação) não sabe nem precisa saber de onde
+ * a planilha veio.
+ */
+export const lerArquivoDePlanilha = async (
+  bytes: ArrayBuffer
+): Promise<PlanilhaLida> => {
+  const inicio = new Uint8Array(bytes.slice(0, 4));
+  const ehZip =
+    inicio[0] === 0x50 && inicio[1] === 0x4b && (inicio[2] === 3 || inicio[2] === 5);
+
+  if (ehZip) {
+    // Import dinâmico: quem sobe CSV não precisa carregar o leitor de xlsx.
+    const { lerPlanilhaXlsx } = await import("./xlsx");
+    return lerPlanilhaXlsx(bytes);
+  }
+  return lerPlanilha(bytes);
+};

@@ -5,7 +5,7 @@ import AdminLayout from "../../../components/admin/AdminLayout";
 import Button from "../../../components/ui/Button";
 import { Field, Input } from "../../../components/ui/form";
 import { createSupabaseBrowserClient } from "../../../lib/supabase/browser";
-import { lerPlanilha, type PlanilhaLida } from "../../../lib/import/csv";
+import { lerArquivoDePlanilha, type PlanilhaLida } from "../../../lib/import/csv";
 import {
   adivinharMapeamentoDeClientes,
   classificarClientes,
@@ -40,7 +40,7 @@ const AdminImportarClientes = () => {
     setErro(null);
 
     try {
-      const lida = lerPlanilha(await arquivo.arrayBuffer());
+      const lida = await lerArquivoDePlanilha(await arquivo.arrayBuffer());
 
       if (lida.linhas.length === 0) {
         setErro("A planilha não tem nenhuma linha de dados.");
@@ -159,8 +159,10 @@ const AdminImportarClientes = () => {
           <div className="mt-6 rounded-lg border bg-white p-6 shadow-sm">
             <h2 className="font-semibold">Como a planilha precisa estar</h2>
             <p className="mt-2 text-sm text-gray-600">
-              Arquivo <strong>.csv</strong>, até {LIMITE_DE_LINHAS} linhas. As
-              colunas podem estar em qualquer ordem — o que vale é o nome.
+              Arquivo <strong>.csv</strong> ou <strong>.xlsx</strong> (Excel),
+              até {LIMITE_DE_LINHAS} linhas. As colunas podem estar em qualquer
+              ordem — o que vale é o nome. No Excel, só a primeira aba é lida, e
+              as datas já vêm no formato certo.
             </p>
 
             <div className="mt-4 overflow-x-auto">
@@ -228,7 +230,7 @@ const AdminImportarClientes = () => {
             </p>
 
             <input
-              accept=".csv,text/csv"
+              accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               className="mt-5 block w-full text-sm"
               onChange={(evento) => void aoEscolherArquivo(evento.target.files?.[0])}
               ref={inputArquivo}
