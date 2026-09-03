@@ -1,4 +1,5 @@
 import type { PlanilhaLida } from "./csv";
+import { inflar, navegadorLeZip } from "./zip";
 
 // Leitura de .xlsx, entregando exatamente a mesma forma do CSV (PlanilhaLida).
 //
@@ -21,52 +22,6 @@ import type { PlanilhaLida } from "./csv";
 
 const u16 = (v: DataView, p: number) => v.getUint16(p, true);
 const u32 = (v: DataView, p: number) => v.getUint32(p, true);
-
-const inflar = async (
-  dados: Uint8Array,
-  metodo: number
-): Promise<Uint8Array> => {
-  // 0 = guardado sem compressão; 8 = deflate. O Excel usa os dois.
-  if (metodo === 0) return dados;
-  if (metodo !== 8) {
-    throw new Error("Planilha com compressão que não sei ler.");
-  }
-  // Sem Blob e sem Response de proposito: `Blob.stream()` existe no navegador
-  // mas nao no jsdom, e o teste ficaria sem cobrir justamente a parte que
-  // descompacta. ReadableStream + reader funciona nos dois.
-  // As duas conversoes sao de TIPO, nao de comportamento: o lib.dom declara a
-  // entrada do DecompressionStream como BufferSource e o Uint8Array generico
-  // nao encaixa por causa de SharedArrayBuffer, que nao acontece aqui.
-  const origem = new ReadableStream({
-    start(controlador: ReadableStreamDefaultController) {
-      controlador.enqueue(dados);
-      controlador.close();
-    },
-  }) as unknown as ReadableStream<Uint8Array>;
-  const fluxo = (origem as unknown as {
-    pipeThrough: (t: DecompressionStream) => ReadableStream<Uint8Array>;
-  }).pipeThrough(new DecompressionStream("deflate-raw"));
-
-  const leitor = fluxo.getReader();
-  const pedacos: Uint8Array[] = [];
-  let total = 0;
-  for (;;) {
-    const { done, value } = await leitor.read();
-    if (done) break;
-    if (value) {
-      pedacos.push(value);
-      total += value.length;
-    }
-  }
-
-  const inteiro = new Uint8Array(total);
-  let p = 0;
-  for (const pedaco of pedacos) {
-    inteiro.set(pedaco, p);
-    p += pedaco.length;
-  }
-  return inteiro;
-};
 
 /**
  * Abre o ZIP e devolve o texto dos arquivos pedidos.
@@ -117,7 +72,12 @@ export const abrirZip = async (
       const extraLocal = u16(v, inicioLocal + 28);
       const inicio = inicioLocal + 30 + nomeLocal + extraLocal;
       const cru = todos.subarray(inicio, inicio + comprimido);
-      saida.set(nome, decodificador.decode(await inflar(cru, metodo)));
+      // 0 = guardado sem compressão; 8 = deflate. O Excel usa os dois.
+      if (metodo !== 0 && metodo !== 8) {
+        throw new Error("Planilha com compressão que não sei ler.");
+      }
+      const conteudo = metodo === 0 ? cru : await inflar(cru);
+      saida.set(nome, decodificador.decode(conteudo));
     }
 
     p += 46 + tamanhoNome + tamanhoExtra + tamanhoComentario;
@@ -205,6 +165,12 @@ const NECESSARIOS = [
 export const lerPlanilhaXlsx = async (
   bytes: ArrayBuffer
 ): Promise<PlanilhaLida> => {
+  if (!navegadorLeZip()) {
+    throw new Error(
+      "Este navegador não consegue abrir arquivos do Excel. Use o Chrome ou o Edge, ou salve a planilha como .csv."
+    );
+  }
+
   const arquivos = await abrirZip(
     bytes,
     (nome) => NECESSARIOS.includes(nome) || nome.startsWith("xl/worksheets/")

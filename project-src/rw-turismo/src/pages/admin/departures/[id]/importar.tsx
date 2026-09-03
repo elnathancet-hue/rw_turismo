@@ -8,7 +8,7 @@ import Button from "../../../../components/ui/Button";
 import { Field, Input } from "../../../../components/ui/form";
 import { getAdminDeparture, type AdminDeparture } from "../../../../lib/admin/client";
 import { passengerTypeOnDeparture } from "../../../../lib/bookings/passengerAge";
-import { lerPlanilha } from "../../../../lib/import/csv";
+import { lerArquivoDePlanilha } from "../../../../lib/import/csv";
 import { lerTabelaDoDocx, navegadorLeDocx } from "../../../../lib/import/docx";
 import {
   acharCabecalho,
@@ -79,7 +79,8 @@ const AdminImportarPassageiros = () => {
         }
         linhas = await lerTabelaDoDocx(bytes);
       } else {
-        const planilha = lerPlanilha(bytes);
+        // .csv e .xlsx pelo mesmo caminho: o despachante decide pelos bytes.
+        const planilha = await lerArquivoDePlanilha(bytes);
         linhas = [planilha.cabecalho, ...planilha.linhas];
       }
 
@@ -258,7 +259,8 @@ const AdminImportarPassageiros = () => {
             <h2 className="font-semibold">Lista de passageiros</h2>
             <p className="mt-2 text-sm text-gray-600">
               Sobe o arquivo do Word (<strong>.docx</strong>) com a tabela do
-              ônibus, do jeito que você já usa. Também aceita <strong>.csv</strong>.
+              ônibus, do jeito que você já usa. Também aceita{" "}
+              <strong>.csv</strong> e <strong>.xlsx</strong> (Excel).
               A tabela precisa ter a coluna <em>Nome do passageiro</em>; documento,
               local de embarque e contato entram se existirem.
             </p>
@@ -267,7 +269,7 @@ const AdminImportarPassageiros = () => {
             </p>
 
             <input
-              accept=".docx,.csv,text/csv"
+              accept=".docx,.csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               className="mt-4 block w-full text-sm"
               onChange={(evento) => void aoEscolherArquivo(evento.target.files?.[0])}
               ref={inputArquivo}

@@ -14,43 +14,11 @@
 // Os parágrafos dentro de uma célula importam: é assim que a lista guarda duas
 // pessoas na mesma linha, uma embaixo da outra.
 
+import { inflar, navegadorLeZip } from "./zip";
+
 export type LinhaDaTabela = string[];
 
 const assinaturaLocal = 0x04034b50;
-
-// Descompacta um bloco deflate cru. `deflate-raw` é o formato que o ZIP usa —
-// `deflate` puro tem cabeçalho zlib e falharia aqui.
-const inflar = async (comprimido: Uint8Array): Promise<Uint8Array> => {
-  const entrada = new ReadableStream({
-    start(controller: ReadableStreamDefaultController) {
-      controller.enqueue(comprimido);
-      controller.close();
-    },
-  });
-
-  const saida = entrada.pipeThrough(
-    new DecompressionStream("deflate-raw")
-  ) as ReadableStream<Uint8Array>;
-  const leitor = saida.getReader();
-  const pedacos: Uint8Array[] = [];
-  let total = 0;
-
-  for (;;) {
-    const { done, value } = await leitor.read();
-    if (done) break;
-    pedacos.push(value);
-    total += value.length;
-  }
-
-  const resultado = new Uint8Array(total);
-  let posicao = 0;
-  for (const pedaco of pedacos) {
-    resultado.set(pedaco, posicao);
-    posicao += pedaco.length;
-  }
-
-  return resultado;
-};
 
 const acharDocumentXml = async (
   bytes: ArrayBuffer
@@ -135,7 +103,5 @@ export const lerTabelaDoDocx = async (
   });
 };
 
-// O DecompressionStream não existe em navegador antigo. Melhor dizer isso na
-// tela do que estourar um erro incompreensível no meio do upload.
-export const navegadorLeDocx = (): boolean =>
-  typeof DecompressionStream !== "undefined";
+// Mesmo teste do .xlsx: o DecompressionStream não existe em navegador antigo.
+export const navegadorLeDocx = navegadorLeZip;
